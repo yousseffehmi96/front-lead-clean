@@ -5,10 +5,14 @@ import { useState } from "react"
 export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null)
   const [stats, setStats] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setFile(e.target.files[0])
+      setError(null)
+      setStats(null)
     }
   }
 
@@ -18,15 +22,30 @@ export default function UploadPage() {
     const formData = new FormData()
     formData.append("file", file)
 
+    setLoading(true)
+    setError(null)
+    setStats(null)
+
     try {
       const result = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload`, {
         method: "POST",
         body: formData
       })
+
       const res = await result.json()
+
+      if (!result.ok) {
+        setError(res.detail || "Une erreur est survenue côté serveur.")
+        return
+      }
+
       setStats(res)
+      console.log(stats);
+      
     } catch (error) {
-      console.error("Échec de l'import", error)
+      setError("Impossible de contacter le serveur. Vérifiez votre connexion.")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -48,17 +67,36 @@ export default function UploadPage() {
             </div>
             <input onChange={handleFileChange} type="file" className="hidden" />
           </label>
+
           {file && (
-  <p className="text-sm text-green-600 mt-2 text-center">
-    ✅ Fichier sélectionné : {file.name}
-  </p>
-)}
+            <p className="text-sm text-green-600 mt-2 text-center">
+              ✅ Fichier sélectionné : {file.name}
+            </p>
+          )}
+
+          {/* Erreur */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-3">
+              ❌ {error}
+            </div>
+          )}
 
           <button
             onClick={handleUpload}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+            disabled={loading || !file}
+            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            Importer le fichier
+            {loading ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+                Traitement en cours...
+              </>
+            ) : (
+              "Importer le fichier"
+            )}
           </button>
         </div>
       </div>
@@ -70,10 +108,9 @@ export default function UploadPage() {
           <StatCard title="Emails complétés" value={stats.emails_completed} color="bg-yellow-100" />
           <StatCard title="Leads blacklistés supprimés" value={stats.blacklisted_removed} color="bg-gray-200" />
           <StatCard title="Déplacés vers Prod" value={stats.moved_to_prod} color="bg-blue-100" />
-          <StatCard title="Déplacés vers Clean" value={stats["moved to clean"]} color="bg-purple-100" />
+          <StatCard title="Déplacés vers Clean" value={stats.moved_to_clean} color="bg-purple-100" />
         </div>
       )}
     </div>
   )
 }
-
