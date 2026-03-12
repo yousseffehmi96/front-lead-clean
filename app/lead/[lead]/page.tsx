@@ -71,6 +71,7 @@ const data = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/${leads}?refresh=${ref
               <th className="p-3 text-left">Société</th>
               <th className="p-3 text-left">Téléphone</th>
               <th className="p-3 text-left">LinkedIn</th>
+              {leads==="black"&&<th className="p-3 text-left">Eliminer</th>}
               {leads === "prod" && (
   <th className="p-3 text-left">Action</th>
 )}
@@ -107,6 +108,7 @@ const data = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/${leads}?refresh=${ref
                       LinkedIn
                     </a>
                   </td>
+                  {leads==="black"&& <td className="p-3">{lead.eliminer}</td> }
      {leads === "prod" && (
   <td className="p-3 relative">
     <button
