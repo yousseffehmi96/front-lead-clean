@@ -1,18 +1,30 @@
 "use client"
 import Usefetch from "@/hooks/SocieteFetch"
 import { useParams } from "next/navigation"
-import { Archive, Ban, UserMinus } from "lucide-react"
-import { useState } from "react"
+import { Archive, Ban, Search, UserMinus } from "lucide-react"
+import { useMemo, useState } from "react"
 export default function Lead() {
 const [openMenu, setOpenMenu] = useState<number | null>(null)
 const [stat,setstat]=useState<string | null>(null)
 const [err,setError]=useState<string | null>(null)
   const [refresh, setRefresh] = useState<number>(0)
+  const [search, setSearch] = useState<string>("")
 
   const params = useParams()
   const leads = params.lead
 
-const data = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/${leads}?refresh=${refresh}`).data || [];const handelclick = async (type: string, leadId: number) => {
+
+
+const data = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/${leads}?refresh=${refresh}`).data || [];
+
+  const datas=useMemo(()=>{
+    if(!search.trim()) return data
+    const q=search.toLocaleLowerCase()
+    return data.filter((lead:any)=>[lead.nom, lead.prenom, lead.email, lead.fonction, lead.societe, lead.telephone].some((val) => val?.toLowerCase().includes(q)))
+
+  },[search,data])
+
+const handelclick = async (type: string, leadId: number) => {
   setstat(type)
   
   setError(null)
@@ -58,6 +70,25 @@ const data = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/${leads}?refresh=${ref
         </button>}
 
       </div>
+      {/* Barre de recherche */}
+      <div className="relative mb-4">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Rechercher par nom, email, société..."
+          className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition"
+        />
+        {search && (
+          <button
+            onClick={() => setSearch("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-medium"
+          >
+            ✕
+          </button>
+        )}
+      </div>
 
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
@@ -90,8 +121,8 @@ const data = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/${leads}?refresh=${ref
 
             ) : (
 
-              data.map((lead: any) => (
-                <tr key={lead.id} className="border-b hover:bg-gray-50 transition">
+              datas.map((lead: any,index) => (
+                <tr key={`${lead.id}-${index}`} className="border-b hover:bg-gray-50 transition">
                   <td className="p-3">{lead.nom}</td>
                   <td className="p-3">{lead.prenom}</td>
                   <td className="p-3">{lead.email}</td>
