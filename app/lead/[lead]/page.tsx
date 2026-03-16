@@ -20,9 +20,10 @@ const data = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/${leads}?refresh=${ref
   const datas=useMemo(()=>{
     if(!search.trim()) return data
     const q=search.toLocaleLowerCase()
-    return data.filter((lead:any)=>[lead.nom, lead.prenom, lead.email, lead.fonction, lead.societe, lead.telephone].some((val) => val?.toLowerCase().includes(q)))
+    return data.filter((lead:any)=>[lead.nom, lead.prenom, lead.email, lead.fonction, lead.societe, lead.telephone, new Date(lead.created_at).toLocaleDateString("fr-FR")].some((val) => val?.toLowerCase().includes(q)))
 
   },[search,data])
+data.sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime())
 
 const handelclick = async (type: string, leadId: number) => {
   setstat(type)
@@ -105,7 +106,10 @@ const handelclick = async (type: string, leadId: number) => {
               {leads==="black"&&<th className="p-3 text-left">Eliminer</th>}
               {leads === "prod" && (
   <th className="p-3 text-left">Action</th>
+  
 )}
+              <th className="p-3 text-left">Date</th>
+
             </tr>
           </thead>
 
@@ -140,6 +144,7 @@ const handelclick = async (type: string, leadId: number) => {
                     </a>
                   </td>
                   {leads==="black"&& <td className="p-3">{lead.eliminer}</td> }
+                  
      {leads === "prod" && (
   <td className="p-3 relative">
     <button
@@ -189,6 +194,8 @@ const handelclick = async (type: string, leadId: number) => {
     )}
   </td>
 )}
+              <td className="p-3 text-left">{new Date(lead.created_at).toLocaleDateString("fr-FR")}</td>
+
                 </tr>
               ))
 
