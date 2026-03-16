@@ -1,5 +1,5 @@
 "use client"
-import { Database, HomeIcon, Shield, Sparkles, Upload,Building2, BrushCleaning } from "lucide-react";
+import { Database, HomeIcon, Shield, Sparkles, Upload,Building2, BrushCleaning, LucideHome } from "lucide-react";
 import { LayoutDashboard  } from "lucide-react";
 
  import Navitems from "./navItems";
@@ -13,12 +13,11 @@ export default function Navbar(){
       <h1 className="text-xl text-blue-900 font-bold mb-6">LeadsCleaner</h1>
 
       <div  className="flex flex-col gap-4">
-        
+        <Navitems onClick={()=>setitem("Dashboard")} href="/dashboard" active={item==="Dashboard"} text={"Dashboard"}  icon={<LucideHome size={18}/>}   />
         <Navitems onClick={()=>setitem("Upload")} href="/upload" active={item==="Upload"} text={"Upload"}  icon={<Upload size={18}/>}   />
         <Navitems onClick={()=>setitem("Leads")} href="/lead/prod" active={item==="Leads"} text={"Leads"}  icon={<Database size={18}/>}   />
         <Navitems onClick={()=>setitem("Blacklist")} href="/lead/black" active={item==="Blacklist"} text={"Blacklist"}  icon={<Shield size={18}/>}   />
-                <Navitems onClick={()=>setitem("Clean")} href="/lead/clean" active={item==="Clean"} text={"Clean"}  icon={<BrushCleaning size={18}/>}   />
-
+        <Navitems onClick={()=>setitem("Clean")} href="/lead/clean" active={item==="Clean"} text={"Clean"}  icon={<BrushCleaning size={18}/>}   />
         <Navitems onClick={()=>setitem("Company")} href="/company" active={item==="Company"} text={"Company"}  icon={<Building2 size={18}/>}   />
 
       </div>
