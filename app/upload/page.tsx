@@ -109,8 +109,20 @@ export default function UploadPage() {
           <StatCard title="Leads blacklistés supprimés" value={stats.blacklisted_removed} color="bg-gray-200" />
           <StatCard title="Déplacés vers Prod" value={stats.moved_to_prod} color="bg-blue-100" />
           <StatCard title="Déplacés vers Clean" value={stats.moved_to_clean} color="bg-purple-100" />
+          <StatCard title="Doublons ignorés" value={stats.duplicates_skipped}  color="bg-orange-100" 
+/>
         </div>
       )}
+      <p className="text-sm text-gray-600 text-center mt-4">
+  Sur {stats.inserted_rows} lignes :
+  {stats.moved_to_prod} ajoutés,
+  {stats.duplicates_skipped} ignorés (doublons)
+</p>
+{stats.duplicates_skipped > stats.inserted_rows * 0.8 && (
+  <div className="bg-yellow-100 text-yellow-800 p-3 rounded-lg text-sm">
+    ⚠️ Ce fichier semble déjà importé (beaucoup de doublons)
+  </div>
+)}
     </div>
   )
 }
