@@ -48,7 +48,16 @@ function MultiBarChart({ stats }: { stats: Stat[] }) {
         plugins: { legend: { display: false } },
         scales: {
           x: { grid: { display: false } },
-          y: { grid: { color: "#e5e7eb" }, beginAtZero: true }
+          y: {
+            type: "logarithmic",
+            grid: { color: "#e5e7eb" },
+            ticks: {
+  callback: (val: string | number) => {
+    const num = Number(val)
+    return Number.isInteger(Math.log10(num)) || num === 0 ? num : ""
+  }
+}
+          }
         }
       }
     })

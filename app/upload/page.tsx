@@ -114,11 +114,11 @@ export default function UploadPage() {
         </div>
       )}
       <p className="text-sm text-gray-600 text-center mt-4">
-  Sur {stats.inserted_rows} lignes :
-  {stats.moved_to_prod} ajoutés,
-  {stats.duplicates_skipped} ignorés (doublons)
+  Sur {stats?.inserted_rows} lignes :
+  {stats?.moved_to_prod} ajoutés,
+  {stats?.duplicates_skipped} ignorés (doublons)
 </p>
-{stats.duplicates_skipped > stats.inserted_rows * 0.8 && (
+{stats?.duplicates_skipped > stats?.inserted_rows * 0.8 && (
   <div className="bg-yellow-100 text-yellow-800 p-3 rounded-lg text-sm">
     ⚠️ Ce fichier semble déjà importé (beaucoup de doublons)
   </div>
