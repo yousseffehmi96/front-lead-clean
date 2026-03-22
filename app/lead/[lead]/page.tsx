@@ -1,209 +1,428 @@
 "use client"
 import Usefetch from "@/hooks/SocieteFetch"
 import { useParams } from "next/navigation"
-import { Archive, Ban, Search, UserMinus } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { Upload, Sparkles, RefreshCw, Download } from "lucide-react"
+
 export default function Lead() {
-const [openMenu, setOpenMenu] = useState<number | null>(null)
-const [stat,setstat]=useState<string | null>(null)
-const [err,setError]=useState<string | null>(null)
+  const [DTableComponent, setDTableComponent] = useState<any>(null)
+  const [openMenu, setOpenMenu] = useState<number | null>(null)
+  const [stat, setstat] = useState<string | null>(null)
+  const [err, setError] = useState<string | null>(null)
   const [refresh, setRefresh] = useState<number>(0)
-  const [search, setSearch] = useState<string>("")
+  const [uploading, setUploading] = useState(false)
+  const [cleaning, setCleaning] = useState(false)
+  const [cleanResult, setCleanResult] = useState<any>(null)
+  const [uploadedFilename, setUploadedFilename] = useState<string>("")
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const params = useParams()
   const leads = params.lead
 
+  const data =
+    Usefetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/${leads}?refresh=${refresh}`
+    ).data || []
 
+  useEffect(() => {
+    const load = async () => {
+      const [{ default: DataTable }, { default: DT }] = await Promise.all([
+        import("datatables.net-react"),
+        import("datatables.net-dt"),
+      ])
+      // @ts-ignore
+      await import("datatables.net-dt/css/dataTables.dataTables.css")
+      DataTable.use(DT)
+      setDTableComponent(() => DataTable)
+    }
+    load()
+  }, [])
 
-const data = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/${leads}?refresh=${refresh}`).data || [];
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    setError(null)
+    setCleanResult(null)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload`, {
+        method: "POST",
+        body: formData,
+      })
+      if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`)
+      setUploadedFilename(file.name)
+      setRefresh((prev) => prev + 1)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ""
+    }
+  }
 
-  const datas=useMemo(()=>{
-    if(!search.trim()) return data
-    const q=search.toLocaleLowerCase()
-    return data.filter((lead:any)=>[lead.nom, lead.prenom, lead.email, lead.fonction, lead.societe, lead.telephone, new Date(lead.created_at).toLocaleDateString("fr-FR")].some((val) => val?.toLowerCase().includes(q)))
+  const handleClean = async () => {
+    setCleaning(true)
+    setError(null)
+    setCleanResult(null)
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging-dispatch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(uploadedFilename || "staging"),
+      })
+      if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`)
+      const result = await res.json()
+      setCleanResult(result)
+      setRefresh((prev) => prev + 1)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setCleaning(false)
+    }
+  }
 
-  },[search,data])
-data.sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime())
+  const handelclick = async (type: string, leadId: number) => {
+    setstat(type)
+    setError(null)
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/toblack/${leadId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(type),
+        }
+      )
+      if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`)
+      setOpenMenu(null)
+      setRefresh((prev) => prev + 1)
+    } catch (err: any) {
+      setError(err.message)
+      setstat(null)
+    }
+  }
 
-const handelclick = async (type: string, leadId: number) => {
-  setstat(type)
-  
-  setError(null)
-
-  try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/toblack/${leadId}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(type)
-
-    })
-
-    if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`)
-
-    setOpenMenu(null)
-    setRefresh(prev=>prev+1)
-
-  } catch (err: any) {
-    setError(err.message)
-    setstat(null)
-  } 
-}
   const downloadCSV = () => {
     window.open(`${process.env.NEXT_PUBLIC_API_URL}/download-leads`)
   }
 
+  // Badge config per lead type
+  const badgeConfig: Record<string, { label: string; color: string; bg: string }> = {
+    staging: { label: "RAW",    color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+    gold:    { label: "★ GOLD", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+    silver:  { label: "◆ SILVER", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
+    clean:   { label: "✦ CLEAN",  color: "#6ee7b7", bg: "rgba(110,231,183,0.1)" },
+    black:   { label: "⛔ BLACK", color: "#f43f5e", bg: "rgba(244,63,94,0.1)" },
+  }
+
+  const badge = badgeConfig[leads as string] ?? { label: leads, color: "#818cf8", bg: "rgba(129,140,248,0.1)" }
+
+  const baseColumns = [
+    { data: "nom",       title: "Nom",       defaultContent: "" },
+    { data: "prenom",    title: "Prénom",    defaultContent: "" },
+    { data: "email",     title: "Email",     defaultContent: "" },
+    { data: "fonction",  title: "Fonction",  defaultContent: "" },
+    { data: "societe",   title: "Société",   defaultContent: "" },
+    { data: "telephone", title: "Téléphone", defaultContent: "" },
+    {
+      data: "linkedin",
+      title: "LinkedIn",
+      defaultContent: "",
+      render: (val: string) =>
+        val
+          ? `<a href="${val}" target="_blank" rel="noopener noreferrer" style="color:#818cf8;text-decoration:underline;">LinkedIn</a>`
+          : "",
+    },
+  ]
+
+  const blackColumn = { data: "eliminer", title: "Eliminer", defaultContent: "" }
+
+  const prodColumn = {
+    data: "id",
+    title: "Action",
+    orderable: false,
+    render: (id: number) =>
+      `<div style="display:flex;gap:6px;">
+        <button data-id="${id}" data-type="Unsubscribe" class="dt-action-btn dt-unsub"
+          style="padding:4px 10px;border-radius:6px;border:1px solid rgba(244,63,94,0.4);color:#f43f5e;background:rgba(244,63,94,0.08);cursor:pointer;font-size:11px;font-weight:600;">
+          Désabonner
+        </button>
+        <button data-id="${id}" data-type="archive" class="dt-action-btn dt-archive"
+          style="padding:4px 10px;border-radius:6px;border:1px solid rgba(148,163,184,0.3);color:#94a3b8;background:rgba(148,163,184,0.08);cursor:pointer;font-size:11px;font-weight:600;">
+          Archiver
+        </button>
+      </div>`,
+  }
+
+  const dateColumn = {
+    data: "created_at",
+    title: "Date",
+    render: (val: string) => new Date(val).toLocaleDateString("fr-FR"),
+  }
+
+  const columns = [
+    ...baseColumns,
+    ...(leads === "black" ? [blackColumn] : []),
+    ...(leads === "gold" || leads === "prod" ? [prodColumn] : []),
+    dateColumn,
+  ]
+
+  const handleTableClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const btn = (e.target as HTMLElement).closest(".dt-action-btn") as HTMLElement | null
+    if (!btn) return
+    const id = Number(btn.dataset.id)
+    const type = btn.dataset.type!
+    handelclick(type, id)
+  }
+
   return (
-    <div className="mt-10 w-full bg-white shadow-lg rounded-xl p-6">
-
-      <div className="flex justify-between items-center mb-4">
-
-        <h2 className="text-xl font-semibold text-gray-800">
-          Liste des Leads {leads}
-        </h2>
-
-       {leads==="prod" &&<button
-          onClick={downloadCSV}
-          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition"
-        >
-          Télécharger CSV
-        </button>}
-
-      </div>
-      {/* Barre de recherche */}
-      <div className="relative mb-4">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Rechercher par nom, email, société..."
-          className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition"
-        />
-        {search && (
-          <button
-            onClick={() => setSearch("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-medium"
-          >
-            ✕
-          </button>
-        )}
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-
-          <thead>
-            <tr className="bg-gray-100 text-gray-700">
-              <th className="p-3 text-left">Nom</th>
-              <th className="p-3 text-left">Prénom</th>
-              <th className="p-3 text-left">Email</th>
-              <th className="p-3 text-left">Fonction</th>
-              <th className="p-3 text-left">Société</th>
-              <th className="p-3 text-left">Téléphone</th>
-              <th className="p-3 text-left">LinkedIn</th>
-              {leads==="black"&&<th className="p-3 text-left">Eliminer</th>}
-              {leads === "prod" && (
-  <th className="p-3 text-left">Action</th>
-  
-)}
-              <th className="p-3 text-left">Date</th>
-
-            </tr>
-          </thead>
-
-          <tbody>
-
-            {data.length === 0 ? (
-
-              <tr>
-                <td colSpan={7} className="text-center p-6 text-gray-500">
-                  ❌ Il n'y a pas de données
-                </td>
-              </tr>
-
-            ) : (
-
-              datas.map((lead: any,index) => (
-                <tr key={`${lead.id}-${index}`} className="border-b hover:bg-gray-50 transition">
-                  <td className="p-3">{lead.nom}</td>
-                  <td className="p-3">{lead.prenom}</td>
-                  <td className="p-3">{lead.email}</td>
-                  <td className="p-3">{lead.fonction}</td>
-                  <td className="p-3">{lead.societe}</td>
-                  <td className="p-3">{lead.telephone}</td>
-                  <td className="p-3">
-                    <a
-                      href={lead.linkedin}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
-                    >
-                      LinkedIn
-                    </a>
-                  </td>
-                  {leads==="black"&& <td className="p-3">{lead.eliminer}</td> }
-                  
-     {leads === "prod" && (
-  <td className="p-3 relative">
-    <button
-      onClick={() => setOpenMenu(openMenu === lead.id ? null : lead.id)}
-      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-150
-        ${openMenu === lead.id
-          ? "bg-rose-50 border-rose-300 text-rose-600"
-          : "bg-white border-slate-200 text-slate-400 hover:border-rose-200 hover:text-rose-500 hover:bg-rose-50"
-        }`}
+    <div className="h-full rounded-none overflow-hidden" 
+      style={{
+        background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)",
+        border: "1px solid rgba(255,255,255,0.06)",
+      }}
     >
-      <Ban size={13} />
-      <span>Actions</span>
-    </button>
-
-    {openMenu === lead.id && (
-      <div className="absolute right-0 top-[calc(100%-4px)] z-50 w-48 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden"
-        style={{ animation: "dropIn 0.15s cubic-bezier(0.16,1,0.3,1)" }}
+      {/* Header */}
+      <div
+        className="flex justify-between items-center px-6 py-4"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
       >
-        <style>{`@keyframes dropIn { from { opacity:0; transform:translateY(-6px) scale(.97) } to { opacity:1; transform:translateY(0) scale(1) } }`}</style>
+        <div className="flex items-center gap-3">
+          <h2 className="text-white font-semibold text-base">Liste des Leads</h2>
+          <span
+            className="text-xs font-bold px-2 py-0.5 rounded-md"
+            style={{ color: badge.color, background: badge.bg, border: `1px solid ${badge.color}30` }}
+          >
+            {badge.label}
+          </span>
+          <span className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
+            {data.length} entrées
+          </span>
+        </div>
 
-        <p className="px-3 pt-2.5 pb-1 text-[10px] font-bold tracking-widest uppercase text-slate-400">
-          Gérer
-        </p>
+        <div className="flex gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
 
-        <div className="p-1.5 flex flex-col gap-0.5">
-          <button className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg hover:bg-rose-50 transition-colors group text-left">
-            <span className="flex items-center justify-center w-6 h-6 rounded-md bg-rose-100 text-rose-500">
-              <UserMinus size={12} />
-            </span>
-            <div>
-              <p  onClick={()=>handelclick("Unsubscribe",lead.id)} className="text-sm font-medium text-slate-700">Désabonner</p>
-            </div>
-          </button>
+          {leads === "staging" && (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-40"
+              style={{
+                background: "rgba(99,102,241,0.15)",
+                border: "1px solid rgba(99,102,241,0.3)",
+                color: "#a5b4fc",
+              }}
+            >
+              <Upload size={13} />
+              {uploading ? "Chargement..." : "Importer"}
+            </button>
+          )}
 
-          <div className="h-px bg-slate-100 mx-1" />
+          {(leads === "staging" || leads === "clean") && (
+            <button
+              onClick={handleClean}
+              disabled={cleaning || data.length === 0}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-40"
+              style={{
+                background: "rgba(245,158,11,0.15)",
+                border: "1px solid rgba(245,158,11,0.3)",
+                color: "#fcd34d",
+              }}
+            >
+              <Sparkles size={13} />
+              {cleaning ? "Nettoyage..." : "Nettoyer"}
+            </button>
+          )}
 
-          <button className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg hover:bg-slate-50 transition-colors group text-left">
-            <span className="flex items-center justify-center w-6 h-6 rounded-md bg-slate-100 text-slate-500">
-              <Archive size={12} />
-            </span>
-            <div>
-              <p onClick={()=>handelclick("archive",lead.id)} className="text-sm font-medium text-slate-700">Archiver</p>
-            </div>
+          {leads === "gold" && (
+            <button
+              onClick={downloadCSV}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
+              style={{
+                background: "rgba(110,231,183,0.15)",
+                border: "1px solid rgba(110,231,183,0.3)",
+                color: "#6ee7b7",
+              }}
+            >
+              <Download size={13} />
+              Télécharger CSV
+            </button>
+          )}
+
+          <button
+            onClick={() => setRefresh((p) => p + 1)}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
+            style={{
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              color: "rgba(255,255,255,0.4)",
+            }}
+          >
+            <RefreshCw size={13} />
           </button>
         </div>
       </div>
-    )}
-  </td>
-)}
-              <td className="p-3 text-left">{new Date(lead.created_at).toLocaleDateString("fr-FR")}</td>
 
-                </tr>
-              ))
+      {/* Error */}
+      {err && (
+        <div
+          className="mx-6 mt-4 px-4 py-3 rounded-lg text-sm"
+          style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#fda4af" }}
+        >
+          ❌ {err}
+        </div>
+      )}
 
+      {/* Clean result */}
+      {cleanResult && (
+        <div
+          className="mx-6 mt-4 px-4 py-3 rounded-lg text-sm"
+          style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}
+        >
+          <p className="font-semibold mb-2">✅ Nettoyage terminé</p>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { label: "🥇 Gold",     val: cleanResult.moved_to_gold },
+              { label: "🥈 Silver",   val: cleanResult.moved_to_silver },
+              { label: "🧹 Clean",    val: cleanResult.moved_to_clean },
+              { label: "📧 Emails",   val: cleanResult.emails_completed },
+              { label: "🏢 Sociétés", val: cleanResult.societe_completed },
+              { label: "👤 Noms",     val: cleanResult.nom_prenom_completed },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="px-3 py-2 rounded-lg text-center"
+                style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.15)" }}
+              >
+                <p className="text-xs opacity-70">{item.label}</p>
+                <p className="font-bold text-base">{item.val ?? 0}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Table styles */}
+      <style>{`
+        .dt-container { color: #cbd5e1; font-size: 13px; }
+        .dt-container .dt-search label,
+        .dt-container .dt-length label { color: rgba(255,255,255,0.4); font-size: 12px; }
+        .dt-container .dt-search input,
+        .dt-container .dt-length select {
+          background: rgba(255,255,255,0.05) !important;
+          border: 1px solid rgba(255,255,255,0.1) !important;
+          color: #e2e8f0 !important;
+          border-radius: 8px;
+          padding: 5px 10px;
+          outline: none;
+        }
+        .dt-container table.dataTable thead th {
+          background: rgba(255,255,255,0.04);
+          color: rgba(255,255,255,0.4);
+          border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+          font-weight: 600;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          padding: 12px 16px;
+        }
+        .dt-container table.dataTable tbody tr {
+          background: transparent;
+          border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+          transition: background 0.1s;
+        }
+        .dt-container table.dataTable tbody tr:hover {
+          background: rgba(255,255,255,0.03) !important;
+        }
+        .dt-container table.dataTable tbody td {
+          color: #cbd5e1;
+          border: none !important;
+          padding: 11px 16px;
+        }
+        .dt-container .dt-paging .dt-paging-button {
+          color: rgba(255,255,255,0.4) !important;
+          background: rgba(255,255,255,0.04) !important;
+          border: 1px solid rgba(255,255,255,0.08) !important;
+          border-radius: 6px !important;
+          margin: 0 2px;
+          font-size: 12px;
+        }
+        .dt-container .dt-paging .dt-paging-button.current {
+          background: rgba(99,102,241,0.3) !important;
+          color: #a5b4fc !important;
+          border-color: rgba(99,102,241,0.4) !important;
+        }
+        .dt-container .dt-paging .dt-paging-button:hover:not(.current) {
+          background: rgba(255,255,255,0.08) !important;
+          color: white !important;
+        }
+        .dt-container .dt-info { color: rgba(255,255,255,0.25); font-size: 12px; }
+        .dt-container .dt-layout-row { padding: 12px 16px; }
+        table.dataTable { border-collapse: collapse !important; }
+      `}</style>
+
+      {/* Table content */}
+      <div className="px-2 pb-4 pt-2">
+        {!DTableComponent ? (
+          <div className="text-center py-16" style={{ color: "rgba(255,255,255,0.2)" }}>
+            <div className="text-4xl mb-3">⚡</div>
+            <p className="text-sm">Chargement...</p>
+          </div>
+        ) : data.length === 0 ? (
+          <div className="text-center py-20" style={{ color: "rgba(255,255,255,0.2)" }}>
+            <div className="text-5xl mb-4">📭</div>
+            <p className="text-base font-medium" style={{ color: "rgba(255,255,255,0.35)" }}>
+              Aucune donnée disponible
+            </p>
+            {leads === "staging" && (
+              <p className="text-xs mt-2" style={{ color: "rgba(255,255,255,0.2)" }}>
+                Importez un fichier CSV ou Excel pour commencer
+              </p>
             )}
-
-          </tbody>
-
-        </table>
+          </div>
+        ) : (
+          <div onClick={handleTableClick}>
+            <DTableComponent
+              key={data.length}
+              data={data}
+              columns={columns}
+              className="display w-full"
+              options={{
+                order: [[columns.length - 1, "desc"]],
+                pageLength: 10,
+                language: {
+                  processing: "Traitement en cours...",
+                  search: "Rechercher :",
+                  lengthMenu: "Afficher _MENU_ éléments",
+                  info: "Affichage de _START_ à _END_ sur _TOTAL_ éléments",
+                  infoEmpty: "Affichage de 0 à 0 sur 0 élément",
+                  infoFiltered: "(filtré depuis _MAX_ éléments au total)",
+                  loadingRecords: "Chargement...",
+                  zeroRecords: "Aucun élément à afficher",
+                  emptyTable: "Aucune donnée disponible",
+                  paginate: { first: "«", previous: "‹", next: "›", last: "»" },
+                },
+              }}
+            >
+              <thead>
+                <tr>
+                  {columns.map((col, i) => (
+                    <th key={i}>{col.title}</th>
+                  ))}
+                </tr>
+              </thead>
+            </DTableComponent>
+          </div>
+        )}
       </div>
     </div>
   )

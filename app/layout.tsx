@@ -24,12 +24,15 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-   
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-row`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-row h-screen`}
+        style={{ background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)" }}
       >
         <Navbar />
-        {children}
+     
+        <main className="flex-1 overflow-y-auto h-screen">
+          {children}
+        </main>
       </body>
     </html>
   );
