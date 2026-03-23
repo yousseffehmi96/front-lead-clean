@@ -100,8 +100,8 @@ export default function Lead() {
     }
   }
 
-  const downloadCSV = () => window.open(`${process.env.NEXT_PUBLIC_API_URL}/download-leads`)
-
+  const downloadCSV = () => window.open(`${process.env.NEXT_PUBLIC_API_URL}/download-leads-csv/${leads}`)
+  const downloadXLSX=()=>window.open(`${process.env.NEXT_PUBLIC_API_URL}/download-leads-xlsx/${leads}`)
   const badgeConfig: Record<string, { label: string; color: string; bg: string }> = {
     staging: { label: "RAW",      color: "#f59e0b", bg: "rgba(245,158,11,0.1)"  },
     gold:    { label: "★ GOLD",   color: "#f59e0b", bg: "rgba(245,158,11,0.1)"  },
@@ -256,13 +256,22 @@ export default function Lead() {
             </button>
           )}
 
-          {leads === "gold" && (
-            <button onClick={downloadCSV}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
-              style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}>
-              <Download size={13} />Télécharger CSV
-            </button>
-          )}
+        {(leads === "gold" || leads === "silver") && (
+  <>
+    <button onClick={downloadCSV}
+      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
+      style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}>
+      <Download size={13} />CSV
+    </button>
+
+    <button 
+    onClick={downloadXLSX}
+      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
+      style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#60a5fa" }}>
+      <Download size={13} />XLSX
+    </button>
+  </>
+)}
 
           <button onClick={() => setRefresh((p) => p + 1)}
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
