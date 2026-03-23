@@ -2,8 +2,8 @@
 import Delete from "@/componets/delete"
 import Usefetch from "@/hooks/SocieteFetch"
 import changeEtat from "@/hooks/Societeusestate"
-import { useEffect, useState } from "react"
-import { Plus, Pencil, Trash2, Building2, X } from "lucide-react"
+import { useState } from "react"
+import { Plus, Pencil, Trash2, Building2, X, Search } from "lucide-react"
 
 export default function Company() {
   const { societe, setsociete } = changeEtat()
@@ -14,16 +14,23 @@ export default function Company() {
   const [refresh, setRefresh] = useState<number>(0)
   const [deletedata, setDeletedata] = useState(false)
   const [idsociete, setidsociete] = useState<number>(0)
-  const [search, setSearch] = useState("")
+
+  // ✅ Recherche par colonne
+  const [colSearch, setColSearch] = useState<Record<string, string>>({})
+  const [activeCol, setActiveCol] = useState<string | null>(null)
 
   const { data } = Usefetch(
     `${process.env.NEXT_PUBLIC_API_URL}/societe?refresh=` + refresh
   )
 
-  const filtered = data?.filter((d: any) =>
-    [d.nom, d.domaine, d.extension]
-      .some((v) => v?.toLowerCase().includes(search.toLowerCase()))
-  ) ?? []
+  // Filtrer selon les recherches actives par colonne
+  const filtered = (data ?? []).filter((d: any) => {
+    return (
+      (!colSearch.nom       || d.nom?.toLowerCase().includes(colSearch.nom.toLowerCase())) &&
+      (!colSearch.domaine   || d.domaine?.toLowerCase().includes(colSearch.domaine.toLowerCase())) &&
+      (!colSearch.extension || d.extension?.toLowerCase().includes(colSearch.extension.toLowerCase()))
+    )
+  })
 
   const handle = (e: any) => {
     const { name, value } = e.target
@@ -67,10 +74,31 @@ export default function Company() {
     }
   }
 
+  const headers = [
+    { label: "Nom",       key: "nom"       },
+    { label: "Domaine",   key: "domaine"   },
+    { label: "Extension", key: "extension" },
+    { label: "Actions",   key: null        },
+  ]
+
+  const toggleSearch = (key: string) => {
+    if (activeCol === key) {
+      setActiveCol(null)
+      setColSearch((prev) => { const n = { ...prev }; delete n[key]; return n })
+    } else {
+      setActiveCol(key)
+    }
+  }
+
   return (
     <>
-      <div className="h-full overflow-y-auto p-6 space-y-5" style={{ color: "#cbd5e1" }}>
-
+      <div
+        className="h-full overflow-y-auto p-6 space-y-5"
+        style={{
+          color: "#cbd5e1",
+          background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)",
+        }}
+      >
         {/* Page title */}
         <div
           className="flex justify-between items-center pb-4"
@@ -100,31 +128,6 @@ export default function Company() {
           </button>
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher par nom, domaine, extension..."
-            className="w-full text-sm px-4 py-2.5 rounded-lg outline-none"
-            style={{
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              color: "#e2e8f0",
-            }}
-          />
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs"
-              style={{ color: "rgba(255,255,255,0.3)" }}
-            >
-              ✕
-            </button>
-          )}
-        </div>
-
         {/* Table */}
         <div
           className="rounded-xl overflow-hidden"
@@ -133,13 +136,66 @@ export default function Company() {
           <table className="w-full text-sm">
             <thead>
               <tr style={{ background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                {["Nom", "Domaine", "Extension", "Actions"].map((h) => (
+                {headers.map((h) => (
                   <th
-                    key={h}
-                    className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider ${h === "Actions" ? "text-center" : "text-left"}`}
-                    style={{ color: "rgba(255,255,255,0.3)" }}
+                    key={h.label}
+                    className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider ${h.key === null ? "text-center" : "text-left"}`}
+                    style={{ color: "rgba(255,255,255,0.3)", verticalAlign: "top" }}
                   >
-                    {h}
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{ flex: 1 }}>{h.label}</span>
+
+                      {/* Icône recherche par colonne */}
+                      {h.key && (
+                        <button
+                          onClick={() => toggleSearch(h.key!)}
+                          style={{
+                            background: colSearch[h.key!]
+                              ? "rgba(129,140,248,0.3)"
+                              : activeCol === h.key
+                              ? "rgba(129,140,248,0.2)"
+                              : "rgba(255,255,255,0.06)",
+                            border: colSearch[h.key!]
+                              ? "1px solid rgba(129,140,248,0.5)"
+                              : "1px solid rgba(255,255,255,0.1)",
+                            borderRadius: "4px",
+                            padding: "2px 5px",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            color: colSearch[h.key!] ? "#818cf8" : "rgba(255,255,255,0.3)",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {colSearch[h.key!] ? <X size={10} /> : <Search size={10} />}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Input inline */}
+                    {h.key && activeCol === h.key && (
+                      <div style={{ marginTop: "6px" }}>
+                        <input
+                          autoFocus
+                          value={colSearch[h.key] ?? ""}
+                          onChange={(e) =>
+                            setColSearch((prev) => ({ ...prev, [h.key!]: e.target.value }))
+                          }
+                          placeholder={`Filtrer ${h.label.toLowerCase()}...`}
+                          style={{
+                            width: "100%",
+                            background: "rgba(129,140,248,0.08)",
+                            border: "1px solid rgba(129,140,248,0.3)",
+                            color: "#e2e8f0",
+                            borderRadius: "6px",
+                            padding: "4px 8px",
+                            fontSize: "11px",
+                            outline: "none",
+                            boxSizing: "border-box",
+                          }}
+                        />
+                      </div>
+                    )}
                   </th>
                 ))}
               </tr>
@@ -241,7 +297,6 @@ export default function Company() {
               boxShadow: "0 25px 50px rgba(0,0,0,0.5)",
             }}
           >
-            {/* Close */}
             <button
               onClick={resetForm}
               className="absolute top-4 right-4 p-1 rounded-lg transition-all"
@@ -265,7 +320,7 @@ export default function Company() {
                   key={field.name}
                   name={field.name}
                   placeholder={field.placeholder}
-value={societe?.[field.name as keyof typeof societe] ?? ""}
+                  value={societe?.[field.name as keyof typeof societe] ?? ""}
                   onChange={handle}
                   className="w-full text-sm px-4 py-2.5 rounded-lg outline-none"
                   style={{
@@ -283,9 +338,7 @@ value={societe?.[field.name as keyof typeof societe] ?? ""}
                   background: isEdit
                     ? "linear-gradient(135deg, rgba(245,158,11,0.3), rgba(245,158,11,0.2))"
                     : "linear-gradient(135deg, rgba(99,102,241,0.3), rgba(139,92,246,0.2))",
-                  border: isEdit
-                    ? "1px solid rgba(245,158,11,0.4)"
-                    : "1px solid rgba(99,102,241,0.4)",
+                  border: isEdit ? "1px solid rgba(245,158,11,0.4)" : "1px solid rgba(99,102,241,0.4)",
                   color: isEdit ? "#fcd34d" : "#a5b4fc",
                 }}
               >
