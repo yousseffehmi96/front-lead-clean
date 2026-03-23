@@ -71,6 +71,8 @@ export default function Lead() {
       })
       if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`)
       const result = await res.json()
+    console.log(result);
+    
       setCleanResult(result)
       setRefresh((prev) => prev + 1)
     } catch (err: any) {
