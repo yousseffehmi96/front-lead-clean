@@ -60,14 +60,21 @@ export default function Lead() {
   }
 
   const handleClean = async () => {
+    let db=""
     setCleaning(true)
     setError(null)
     setCleanResult(null)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging-dispatch`, {
+      if(leads==="clean"){
+            db="cleaning_leads"
+      }
+      else{
+            db="staging_leads"
+      }
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging-dispatch/${db}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(uploadedFilename || "staging"),
+        body: JSON.stringify(uploadedFilename || ""),
       })
       if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`)
       const result = await res.json()
