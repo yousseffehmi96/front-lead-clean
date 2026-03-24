@@ -71,8 +71,6 @@ export default function Lead() {
       })
       if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`)
       const result = await res.json()
-    console.log(result);
-    
       setCleanResult(result)
       setRefresh((prev) => prev + 1)
     } catch (err: any) {
@@ -100,8 +98,8 @@ export default function Lead() {
     }
   }
 
-  const downloadCSV = () => window.open(`${process.env.NEXT_PUBLIC_API_URL}/download-leads-csv/${leads}`)
-  const downloadXLSX=()=>window.open(`${process.env.NEXT_PUBLIC_API_URL}/download-leads-xlsx/${leads}`)
+  const downloadCSV = () => window.open(`${process.env.NEXT_PUBLIC_API_URL}/download-leads`)
+
   const badgeConfig: Record<string, { label: string; color: string; bg: string }> = {
     staging: { label: "RAW",      color: "#f59e0b", bg: "rgba(245,158,11,0.1)"  },
     gold:    { label: "★ GOLD",   color: "#f59e0b", bg: "rgba(245,158,11,0.1)"  },
@@ -112,7 +110,7 @@ export default function Lead() {
 
   const badge = badgeConfig[leads as string] ?? { label: leads, color: "#818cf8", bg: "rgba(129,140,248,0.1)" }
 
-  const searchableCols = new Set(["nom", "prenom", "email", "fonction", "societe", "telephone", "linkedin", "eliminer"])
+  const searchableCols = new Set(["nom", "prenom", "email", "fonction", "societe", "telephone", "linkedin", "eliminer", "created_at"])
 
   const baseColumns = [
     { data: "nom",       title: "Nom",       defaultContent: "" },
@@ -162,10 +160,17 @@ export default function Lead() {
 
       const title = header.innerText.trim()
 
+      // ← Garder le span de tri DataTables existant et ajouter notre icône
+      const sortSpan = header.querySelector(".dt-column-title") as HTMLElement
+      const titleText = sortSpan ? sortSpan.innerText.trim() : title
+
+      // Wrapper le contenu existant dans un flex container
+      const existingContent = header.innerHTML
       header.innerHTML = `
         <div style="display:flex;align-items:center;gap:5px;">
-          <span style="flex:1;font-size:11px;font-weight:600;text-transform:uppercase;
-            letter-spacing:0.05em;color:rgba(255,255,255,0.4);">${title}</span>
+          <div style="flex:1;display:flex;align-items:center;gap:3px;">
+            ${existingContent}
+          </div>
           <button class="search-icon-btn"
             style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
             border-radius:4px;padding:2px 5px;cursor:pointer;color:rgba(255,255,255,0.3);
@@ -177,9 +182,15 @@ export default function Lead() {
           </button>
         </div>
         <div class="search-wrap" style="display:none;margin-top:5px;">
-          <input class="col-search-input" placeholder="Filtrer ${title.toLowerCase()}..."
-            style="width:100%;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.3);
-            color:#e2e8f0;border-radius:6px;padding:4px 8px;font-size:11px;outline:none;box-sizing:border-box;"/>
+          ${colData === "created_at"
+            ? `<input class="col-search-input" type="date"
+                style="width:100%;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.3);
+                color:#e2e8f0;border-radius:6px;padding:4px 8px;font-size:11px;outline:none;
+                box-sizing:border-box;color-scheme:dark;"/>`
+            : `<input class="col-search-input" placeholder="Filtrer ${titleText.toLowerCase()}..."
+                style="width:100%;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.3);
+                color:#e2e8f0;border-radius:6px;padding:4px 8px;font-size:11px;outline:none;box-sizing:border-box;"/>`
+          }
         </div>
       `
 
@@ -203,7 +214,11 @@ export default function Lead() {
 
       input?.addEventListener("input", (e) => {
         e.stopPropagation()
-        const val = (e.target as HTMLInputElement).value
+        let val = (e.target as HTMLInputElement).value
+        // Convert date format "2026-03-22" → "22/03/2026" for date columns
+        if (colData === "created_at" && val) {
+          val = new Date(val).toLocaleDateString("fr-FR")
+        }
         api.column(index).search(val).draw()
         btn.style.cssText += val
           ? ";background:rgba(129,140,248,0.3);border-color:rgba(129,140,248,0.5);color:#818cf8;"
@@ -256,22 +271,13 @@ export default function Lead() {
             </button>
           )}
 
-        {(leads === "gold" || leads === "silver") && (
-  <>
-    <button onClick={downloadCSV}
-      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
-      style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}>
-      <Download size={13} />CSV
-    </button>
-
-    <button 
-    onClick={downloadXLSX}
-      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
-      style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#60a5fa" }}>
-      <Download size={13} />XLSX
-    </button>
-  </>
-)}
+          {leads === "gold" && (
+            <button onClick={downloadCSV}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
+              style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}>
+              <Download size={13} />Télécharger CSV
+            </button>
+          )}
 
           <button onClick={() => setRefresh((p) => p + 1)}
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
