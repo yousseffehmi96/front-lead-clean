@@ -6,7 +6,7 @@ import { useState, useMemo } from "react"
 import { Plus, Pencil, Trash2, Building2, X, Search, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
 
 type SortDir = "asc" | "desc" | null
-type SortKey = "nom" | "domaine" | "extension" | "created_at" | null
+type SortKey = "nom" | "domaine" | "extension" | null
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 
@@ -20,10 +20,15 @@ export default function Company() {
   const [deletedata, setDeletedata] = useState(false)
   const [idsociete, setidsociete] = useState<number>(0)
 
+  // Search per column
   const [colSearch, setColSearch] = useState<Record<string, string>>({})
   const [activeCol, setActiveCol] = useState<string | null>(null)
+
+  // Sorting
   const [sortKey, setSortKey] = useState<SortKey>(null)
   const [sortDir, setSortDir] = useState<SortDir>(null)
+
+  // Pagination
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
@@ -31,39 +36,34 @@ export default function Company() {
     `${process.env.NEXT_PUBLIC_API_URL}/societe?refresh=` + refresh
   )
 
+  // Filter
   const filtered = useMemo(() => {
     return (data ?? []).filter((d: any) =>
-      (!colSearch.nom        || d.nom?.toLowerCase().includes(colSearch.nom.toLowerCase())) &&
-      (!colSearch.domaine    || d.domaine?.toLowerCase().includes(colSearch.domaine.toLowerCase())) &&
-      (!colSearch.extension  || d.extension?.toLowerCase().includes(colSearch.extension.toLowerCase())) &&
-      (!colSearch.created_at || new Date(d.created_at).toLocaleDateString("fr-FR").includes(colSearch.created_at))
+      (!colSearch.nom       || d.nom?.toLowerCase().includes(colSearch.nom.toLowerCase())) &&
+      (!colSearch.domaine   || d.domaine?.toLowerCase().includes(colSearch.domaine.toLowerCase())) &&
+      (!colSearch.extension || d.extension?.toLowerCase().includes(colSearch.extension.toLowerCase()))
     )
   }, [data, colSearch])
 
+  // Sort
   const sorted = useMemo(() => {
     if (!sortKey || !sortDir) return filtered
     return [...filtered].sort((a: any, b: any) => {
-      const av = sortKey === "created_at"
-        ? new Date(a.created_at).getTime()
-        : (a[sortKey] ?? "").toLowerCase()
-      const bv = sortKey === "created_at"
-        ? new Date(b.created_at).getTime()
-        : (b[sortKey] ?? "").toLowerCase()
-      if (typeof av === "number" && typeof bv === "number") return sortDir === "asc" ? av - bv : bv - av
-      return sortDir === "asc"
-        ? String(av).localeCompare(String(bv))
-        : String(bv).localeCompare(String(av))
+      const av = (a[sortKey] ?? "").toLowerCase()
+      const bv = (b[sortKey] ?? "").toLowerCase()
+      return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
   }, [filtered, sortKey, sortDir])
 
+  // Paginate
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize))
-  const safePage   = Math.min(page, totalPages)
-  const paginated  = sorted.slice((safePage - 1) * pageSize, safePage * pageSize)
+  const safePage = Math.min(page, totalPages)
+  const paginated = sorted.slice((safePage - 1) * pageSize, safePage * pageSize)
 
   const handleSort = (key: SortKey) => {
     if (sortKey !== key) { setSortKey(key); setSortDir("asc") }
     else if (sortDir === "asc") setSortDir("desc")
-    else { setSortKey(null); setSortDir(null) }
+    else if (sortDir === "desc") { setSortKey(null); setSortDir(null) }
     setPage(1)
   }
 
@@ -125,14 +125,14 @@ export default function Company() {
     return <ChevronDown size={11} style={{ color: "#818cf8" }} />
   }
 
-  const headers: { label: string; key: SortKey | null; sortable: boolean; searchable: boolean }[] = [
-    { label: "Nom",       key: "nom",        sortable: true,  searchable: true  },
-    { label: "Domaine",   key: "domaine",    sortable: true,  searchable: true  },
-    { label: "Extension", key: "extension",  sortable: true,  searchable: true  },
-    { label: "Date",      key: "created_at", sortable: true,  searchable: true  },
-    { label: "Actions",   key: null,         sortable: false, searchable: false },
+  const headers: { label: string; key: SortKey | null; sortable: boolean }[] = [
+    { label: "Nom",       key: "nom",       sortable: true  },
+    { label: "Domaine",   key: "domaine",   sortable: true  },
+    { label: "Extension", key: "extension", sortable: true  },
+    { label: "Actions",   key: null,        sortable: false },
   ]
 
+  // Page numbers to show
   const pageNumbers = useMemo(() => {
     const delta = 2
     const range: number[] = []
@@ -162,6 +162,7 @@ export default function Company() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Clear filters */}
             {Object.keys(colSearch).length > 0 && (
               <button
                 onClick={() => { setColSearch({}); setActiveCol(null); setPage(1) }}
@@ -186,6 +187,7 @@ export default function Company() {
           <table className="w-full text-sm">
             <thead>
               <tr style={{ background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                {/* Row number column */}
                 <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-left w-10"
                   style={{ color: "rgba(255,255,255,0.2)" }}>#</th>
 
@@ -196,6 +198,7 @@ export default function Company() {
                     style={{ color: "rgba(255,255,255,0.3)", verticalAlign: "top", userSelect: "none" }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      {/* Sort button */}
                       {h.sortable && h.key ? (
                         <button
                           onClick={() => handleSort(h.key as SortKey)}
@@ -208,7 +211,8 @@ export default function Company() {
                         <span style={{ flex: 1 }}>{h.label}</span>
                       )}
 
-                      {h.searchable && h.key && (
+                      {/* Search toggle */}
+                      {h.key && (
                         <button
                           onClick={() => toggleSearch(h.key!)}
                           style={{
@@ -223,13 +227,14 @@ export default function Company() {
                       )}
                     </div>
 
-                    {h.searchable && h.key && activeCol === h.key && (
+                    {/* Inline search input */}
+                    {h.key && activeCol === h.key && (
                       <div style={{ marginTop: "6px" }}>
                         <input
                           autoFocus
                           value={colSearch[h.key] ?? ""}
                           onChange={(e) => { setColSearch((prev) => ({ ...prev, [h.key!]: e.target.value })); setPage(1) }}
-                          placeholder={h.key === "created_at" ? "ex: 22/03/2026" : `Filtrer ${h.label.toLowerCase()}...`}
+                          placeholder={`Filtrer ${h.label.toLowerCase()}...`}
                           style={{
                             width: "100%", background: "rgba(129,140,248,0.08)", border: "1px solid rgba(129,140,248,0.3)",
                             color: "#e2e8f0", borderRadius: "6px", padding: "4px 8px", fontSize: "11px", outline: "none", boxSizing: "border-box",
@@ -245,7 +250,7 @@ export default function Company() {
             <tbody>
               {paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-16" style={{ color: "rgba(255,255,255,0.2)" }}>
+                  <td colSpan={5} className="text-center py-16" style={{ color: "rgba(255,255,255,0.2)" }}>
                     <div className="text-4xl mb-3">🏢</div>
                     <p className="text-sm">Aucune société trouvée</p>
                   </td>
@@ -278,10 +283,6 @@ export default function Company() {
                           .{d.extension}
                         </span>
                       </td>
-                      {/* ✅ Date */}
-                      <td className="px-4 py-3 text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
-                        {new Date(d.created_at).toLocaleDateString("fr-FR")}
-                      </td>
                       <td className="px-4 py-3">
                         <div className="flex justify-center gap-2">
                           <button
@@ -308,8 +309,9 @@ export default function Company() {
           </table>
         </div>
 
-        {/* Pagination */}
+        {/* Pagination bar */}
         <div className="flex items-center justify-between flex-wrap gap-3 pt-1">
+          {/* Left: rows per page + info */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
               <span>Lignes par page</span>
@@ -329,6 +331,7 @@ export default function Company() {
             </span>
           </div>
 
+          {/* Right: page controls */}
           <div className="flex items-center gap-1">
             <PagBtn onClick={() => setPage(1)} disabled={safePage === 1}><ChevronsLeft size={12} /></PagBtn>
             <PagBtn onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}><ChevronLeft size={12} /></PagBtn>
@@ -390,9 +393,7 @@ export default function Company() {
                 onClick={isEdit ? handleUpdate : handleClick}
                 className="w-full text-sm font-semibold py-2.5 rounded-lg mt-1"
                 style={{
-                  background: isEdit
-                    ? "linear-gradient(135deg, rgba(245,158,11,0.3), rgba(245,158,11,0.2))"
-                    : "linear-gradient(135deg, rgba(99,102,241,0.3), rgba(139,92,246,0.2))",
+                  background: isEdit ? "linear-gradient(135deg, rgba(245,158,11,0.3), rgba(245,158,11,0.2))" : "linear-gradient(135deg, rgba(99,102,241,0.3), rgba(139,92,246,0.2))",
                   border: isEdit ? "1px solid rgba(245,158,11,0.4)" : "1px solid rgba(99,102,241,0.4)",
                   color: isEdit ? "#fcd34d" : "#a5b4fc",
                 }}
@@ -421,6 +422,7 @@ export default function Company() {
   )
 }
 
+// Small pagination button helper
 function PagBtn({ children, onClick, disabled = false, active = false }: {
   children: React.ReactNode; onClick: () => void; disabled?: boolean; active?: boolean
 }) {
