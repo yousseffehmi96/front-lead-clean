@@ -243,7 +243,7 @@ export default function Lead() {
   }
 
   return (
-    <div className="h-full rounded-none overflow-hidden"
+    <div className="h-full rounded-none flex flex-col"
       style={{ background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)", border: "1px solid rgba(255,255,255,0.06)" }}
     >
       {/* Header */}
@@ -311,7 +311,7 @@ export default function Lead() {
               { label: "🥈 Silver",   val: cleanResult.moved_to_silver },
               { label: "🧹 Clean",    val: cleanResult.moved_to_clean },
               { label: "📧 Emails",   val: cleanResult.emails_completed },
-              { label: "🏢 Sociétés", val: cleanResult.societe_completed },
+              { label: "🏢 Sociétés", val: cleanResult.added_societes },
               { label: "👤 Noms",     val: cleanResult.nom_prenom_completed },
             ].map((item) => (
               <div key={item.label} className="px-3 py-2 rounded-lg text-center"
