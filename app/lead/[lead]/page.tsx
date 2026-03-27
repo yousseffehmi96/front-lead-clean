@@ -60,16 +60,15 @@ export default function Lead() {
   }
 
   const handleClean = async () => {
-    let db=""
+    let db = ""
     setCleaning(true)
     setError(null)
     setCleanResult(null)
     try {
-      if(leads==="clean"){
-            db="cleaning_leads"
-      }
-      else{
-            db="staging_leads"
+      if (leads === "clean") {
+        db = "cleaning_leads"
+      } else {
+        db = "staging_leads"
       }
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging-dispatch/${db}`, {
         method: "POST",
@@ -84,6 +83,38 @@ export default function Lead() {
       setError(err.message)
     } finally {
       setCleaning(false)
+    }
+  }
+
+  // ✅ Promouvoir Silver → Gold
+  const handleToGold = async (leadId: number) => {
+    setError(null)
+    setCleanResult(null) // Reset les anciens messages
+    
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/togold/${leadId}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      })
+      
+      // Récupérer le body de la réponse
+      const data = await res.json()
+      
+      if (!res.ok) {
+        // Extraire le message d'erreur FastAPI
+        throw new Error(data.detail || `Erreur serveur : ${res.status}`)
+      }
+      
+      // ✅ Afficher le message de succès
+      setCleanResult({
+        message: data.message || "Lead promu en GOLD avec succès !"
+      })
+      
+      setRefresh((prev) => prev + 1)
+    } catch (err: any) {
+        let message = err.message.substring(err.message.lastIndexOf(":") + 1)
+        console.log(message)      
+        setError(message)
     }
   }
 
@@ -133,7 +164,8 @@ export default function Lead() {
     },
   ]
 
-  const blackColumn  = { data: "eliminer", title: "Eliminer", defaultContent: "" }
+  const blackColumn = { data: "eliminer", title: "Eliminer", defaultContent: "" }
+
   const prodColumn = {
     data: "id", title: "Action", orderable: false,
     render: (id: number) =>
@@ -144,6 +176,19 @@ export default function Lead() {
           style="padding:4px 10px;border-radius:6px;border:1px solid rgba(148,163,184,0.3);color:#94a3b8;background:rgba(148,163,184,0.08);cursor:pointer;font-size:11px;font-weight:600;">Archiver</button>
       </div>`,
   }
+
+  // ✅ Colonne bouton → Gold pour Silver
+  const silverColumn = {
+    data: "id", title: "Action", orderable: false,
+    render: (id: number) =>
+      `<button data-id="${id}" data-type="to-gold" class="dt-action-btn"
+        style="padding:4px 12px;border-radius:6px;border:1px solid rgba(245,158,11,0.4);
+        color:#fcd34d;background:rgba(245,158,11,0.08);cursor:pointer;font-size:11px;
+        font-weight:600;display:flex;align-items:center;gap:4px;">
+        ★ → Gold
+      </button>`,
+  }
+
   const dateColumn = {
     data: "created_at", title: "Date",
     render: (val: string) => new Date(val).toLocaleDateString("fr-FR"),
@@ -151,12 +196,12 @@ export default function Lead() {
 
   const columns = [
     ...baseColumns,
-    ...(leads === "black" ? [blackColumn] : []),
-    ...(leads === "gold" || leads === "prod" ? [prodColumn] : []),
+    ...(leads === "black"                       ? [blackColumn]  : []),
+    ...(leads === "gold" || leads === "prod"    ? [prodColumn]   : []),
+    ...(leads === "silver"                      ? [silverColumn] : []),
     dateColumn,
   ]
 
-  // ✅ Injecter icônes de recherche directement dans les headers DataTables
   const injectSearchIcons = (api: any) => {
     api.columns().every(function (this: any, index: number) {
       const colData = columns[index]?.data
@@ -166,13 +211,10 @@ export default function Lead() {
       if (header.querySelector(".search-icon-btn")) return
 
       const title = header.innerText.trim()
-
-      // ← Garder le span de tri DataTables existant et ajouter notre icône
       const sortSpan = header.querySelector(".dt-column-title") as HTMLElement
       const titleText = sortSpan ? sortSpan.innerText.trim() : title
-
-      // Wrapper le contenu existant dans un flex container
       const existingContent = header.innerHTML
+
       header.innerHTML = `
         <div style="display:flex;align-items:center;gap:5px;">
           <div style="flex:1;display:flex;align-items:center;gap:3px;">
@@ -222,7 +264,6 @@ export default function Lead() {
       input?.addEventListener("input", (e) => {
         e.stopPropagation()
         let val = (e.target as HTMLInputElement).value
-        // Convert date format "2026-03-22" → "22/03/2026" for date columns
         if (colData === "created_at" && val) {
           val = new Date(val).toLocaleDateString("fr-FR")
         }
@@ -236,10 +277,17 @@ export default function Lead() {
     })
   }
 
+  // ✅ handleTableClick gère aussi to-gold
   const handleTableClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const btn = (e.target as HTMLElement).closest(".dt-action-btn") as HTMLElement | null
     if (!btn) return
-    handelclick(btn.dataset.type!, Number(btn.dataset.id))
+    const id = Number(btn.dataset.id)
+    const type = btn.dataset.type!
+    if (type === "to-gold") {
+      handleToGold(id)
+    } else {
+      handelclick(type, id)
+    }
   }
 
   return (
@@ -294,6 +342,7 @@ export default function Lead() {
         </div>
       </div>
 
+      {/* Message d'erreur */}
       {err && (
         <div className="mx-6 mt-4 px-4 py-3 rounded-lg text-sm"
           style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#fda4af" }}>
@@ -301,7 +350,16 @@ export default function Lead() {
         </div>
       )}
 
-      {cleanResult && (
+      {/* Message de succès pour actions individuelles */}
+      {cleanResult && cleanResult.message && !cleanResult.moved_to_gold && (
+        <div className="mx-6 mt-4 px-4 py-3 rounded-lg text-sm"
+          style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>
+          ✅ {cleanResult.message}
+        </div>
+      )}
+
+      {/* Message de succès pour nettoyage */}
+      {cleanResult && cleanResult.moved_to_gold !== undefined && (
         <div className="mx-6 mt-4 px-4 py-3 rounded-lg text-sm"
           style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>
           <p className="font-semibold mb-2">✅ Nettoyage terminé</p>
@@ -367,7 +425,7 @@ export default function Lead() {
         .col-search-input::placeholder { color: rgba(255,255,255,0.2); }
       `}</style>
 
-      <div className="px-2 pb-4 pt-2">
+      <div className="px-2 pb-4 pt-2 overflow-y-auto flex-1">
         {!DTableComponent ? (
           <div className="text-center py-16" style={{ color: "rgba(255,255,255,0.2)" }}>
             <div className="text-4xl mb-3">⚡</div>

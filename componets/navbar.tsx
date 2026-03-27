@@ -2,82 +2,93 @@
 import {
   Database,
   Shield,
-
   Building2,
   Sparkles,
   LayoutDashboard,
   ChevronRight,
   Zap,
+  Settings,
+  Upload,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 
-const navLinks = [
-  {
-    id: "Dashboard",
-    href: "/dashboard",
-    text: "Dashboard",
-    icon: <LayoutDashboard size={16} />,
-    group: "main",
-  },
- 
+// Flow 1 — chemin principal des leads
+const flow1Links = [
   {
     id: "Staging",
     href: "/lead/staging",
     text: "Staging",
     icon: <Zap size={16} />,
-    group: "leads",
-    badge: "RAW",
+    badge: "1",
     badgeColor: "#f59e0b",
-  },
-  {
-    id: "Gold",
-    href: "/lead/gold",
-    text: "Gold",
-    icon: <Sparkles size={16} />,
-    group: "leads",
-    badge: "★",
-    badgeColor: "#f59e0b",
+    desc: "Import & brut",
   },
   {
     id: "Silver",
     href: "/lead/silver",
     text: "Silver",
     icon: <Database size={16} />,
-    group: "leads",
-    badge: "◆",
+    badge: "2",
     badgeColor: "#94a3b8",
+    desc: "Incomplets",
   },
+  {
+    id: "Gold",
+    href: "/lead/gold",
+    text: "Gold",
+    icon: <Sparkles size={16} />,
+    badge: "3",
+    badgeColor: "#f59e0b",
+    desc: "Complets",
+  },
+]
+
+// Flow 2 — gestion des problèmes
+const flow2Links = [
   {
     id: "Clean",
     href: "/lead/clean",
     text: "Clean",
     icon: <Sparkles size={16} />,
-    group: "leads",
     badge: "✦",
     badgeColor: "#6ee7b7",
+    desc: "À corriger",
   },
   {
     id: "Blacklist",
     href: "/lead/black",
     text: "Blacklist",
     icon: <Shield size={16} />,
-    group: "tools",
+    badge: "⛔",
+    badgeColor: "#f43f5e",
+    desc: "Bannis",
+  },
+]
+
+// Settings
+const settingsLinks = [
+  {
+    id: "Dashboard",
+    href: "/dashboard",
+    text: "Dashboard",
+    icon: <LayoutDashboard size={16} />,
+  },
+  {
+    id: "Upload",
+    href: "/upload",
+    text: "Upload",
+    icon: <Upload size={16} />,
   },
   {
     id: "Company",
     href: "/company",
-    text: "Company",
+    text: "Sociétés",
     icon: <Building2 size={16} />,
-    group: "tools",
   },
 ]
 
 export default function Navbar() {
   const pathname = usePathname()
-
-  const mainLinks  = navLinks.filter((n) => n.group === "main")
-  const leadsLinks = navLinks.filter((n) => n.group === "leads")
-  const toolsLinks = navLinks.filter((n) => n.group === "tools")
 
   return (
     <div
@@ -109,52 +120,72 @@ export default function Navbar() {
       {/* Nav */}
       <div className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-5">
 
-        {/* General */}
+        {/* Flow 1 */}
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-2 px-2"
-            style={{ color: "rgba(255,255,255,0.25)" }}>
-            General
-          </p>
+          <div className="flex items-center gap-2 mb-2 px-2">
+            <p className="text-xs font-semibold uppercase tracking-widest"
+              style={{ color: "rgba(255,255,255,0.25)" }}>
+              Flow principal
+            </p>
+            <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+          </div>
+
+          {/* Flèches de flow */}
           <div className="flex flex-col gap-0.5">
-            {mainLinks.map((link) => (
-              <NavItem key={link.id} link={link} active={pathname === link.href} />
+            {flow1Links.map((link, i) => (
+              <div key={link.id}>
+                <NavItem link={link} active={pathname === link.href} showDesc />
+                {i < flow1Links.length - 1 && (
+                  <div className="flex justify-center py-0.5">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                      stroke="rgba(255,255,255,0.15)" strokeWidth="2">
+                      <line x1="12" y1="5" x2="12" y2="19"/>
+                      <polyline points="19 12 12 19 5 12"/>
+                    </svg>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         </div>
 
-        {/* Leads */}
+        {/* Flow 2 */}
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-2 px-2"
-            style={{ color: "rgba(255,255,255,0.25)" }}>
-            Leads
-          </p>
+          <div className="flex items-center gap-2 mb-2 px-2">
+            <p className="text-xs font-semibold uppercase tracking-widest"
+              style={{ color: "rgba(255,255,255,0.25)" }}>
+              Gestion
+            </p>
+            <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+          </div>
           <div className="flex flex-col gap-0.5">
-            {leadsLinks.map((link) => (
-              <NavItem key={link.id} link={link} active={pathname === link.href} />
+            {flow2Links.map((link) => (
+              <NavItem key={link.id} link={link} active={pathname === link.href} showDesc />
             ))}
           </div>
         </div>
 
-        {/* Tools */}
+        {/* Settings */}
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-2 px-2"
-            style={{ color: "rgba(255,255,255,0.25)" }}>
-            Tools
-          </p>
+          <div className="flex items-center gap-2 mb-2 px-2">
+            <p className="text-xs font-semibold uppercase tracking-widest"
+              style={{ color: "rgba(255,255,255,0.25)" }}>
+              Settings
+            </p>
+            <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+          </div>
           <div className="flex flex-col gap-0.5">
-            {toolsLinks.map((link) => (
+            {settingsLinks.map((link) => (
               <NavItem key={link.id} link={link} active={pathname === link.href} />
             ))}
           </div>
         </div>
       </div>
-
-     
     </div>
   )
 }
 
-function NavItem({ link, active }: { link: any; active: boolean }) {
+function NavItem({ link, active, showDesc = false }: { link: any; active: boolean; showDesc?: boolean }) {
   return (
     <a
       href={link.href}
@@ -167,7 +198,6 @@ function NavItem({ link, active }: { link: any; active: boolean }) {
         color: active ? "#c7d2fe" : "rgba(255,255,255,0.45)",
       }}
     >
-      {/* Active indicator */}
       {active && (
         <div
           className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-full"
@@ -179,12 +209,18 @@ function NavItem({ link, active }: { link: any; active: boolean }) {
         {link.icon}
       </span>
 
-      <span className="flex-1 text-sm font-medium">{link.text}</span>
+      <div className="flex-1 min-w-0">
+        <span className="text-sm font-medium block">{link.text}</span>
+        {showDesc && link.desc && (
+          <span className="text-xs block" style={{ color: "rgba(255,255,255,0.2)" }}>
+            {link.desc}
+          </span>
+        )}
+      </div>
 
-      {/* Badge */}
       {link.badge && (
         <span
-          className="text-xs font-bold px-1.5 py-0.5 rounded"
+          className="text-xs font-bold px-1.5 py-0.5 rounded flex-shrink-0"
           style={{
             color: link.badgeColor,
             background: `${link.badgeColor}18`,
@@ -196,11 +232,10 @@ function NavItem({ link, active }: { link: any; active: boolean }) {
         </span>
       )}
 
-      {/* Arrow on hover */}
       {!link.badge && (
         <ChevronRight
           size={12}
-          className="opacity-0 group-hover:opacity-100 transition-opacity"
+          className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
           style={{ color: "rgba(255,255,255,0.3)" }}
         />
       )}
