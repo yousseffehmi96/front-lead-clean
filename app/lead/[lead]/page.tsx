@@ -2,7 +2,7 @@
 import Usefetch from "@/hooks/SocieteFetch"
 import { useParams } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
-import { Upload, Sparkles, RefreshCw, Download } from "lucide-react"
+import { Upload, Sparkles, RefreshCw, Download, Trash2 } from "lucide-react"
 
 export default function Lead() {
   const [DTableComponent, setDTableComponent] = useState<any>(null)
@@ -12,6 +12,7 @@ export default function Lead() {
   const [refresh, setRefresh] = useState<number>(0)
   const [uploading, setUploading] = useState(false)
   const [cleaning, setCleaning] = useState(false)
+  const [removingDuplicates, setRemovingDuplicates] = useState(false)
   const [cleanResult, setCleanResult] = useState<any>(null)
   const [uploadedFilename, setUploadedFilename] = useState<string>("")
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -86,10 +87,36 @@ export default function Lead() {
     }
   }
 
+  // ✅ Supprimer les doublons
+  const handleRemoveDuplicates = async () => {
+    setRemovingDuplicates(true)
+    setError(null)
+    setCleanResult(null)
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/supprimer-doublons`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+      
+      const data = await res.json()
+      
+      if (!res.ok) {
+        throw new Error(data.detail || `Erreur serveur : ${res.status}`)
+      }
+      
+      setCleanResult(data)
+      setRefresh((prev) => prev + 1)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setRemovingDuplicates(false)
+    }
+  }
+
   // ✅ Promouvoir Silver → Gold
   const handleToGold = async (leadId: number) => {
     setError(null)
-    setCleanResult(null) // Reset les anciens messages
+    setCleanResult(null)
     
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/togold/${leadId}`, {
@@ -97,24 +124,20 @@ export default function Lead() {
         headers: { "Content-Type": "application/json" },
       })
       
-      // Récupérer le body de la réponse
       const data = await res.json()
       
       if (!res.ok) {
-        // Extraire le message d'erreur FastAPI
         throw new Error(data.detail || `Erreur serveur : ${res.status}`)
       }
       
-      // ✅ Afficher le message de succès
       setCleanResult({
         message: data.message || "Lead promu en GOLD avec succès !"
       })
       
       setRefresh((prev) => prev + 1)
     } catch (err: any) {
-        let message = err.message.substring(err.message.lastIndexOf(":") + 1)
-        console.log(message)      
-        setError(message)
+      let message = err.message.substring(err.message.lastIndexOf(":") + 1)
+      setError(message)
     }
   }
 
@@ -177,7 +200,6 @@ export default function Lead() {
       </div>`,
   }
 
-  // ✅ Colonne bouton → Gold pour Silver
   const silverColumn = {
     data: "id", title: "Action", orderable: false,
     render: (id: number) =>
@@ -277,7 +299,6 @@ export default function Lead() {
     })
   }
 
-  // ✅ handleTableClick gère aussi to-gold
   const handleTableClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const btn = (e.target as HTMLElement).closest(".dt-action-btn") as HTMLElement | null
     if (!btn) return
@@ -311,11 +332,15 @@ export default function Lead() {
           <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileUpload} />
 
           {leads === "staging" && (
-            <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
-              style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", color: "#a5b4fc" }}>
-              <Upload size={13} />{uploading ? "Chargement..." : "Importer"}
-            </button>
+            <>
+              <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
+                style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", color: "#a5b4fc" }}>
+                <Upload size={13} />{uploading ? "Chargement..." : "Importer"}
+              </button>
+              
+              
+            </>
           )}
 
           {(leads === "staging" || leads === "clean") && (
@@ -351,10 +376,32 @@ export default function Lead() {
       )}
 
       {/* Message de succès pour actions individuelles */}
-      {cleanResult && cleanResult.message && !cleanResult.moved_to_gold && (
+      {cleanResult && cleanResult.message && !cleanResult.moved_to_gold && !cleanResult.total_deleted && (
         <div className="mx-6 mt-4 px-4 py-3 rounded-lg text-sm"
           style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>
           ✅ {cleanResult.message}
+        </div>
+      )}
+
+      {/* Statistiques de suppression des doublons */}
+      {cleanResult && cleanResult.total_deleted !== undefined && (
+        <div className="mx-6 mt-4 px-4 py-3 rounded-lg text-sm"
+          style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)", color: "#fda4af" }}>
+          <p className="font-semibold mb-2">🗑️ Suppression des doublons terminée</p>
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { label: "Total", val: cleanResult.total_deleted, icon: "🔢" },
+              { label: "vs Silver", val: cleanResult.staging_vs_silver, icon: "🥈" },
+              { label: "vs Gold", val: cleanResult.staging_vs_gold, icon: "🥇" },
+              { label: "Interne", val: cleanResult.staging_internal, icon: "♻️" },
+            ].map((item) => (
+              <div key={item.label} className="px-3 py-2 rounded-lg text-center"
+                style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.15)" }}>
+                <p className="text-xs opacity-70">{item.icon} {item.label}</p>
+                <p className="font-bold text-base">{item.val ?? 0}</p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

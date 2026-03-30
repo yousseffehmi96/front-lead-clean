@@ -8,7 +8,6 @@ import {
   ChevronRight,
   Zap,
   Settings,
-  Upload,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 
@@ -73,12 +72,7 @@ const settingsLinks = [
     text: "Dashboard",
     icon: <LayoutDashboard size={16} />,
   },
-  {
-    id: "Upload",
-    href: "/upload",
-    text: "Upload",
-    icon: <Upload size={16} />,
-  },
+ 
   {
     id: "Company",
     href: "/company",
