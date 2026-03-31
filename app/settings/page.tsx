@@ -17,7 +17,7 @@ export default function SettingsPage() {
   // ---------------- FETCH RULES ----------------
   const fetchRules = async () => {
     try {
-      const res = await fetch("http://localhost:8000/validation-rules")
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/validation-rules`)
       const data = await res.json()
       setRules(data)
     } catch (err) {
