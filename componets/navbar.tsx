@@ -65,6 +65,7 @@ const flow2Links = [
 ]
 
 // Settings
+// Settings
 const settingsLinks = [
   {
     id: "Dashboard",
@@ -72,7 +73,12 @@ const settingsLinks = [
     text: "Dashboard",
     icon: <LayoutDashboard size={16} />,
   },
- 
+  {
+    id: "Settings",
+    href: "/settings",
+    text: "Paramètres",
+    icon: <Settings size={16} />,
+  },
   {
     id: "Company",
     href: "/company",
