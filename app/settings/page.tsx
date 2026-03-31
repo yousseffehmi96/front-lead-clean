@@ -38,7 +38,7 @@ export default function SettingsPage() {
         key: "nouvelle_regle",
         description: "Description..."
       }
-      await fetch("http://localhost:8000/validation-rules", {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/validation-rules`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newRule)
@@ -60,7 +60,7 @@ export default function SettingsPage() {
 
   const saveEdit = async (id: number) => {
     try {
-      await fetch(`http://localhost:8000/validation-rules/${id}`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/validation-rules/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editForm)
@@ -74,7 +74,7 @@ export default function SettingsPage() {
 
   const deleteRule = async (id: number) => {
     try {
-      await fetch(`http://localhost:8000/validation-rules/${id}`, { method: "DELETE" })
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/validation-rules/${id}`, { method: "DELETE" })
       fetchRules()
     } catch (err) {
       console.error("Erreur deleteRule:", err)
