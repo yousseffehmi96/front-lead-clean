@@ -1,13 +1,13 @@
-
-"use client"
-import Image from "next/image";
-import { redirect } from "next/dist/server/api-utils";
+"use client";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-export default function Home() {
-    const route=useRouter()
 
-    useEffect(()=>{
-          route.replace("/lead/staging")
-    },[])
+export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace("/sign-in");
+  }, [router]);
+
+  return null; 
 }

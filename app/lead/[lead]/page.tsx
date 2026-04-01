@@ -1,9 +1,26 @@
 "use client"
 import Usefetch from "@/hooks/SocieteFetch"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { Upload, Sparkles, RefreshCw, Download, Trash2, Menu, X } from "lucide-react"
+import { useAuth } from "@clerk/nextjs"
+/*export default function LeadWrapper() {
+  const { isSignedIn, isLoaded } = useAuth()
+  const router = useRouter()
+console.log(isSignedIn);
+console.log(isLoaded);
 
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      console.log("salut");
+      router.replace("/sign-in")
+    }
+  }, [isLoaded, isSignedIn, router])
+
+  if (!isLoaded || !isSignedIn) return null 
+
+  return <Lead />
+}*/
 export default function Lead() {
   const [DTableComponent, setDTableComponent] = useState<any>(null)
   const [openMenu, setOpenMenu] = useState<number | null>(null)

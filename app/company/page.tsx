@@ -2,13 +2,18 @@
 import Delete from "@/componets/delete"
 import Usefetch from "@/hooks/SocieteFetch"
 import changeEtat from "@/hooks/Societeusestate"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Plus, Pencil, Trash2, Building2, X, Search, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
+import { useAuth } from "@clerk/nextjs"
+import { useRouter } from "next/navigation"
+import Navbar from "@/componets/navbar"
 
 type SortDir = "asc" | "desc" | null
 type SortKey = "nom" | "domaine" | "extension" | null
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
+
+
 
 export default function Company() {
   const { societe, setsociete } = changeEtat()

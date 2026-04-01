@@ -1,7 +1,10 @@
-import type { Metadata } from "next";
+"use client"; // On ajoute ceci car on utilise usePathname
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "../componets/navbar";
+import { ClerkProvider } from "@clerk/nextjs";
+import { usePathname } from "next/navigation"; // Import pour détecter la page
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -12,27 +15,33 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata = {
-  title: "CleanApp",
-  icons: {
-    icon: "/favicon.ico",  
-  },
-};
-
 export default function RootLayout({
   children,
-}: Readonly<{ children: React.ReactNode }>) {
+}: {
+  children: React.ReactNode;
+}) {
+  const pathname = usePathname();
+
+  // Définir les pages où la navbar doit être CACHÉE
+  // On cache sur sign-in et sign-up
+  const isAuthPage = pathname?.startsWith("/sign-in") || pathname?.startsWith("/sign-up");
+
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-row h-screen`}
         style={{ background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)" }}
       >
-        <Navbar />
-     
-        <main className="flex-1 overflow-y-auto h-screen">
-          {children}
-        </main>
+        <ClerkProvider 
+        
+        >
+          {/* Affiche la Navbar UNIQUEMENT si ce n'est pas une page d'auth */}
+          {!isAuthPage && <Navbar />}
+
+          <main className={`flex-1 overflow-y-auto h-screen ${isAuthPage ? 'w-full' : ''}`}>
+            {children}
+          </main>
+        </ClerkProvider>
       </body>
     </html>
   );

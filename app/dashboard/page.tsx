@@ -4,6 +4,8 @@ import { useMemo, useRef, useEffect, useState } from "react"
 import Usefetch from "@/hooks/SocieteFetch"
 import { Chart, registerables } from "chart.js"
 import { ChevronDown, ChevronRight } from "lucide-react"
+import { useAuth } from "@clerk/nextjs"
+import { useRouter } from "next/navigation"
 
 Chart.register(...registerables)
 
@@ -199,7 +201,7 @@ const details = [
   )
 }
 
-export default function Dashboard() {
+ export default function Dashboard() {
   const { data } = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/stat`)
   const stats = data as Stat[]
 
