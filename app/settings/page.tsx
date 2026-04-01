@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect } from "react"
-import { Plus, Trash2, Edit, Save, X, Users, Mail, ShieldCheck, Calendar } from "lucide-react"
+import { Plus, Trash2, Edit, X, Mail, ShieldCheck, Calendar } from "lucide-react"
 import { deleteUser, getAllUsers } from "@/api/user-actions" 
 import SignUpForm from "../sign-up/page"
 
@@ -15,6 +15,10 @@ export default function SettingsPage() {
   const [editingRule, setEditingRule] = useState<number | null>(null)
   const [editForm, setEditForm] = useState({ name: "", key: "", description: "" })
 
+  // ---------------- STATE DELETE USER ----------------
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const [loadingDelete, setLoadingDelete] = useState(false);
+
   // ---------------- FETCH DATA ----------------
   const fetchRules = async () => {
     try {
@@ -26,21 +30,9 @@ export default function SettingsPage() {
     }
   }
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm("Supprimer cet utilisateur ?")) return;
-    const result = await deleteUser(userId);
-    if (result.success) {
-      setUsers(users.filter(u => u.id !== userId));
-    } else {
-      alert("Erreur : " + result.error);
-    }
-  };
-
   const fetchUsers = async () => {
     setLoadingUsers(true)
     const result = await getAllUsers()
-    console.log(result.users);
-    
     if (result.success) {
       setUsers(result.users || [])
     }
@@ -67,7 +59,7 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen p-8" style={{ background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)" }}>
-      
+
       {/* MENU TABS */}
       <div className="flex gap-3 mb-8 border-b border-white/10 pb-3 overflow-x-auto">
         {tabs.map((tab) => (
@@ -84,44 +76,6 @@ export default function SettingsPage() {
           </button>
         ))}
       </div>
-
-      {/* --- CONTENT : RULES --- */}
-      {activeTab === "rules" && (
-        <div className="animate-in fade-in duration-500">
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h2 className="text-2xl font-bold text-white">Règles de validation</h2>
-              <p className="text-sm text-white/40 mt-1">Gérez vos règles de nettoyage</p>
-            </div>
-            <button onClick={addRule} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/20">
-              <Plus size={16} /> Nouvelle règle
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {rules.map((rule) => (
-              <div key={rule.id} className="group p-5 rounded-xl border border-white/10 bg-white/5 transition hover:border-white/20">
-                {editingRule !== rule.id && (
-                  <div className="flex flex-col justify-between h-full">
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-indigo-500/10 text-indigo-400">⚙️</div>
-                      <div>
-                        <h3 className="text-white font-semibold">{rule.name}</h3>
-                        <p className="text-xs text-indigo-300 opacity-60">ID: {rule.key}</p>
-                        <p className="text-sm text-white/40 mt-2 line-clamp-2">{rule.description}</p>
-                      </div>
-                    </div>
-                    <div className="flex justify-end gap-2 mt-4 opacity-0 group-hover:opacity-100 transition">
-                       <button onClick={() => startEdit(rule)} className="p-2 rounded-lg bg-white/5 text-indigo-400 hover:bg-white/10"><Edit size={16} /></button>
-                       <button onClick={() => {}} className="p-2 rounded-lg bg-white/5 text-red-400 hover:bg-white/10"><Trash2 size={16} /></button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* --- CONTENT : USERS --- */}
       {activeTab === "users" && (
@@ -194,11 +148,12 @@ export default function SettingsPage() {
                               hour: '2-digit',
                               minute: '2-digit',
                             })
-                          : '—'}                        </p>
+                          : '—'}                        
+                        </p>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button 
-                          onClick={() => handleDeleteUser(u.id)}
+                          onClick={() => setUserToDelete(u.id)}
                           className="p-2 text-white/20 hover:text-red-400 transition"
                         >
                           <Trash2 size={16} />
@@ -211,7 +166,7 @@ export default function SettingsPage() {
             </table>
           </div>
 
-          {/* MODALE */}
+          {/* MODAL AJOUT UTILISATEUR */}
           {isModalOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
               <div className="bg-slate-900 border border-white/10 p-8 rounded-2xl w-full max-w-md shadow-2xl relative animate-in zoom-in duration-200">
@@ -220,10 +175,50 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
+
+          {/* MODAL CONFIRM DELETE */}
+          {userToDelete && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+              <div className="bg-slate-900 border border-white/10 p-8 rounded-2xl w-full max-w-md shadow-2xl relative animate-in zoom-in duration-200 text-center">
+                <h3 className="text-xl font-bold text-white mb-2">Confirm Deletion</h3>
+                <p className="text-white/60 mb-6">Are you sure you want to delete this user? This action cannot be undone.</p>
+                
+                <div className="flex justify-center gap-4">
+                  <button 
+                    onClick={() => setUserToDelete(null)}
+                    className="px-4 py-2 rounded-lg border border-white/20 text-white hover:bg-white/10 transition"
+                  >
+                    Cancel
+                  </button>
+
+                  <button 
+                    onClick={async () => {
+                      if (!userToDelete) return;
+                      setLoadingDelete(true);
+                      const result = await deleteUser(userToDelete);
+                      if (result.success) {
+                        setUsers(users.filter(u => u.id !== userToDelete));
+                      } else {
+                        console.error(result.error);
+                      }
+                      setLoadingDelete(false);
+                      setUserToDelete(null);
+                    }}
+                    disabled={loadingDelete}
+                    className={`px-4 py-2 rounded-lg text-white font-semibold transition ${
+                      loadingDelete
+                        ? "bg-red-400/50 cursor-not-allowed"
+                        : "bg-red-600 hover:bg-red-500"
+                    }`}
+                  >
+                    {loadingDelete ? "Deleting..." : "Delete"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
-
-      {activeTab === "tokens" && <div className="text-white p-10 text-center border border-dashed border-white/10 rounded-xl">Gestion des clés API (Prochainement)</div>}
     </div>
   )
 }

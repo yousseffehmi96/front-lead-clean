@@ -45,8 +45,8 @@ export default function Navbar() {
   const settingsLinks = [
     { id: "Dashboard", href: "/dashboard", text: "Dashboard", icon: <LayoutDashboard size={16} /> },
     // "adminOnly: true" signifie que seul un manager peut voir ces liens
-    { id: "Settings", href: "/settings", text: "Paramètres", icon: <Settings size={16} /> },
-    { id: "Company", href: "/company", text: "Sociétés", icon: <Building2 size={16} />, adminOnly: true },
+    { id: "Settings", href: "/settings", text: "Paramètres", icon: <Settings size={16} />,adminOnly: true  },
+    { id: "Company", href: "/company", text: "Sociétés", icon: <Building2 size={16} />},
   ];
 
   return (
