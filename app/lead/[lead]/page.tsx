@@ -161,6 +161,8 @@ export default function Lead() {
   }
 
   const handelclick = async (type: string, leadId: number) => {
+    console.log("hhhh");
+    
     setstat(type)
     setError(null)
     try {
@@ -179,7 +181,11 @@ export default function Lead() {
   }
 
   const downloadCSV = () => {
-    window.open(`${process.env.NEXT_PUBLIC_API_URL}/download-leads`)
+    window.open(`${process.env.NEXT_PUBLIC_API_URL}/download-leads-csv/${leads}`)
+    setMobileMenuOpen(false)
+  }
+  const downloadXlsx = () => {
+    window.open(`${process.env.NEXT_PUBLIC_API_URL}/download-leads-xlsx/${leads}`)
     setMobileMenuOpen(false)
   }
 
@@ -377,6 +383,19 @@ export default function Lead() {
               <Download size={13} />Télécharger CSV
             </button>
           )}
+          {leads === "gold" && (
+  <button
+    onClick={downloadXlsx}
+    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
+    style={{
+      background: "rgba(59, 130, 246, 0.15)", // bleu clair transparent
+      border: "1px solid rgba(59, 130, 246, 0.3)", // bord bleu clair
+      color: "#3b82f6" // texte bleu
+    }}
+  >
+    <Download size={13} /> Télécharger xlsx
+  </button>
+)}
 
           <button onClick={() => setRefresh((p) => p + 1)}
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
@@ -462,8 +481,8 @@ export default function Lead() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
               { label: "Total", val: cleanResult.total_deleted, icon: "🔢" },
-              { label: "vs Silver", val: cleanResult.staging_vs_silver, icon: "🥈" },
-              { label: "vs Gold", val: cleanResult.staging_vs_gold, icon: "🥇" },
+               { label: "Staging vs Gold", val: cleanResult.staging_vs_gold, icon: "🥇" },
+              { label: "Staging vs Silver", val: cleanResult.staging_vs_silver, icon: "🥈" },
               { label: "Interne", val: cleanResult.staging_internal, icon: "♻️" },
             ].map((item) => (
               <div key={item.label} className="px-2 sm:px-3 py-2 rounded-lg text-center"
@@ -486,9 +505,9 @@ export default function Lead() {
               { label: "🥇 Gold",     val: cleanResult.moved_to_gold },
               { label: "🥈 Silver",   val: cleanResult.moved_to_silver },
               { label: "🧹 Clean",    val: cleanResult.moved_to_clean },
-              { label: "📧 Emails",   val: cleanResult.emails_completed },
-              { label: "🏢 Sociétés", val: cleanResult.added_societes },
-              { label: "👤 Noms",     val: cleanResult.nom_prenom_completed },
+              { label: "📧 Emails complètè",   val: cleanResult.emails_completed },
+              { label: "🏢 Sociétés ajoutè", val: cleanResult.added_societes },
+              { label: "👤 Noms complètè",     val: cleanResult.nom_prenom_completed },
             ].map((item) => (
               <div key={item.label} className="px-2 sm:px-3 py-2 rounded-lg text-center"
                 style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.15)" }}>

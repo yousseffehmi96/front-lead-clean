@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect } from "react"
-import { Plus, Trash2, Edit, X, Mail, ShieldCheck, Calendar, AlertTriangle } from "lucide-react"
+import { Plus, Trash2, Edit, X, Mail, ShieldCheck, Calendar, AlertTriangle, Clipboard } from "lucide-react"
 import { deleteUser, getAllUsers } from "@/api/user-actions" 
 import SignUpForm from "../sign-up/page"
 
@@ -24,6 +24,15 @@ export default function SettingsPage() {
   const [userToDelete, setUserToDelete] = useState<string | null>(null)
   const [loadingDelete, setLoadingDelete] = useState(false)
 
+
+  // ---------------- STATE TOKENS ----------------
+const [tokens, setTokens] = useState<any[]>([])
+const [loadingTokens, setLoadingTokens] = useState(false)
+const [isAddTokenModalOpen, setIsAddTokenModalOpen] = useState(false)
+const [newTokenName, setNewTokenName] = useState("")
+const [tokenToDelete, setTokenToDelete] = useState<string | null>(null)
+const [token, setToken] = useState<string>("")
+
   // ---------------- FETCH DATA ----------------
   const fetchRules = async () => {
     try {
@@ -45,9 +54,10 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
-    if (activeTab === "rules") fetchRules()
-    if (activeTab === "users") fetchUsers()
-  }, [activeTab])
+  if (activeTab === "rules") fetchRules()
+  if (activeTab === "users") fetchUsers()
+  if (activeTab === "tokens") fetchTokens()
+}, [activeTab])
 
   // ---------------- CRUD RULES ----------------
   const addRule = async () => {
@@ -125,6 +135,61 @@ export default function SettingsPage() {
     { id: "users", label: "Utilisateurs" },
     { id: "tokens", label: "Tokens" }
   ]
+
+
+  //Token
+
+
+ const fetchTokens = async () => {
+  setLoadingTokens(true)
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/token`)
+    const data = await res.json()
+
+    // 🔥 FIX IMPORTANT
+    setTokens(data.tokens || data.data || data || [])
+    
+  } catch (err) {
+    console.error("Erreur tokens:", err)
+    setTokens([]) // sécurité
+  }
+  setLoadingTokens(false)
+} 
+  const createToken = async () => {
+  if (!newTokenName.trim()) return
+ if (!token.trim()) return
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newTokenName,token:token })
+    })
+
+    if (res.ok) {
+      await fetchTokens()
+      setIsAddTokenModalOpen(false)
+      setNewTokenName("")
+    }
+  } catch (err) {
+    console.error(err)
+  }
+}
+
+const deleteToken = async (id: string) => {
+  try {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/token/${id}`, {
+      method: "DELETE"
+    })
+    await fetchTokens()
+  } catch (err) {
+    console.error(err)
+  }
+  setTokenToDelete(null)
+}
+
+const copyToken = (token: string) => {
+  navigator.clipboard.writeText(token)
+}
 
   return (
     <div className="min-h-screen p-8" style={{ background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)" }}>
@@ -531,17 +596,131 @@ export default function SettingsPage() {
       )}
 
       {/* --- CONTENT : TOKENS --- */}
-      {activeTab === "tokens" && (
-        <div className="animate-in fade-in duration-500">
-          <div className="text-center py-20">
-            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
-              <span className="text-3xl">🔑</span>
+     {/* --- CONTENT : TOKENS --- */}
+{activeTab === "tokens" && (
+  <div className="animate-in fade-in duration-500">
+
+    <div className="flex justify-between items-center mb-8">
+      <div>
+        <h2 className="text-2xl font-bold text-white">Tokens API</h2>
+        <p className="text-sm text-white/40">Gérez vos clés API</p>
+      </div>
+
+      <button
+        onClick={() => setIsAddTokenModalOpen(true)}
+        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 transition"
+      >
+        <Plus size={16} /> Nouveau token
+      </button>
+    </div>
+
+    <div className="space-y-4">
+      {loadingTokens ? (
+        <p className="text-white/30">Chargement...</p>
+      ) : tokens.length === 0 ? (
+        <p className="text-white/30">Aucun token</p>
+      ) : (
+        tokens.map((t) => (
+          <div key={t.id} className="p-4 rounded-xl bg-white/5 border border-white/10 flex justify-between items-center">
+            
+            <div>
+              <p className="text-white font-medium">{t.name}</p>
+              <p className="text-xs text-white/40">
+                Créé le {new Date(t.createdAt).toLocaleDateString()}
+              </p>
+              <p className="text-xs text-indigo-300 mt-1 font-mono">
+                {t.token.slice(0, 8)}••••••••
+              </p>
             </div>
-            <h3 className="text-xl font-bold text-white mb-2">Tokens API</h3>
-            <p className="text-white/40">Fonctionnalité à venir...</p>
+
+            <div className="flex gap-2">
+              <button
+  onClick={() => copyToken(t.token)}
+  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition shadow-md hover:shadow-lg"
+>
+  <Clipboard size={16} />
+  Copier
+</button>
+
+              <button
+                onClick={() => setTokenToDelete(t.id)}
+                className="px-3 py-1 rounded bg-red-500/20 text-red-300 text-xs"
+              >
+                Supprimer
+              </button>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+
+    {/* MODAL CREATE TOKEN */}
+    {isAddTokenModalOpen && (
+      <div className="fixed inset-0 flex items-center justify-center bg-black/60">
+        <div className="bg-slate-900 p-6 rounded-xl w-full max-w-sm">
+          <h3 className="text-white mb-4">Créer un token</h3>
+
+          <input
+            type="text"
+            placeholder="Nom du token"
+            value={newTokenName}
+            onChange={(e) => setNewTokenName(e.target.value)}
+            className="w-full p-2 rounded bg-white/5 border border-white/10 text-white mb-4"
+          />
+          <input
+            type="text"
+            placeholder="Token"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            className="w-full p-2 rounded bg-white/5 border border-white/10 text-white mb-4"
+          />
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => setIsAddTokenModalOpen(false)}
+              className="flex-1 border border-white/10 text-white/70 py-2 rounded"
+            >
+              Annuler
+            </button>
+
+            <button
+              onClick={createToken}
+              className="flex-1 bg-indigo-500 text-white py-2 rounded"
+            >
+              Créer
+            </button>
           </div>
         </div>
-      )}
+      </div>
+    )}
+
+    {/* DELETE MODAL */}
+    {tokenToDelete && (
+      <div className="fixed inset-0 flex items-center justify-center bg-black/60">
+        <div className="bg-slate-900 p-6 rounded-xl w-full max-w-sm">
+          <p className="text-white mb-4">Supprimer ce token ?</p>
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => setTokenToDelete(null)}
+              className="flex-1 border border-white/10 text-white py-2 rounded"
+            >
+              Annuler
+            </button>
+
+            <button
+              onClick={() => deleteToken(tokenToDelete)}
+              className="flex-1 bg-red-500 text-white py-2 rounded"
+            >
+              Supprimer
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+  </div>
+)}
     </div>
   )
 }
