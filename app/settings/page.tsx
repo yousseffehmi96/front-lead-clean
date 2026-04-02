@@ -1,23 +1,28 @@
 "use client"
 import { useState, useEffect } from "react"
-import { Plus, Trash2, Edit, X, Mail, ShieldCheck, Calendar } from "lucide-react"
+import { Plus, Trash2, Edit, X, Mail, ShieldCheck, Calendar, AlertTriangle } from "lucide-react"
 import { deleteUser, getAllUsers } from "@/api/user-actions" 
 import SignUpForm from "../sign-up/page"
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("rules")
 
-  // ---------------- STATE ----------------
+  // ---------------- STATE RULES ----------------
   const [rules, setRules] = useState<any[]>([])
+  const [isAddRuleModalOpen, setIsAddRuleModalOpen] = useState(false)
+  const [newRuleForm, setNewRuleForm] = useState({ name: "", key: "", description: "" })
+  const [addRuleLoading, setAddRuleLoading] = useState(false)
+  const [addRuleError, setAddRuleError] = useState<string | null>(null)
+  const [editingRule, setEditingRule] = useState<number | null>(null)
+  const [editForm, setEditForm] = useState({ name: "", key: "", description: "" })
+  const [ruleToDelete, setRuleToDelete] = useState<number | null>(null)
+
+  // ---------------- STATE USERS ----------------
   const [users, setUsers] = useState<any[]>([]) 
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [editingRule, setEditingRule] = useState<number | null>(null)
-  const [editForm, setEditForm] = useState({ name: "", key: "", description: "" })
-
-  // ---------------- STATE DELETE USER ----------------
-  const [userToDelete, setUserToDelete] = useState<string | null>(null);
-  const [loadingDelete, setLoadingDelete] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<string | null>(null)
+  const [loadingDelete, setLoadingDelete] = useState(false)
 
   // ---------------- FETCH DATA ----------------
   const fetchRules = async () => {
@@ -44,11 +49,75 @@ export default function SettingsPage() {
     if (activeTab === "users") fetchUsers()
   }, [activeTab])
 
-  // --- CRUD RULES ---
-  const addRule = async () => { /* Ton code addRule ici */ }
+  // ---------------- CRUD RULES ----------------
+  const addRule = async () => {
+    if (!newRuleForm.name.trim()) {
+      setAddRuleError("Le nom de la règle est obligatoire")
+      return
+    }
+    if (!newRuleForm.key.trim()) {
+      setAddRuleError("La clé est obligatoire")
+      return
+    }
+
+    setAddRuleLoading(true)
+    setAddRuleError(null)
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/validation-rules`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newRuleForm)
+      })
+
+      if (res.ok) {
+        await fetchRules()
+        setIsAddRuleModalOpen(false)
+        setNewRuleForm({ name: "", key: "", description: "" })
+      } else {
+        const error = await res.json()
+        setAddRuleError(error.message || "Erreur lors de l'ajout de la règle")
+      }
+    } catch (err) {
+      console.error("Erreur ajout règle:", err)
+      setAddRuleError("Erreur de connexion au serveur")
+    } finally {
+      setAddRuleLoading(false)
+    }
+  }
+
   const startEdit = (rule: any) => {
     setEditingRule(rule.id)
     setEditForm({ name: rule.name, key: rule.key, description: rule.description || "" })
+  }
+
+  const updateRule = async (ruleId: number) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/validation-rules/${ruleId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm)
+      })
+      
+      if (res.ok) {
+        setEditingRule(null)
+        await fetchRules()
+      }
+    } catch (err) {
+      console.error('Erreur mise à jour:', err)
+    }
+  }
+
+  const deleteRule = async (ruleId: number) => {
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/validation-rules/${ruleId}`, {
+        method: 'DELETE'
+      })
+      await fetchRules()
+    } catch (err) {
+      console.error('Erreur suppression:', err)
+    }
+    setRuleToDelete(null)
   }
 
   const tabs = [
@@ -76,6 +145,8 @@ export default function SettingsPage() {
           </button>
         ))}
       </div>
+
+      {/* --- CONTENT : RULES --- */}
       {activeTab === "rules" && (
         <div className="animate-in fade-in duration-500">
           <div className="flex justify-between items-center mb-8">
@@ -83,7 +154,10 @@ export default function SettingsPage() {
               <h2 className="text-2xl font-bold text-white">Règles de validation</h2>
               <p className="text-sm text-white/40 mt-1">Gérez vos règles de nettoyage</p>
             </div>
-            <button onClick={addRule} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/20">
+            <button 
+              onClick={() => setIsAddRuleModalOpen(true)} 
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/20"
+            >
               <Plus size={16} /> Nouvelle règle
             </button>
           </div>
@@ -91,25 +165,215 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {rules.map((rule) => (
               <div key={rule.id} className="group p-5 rounded-xl border border-white/10 bg-white/5 transition hover:border-white/20">
-                {editingRule !== rule.id && (
-                  <div className="flex flex-col justify-between h-full">
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-indigo-500/10 text-indigo-400">⚙️</div>
-                      <div>
+                {editingRule !== rule.id ? (
+                  <>
+                    {/* Contenu de la carte */}
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-indigo-500/10 text-indigo-400">
+                        ⚙️
+                      </div>
+                      <div className="flex-1">
                         <h3 className="text-white font-semibold">{rule.name}</h3>
-                        <p className="text-xs text-indigo-300 opacity-60"> {rule.key}</p>
-                        <p className="text-sm text-white/40 mt-2 line-clamp-2">{rule.description}</p>
+                        <p className="text-xs text-indigo-300 opacity-60">{rule.key}</p>
+                        <p className="text-sm text-white/40 mt-2 line-clamp-2">
+                          {rule.description}
+                        </p>
                       </div>
                     </div>
-                    <div className="flex justify-end gap-2 mt-4 opacity-0 group-hover:opacity-100 transition">
-                       <button onClick={() => startEdit(rule)} className="p-2 rounded-lg bg-white/5 text-indigo-400 hover:bg-white/10"><Edit size={16} /></button>
-                       <button onClick={() => {}} className="p-2 rounded-lg bg-white/5 text-red-400 hover:bg-white/10"><Trash2 size={16} /></button>
+
+                    {/* Boutons d'action */}
+                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={() => startEdit(rule)} 
+                        className="p-2 rounded-lg bg-white/5 text-indigo-400 hover:bg-indigo-500/20 hover:text-indigo-300 transition-all"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button 
+                        onClick={() => setRuleToDelete(rule.id)} 
+                        className="p-2 rounded-lg bg-white/5 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  /* Formulaire d'édition */
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:border-indigo-500/50 outline-none"
+                      placeholder="Nom de la règle"
+                    />
+                    <input
+                      type="text"
+                      value={editForm.key}
+                      onChange={(e) => setEditForm({ ...editForm, key: e.target.value })}
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:border-indigo-500/50 outline-none"
+                      placeholder="Clé (ex: email_valid)"
+                    />
+                    <textarea
+                      value={editForm.description}
+                      onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:border-indigo-500/50 outline-none resize-none"
+                      placeholder="Description"
+                      rows={3}
+                    />
+                    
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => setEditingRule(null)}
+                        className="px-3 py-1.5 text-sm rounded-lg border border-white/10 text-white/70 hover:bg-white/5 transition"
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        onClick={() => updateRule(rule.id)}
+                        className="px-3 py-1.5 text-sm rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 transition"
+                      >
+                        Enregistrer
+                      </button>
                     </div>
                   </div>
                 )}
               </div>
             ))}
           </div>
+
+          {/* MODAL AJOUT RÈGLE */}
+          {isAddRuleModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+              <div className="bg-gradient-to-br from-slate-900 to-indigo-950 border border-white/10 p-8 rounded-2xl w-full max-w-md shadow-2xl relative animate-in zoom-in duration-200">
+                <button 
+                  onClick={() => {
+                    setIsAddRuleModalOpen(false)
+                    setNewRuleForm({ name: "", key: "", description: "" })
+                    setAddRuleError(null)
+                  }} 
+                  className="absolute top-4 right-4 text-white/40 hover:text-white transition"
+                >
+                  <X size={20} />
+                </button>
+
+                <div className="text-center mb-6">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-400 flex items-center justify-center mx-auto mb-3 shadow-lg text-xl">
+                    ⚙️
+                  </div>
+                  <h3 className="text-xl font-bold text-white">Nouvelle règle</h3>
+                  <p className="text-sm text-white/50 mt-1">Créer une règle de validation</p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-white/50 text-xs font-semibold mb-2 tracking-wider">
+                      NOM DE LA RÈGLE *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Email valide"
+                      value={newRuleForm.name}
+                      onChange={(e) => setNewRuleForm({ ...newRuleForm, name: e.target.value })}
+                      className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:border-indigo-500/50 outline-none transition"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-white/50 text-xs font-semibold mb-2 tracking-wider">
+                      CLÉ UNIQUE *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="email_valid"
+                      value={newRuleForm.key}
+                      onChange={(e) => setNewRuleForm({ ...newRuleForm, key: e.target.value })}
+                      className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:border-indigo-500/50 outline-none transition"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-white/50 text-xs font-semibold mb-2 tracking-wider">
+                      DESCRIPTION
+                    </label>
+                    <textarea
+                      placeholder="Vérifie que l'email est valide..."
+                      value={newRuleForm.description}
+                      onChange={(e) => setNewRuleForm({ ...newRuleForm, description: e.target.value })}
+                      className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:border-indigo-500/50 outline-none transition resize-none"
+                      rows={3}
+                    />
+                  </div>
+
+                  {addRuleError && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-2.5 text-red-400 text-xs">
+                      {addRuleError}
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      onClick={() => {
+                        setIsAddRuleModalOpen(false)
+                        setNewRuleForm({ name: "", key: "", description: "" })
+                        setAddRuleError(null)
+                      }}
+                      className="flex-1 px-4 py-2.5 rounded-lg border border-white/10 text-white/70 hover:bg-white/5 transition text-sm font-medium"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={addRule}
+                      disabled={addRuleLoading}
+                      className={`flex-1 px-4 py-2.5 rounded-lg text-white font-semibold text-sm shadow-lg transition ${
+                        addRuleLoading
+                          ? "bg-indigo-500/40 cursor-not-allowed shadow-none"
+                          : "bg-gradient-to-br from-indigo-500 to-indigo-400 shadow-indigo-500/30 hover:shadow-indigo-500/50"
+                      }`}
+                    >
+                      {addRuleLoading ? "Création..." : "Créer"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL CONFIRM DELETE RULE */}
+          {ruleToDelete && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+              <div className="bg-gradient-to-br from-slate-900 to-indigo-950 border border-white/10 p-8 rounded-2xl w-full max-w-md shadow-2xl relative animate-in zoom-in duration-200">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center">
+                    <AlertTriangle className="text-red-400" size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold text-lg">Confirmer la suppression</h3>
+                    <p className="text-white/50 text-sm">Cette action est irréversible</p>
+                  </div>
+                </div>
+                
+                <p className="text-white/70 text-sm mb-6">
+                  Êtes-vous sûr de vouloir supprimer cette règle de validation ?
+                </p>
+                
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setRuleToDelete(null)}
+                    className="flex-1 px-4 py-2.5 rounded-lg border border-white/10 text-white/70 hover:bg-white/5 transition-all text-sm font-medium"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={() => deleteRule(ruleToDelete)}
+                    className="flex-1 px-4 py-2.5 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-all text-sm font-medium shadow-lg shadow-red-500/30"
+                  >
+                    Supprimer
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -212,47 +476,70 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* MODAL CONFIRM DELETE */}
+          {/* MODAL CONFIRM DELETE USER */}
           {userToDelete && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-              <div className="bg-slate-900 border border-white/10 p-8 rounded-2xl w-full max-w-md shadow-2xl relative animate-in zoom-in duration-200 text-center">
-                <h3 className="text-xl font-bold text-white mb-2">Confirm Deletion</h3>
-                <p className="text-white/60 mb-6">Are you sure you want to delete this user? This action cannot be undone.</p>
+              <div className="bg-gradient-to-br from-slate-900 to-indigo-950 border border-white/10 p-8 rounded-2xl w-full max-w-md shadow-2xl relative animate-in zoom-in duration-200">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center">
+                    <AlertTriangle className="text-red-400" size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold text-lg">Confirmer la suppression</h3>
+                    <p className="text-white/50 text-sm">Cette action est irréversible</p>
+                  </div>
+                </div>
                 
-                <div className="flex justify-center gap-4">
-                  <button 
+                <p className="text-white/70 text-sm mb-6">
+                  Êtes-vous sûr de vouloir supprimer cet utilisateur ? Toutes ses données seront perdues définitivement.
+                </p>
+                
+                <div className="flex gap-3">
+                  <button
                     onClick={() => setUserToDelete(null)}
-                    className="px-4 py-2 rounded-lg border border-white/20 text-white hover:bg-white/10 transition"
+                    className="flex-1 px-4 py-2.5 rounded-lg border border-white/10 text-white/70 hover:bg-white/5 transition-all text-sm font-medium"
                   >
-                    Cancel
+                    Annuler
                   </button>
-
-                  <button 
+                  <button
                     onClick={async () => {
-                      if (!userToDelete) return;
-                      setLoadingDelete(true);
-                      const result = await deleteUser(userToDelete);
+                      if (!userToDelete) return
+                      setLoadingDelete(true)
+                      const result = await deleteUser(userToDelete)
                       if (result.success) {
-                        setUsers(users.filter(u => u.id !== userToDelete));
+                        setUsers(users.filter(u => u.id !== userToDelete))
                       } else {
-                        console.error(result.error);
+                        console.error(result.error)
                       }
-                      setLoadingDelete(false);
-                      setUserToDelete(null);
+                      setLoadingDelete(false)
+                      setUserToDelete(null)
                     }}
                     disabled={loadingDelete}
-                    className={`px-4 py-2 rounded-lg text-white font-semibold transition ${
+                    className={`flex-1 px-4 py-2.5 rounded-lg text-white font-semibold transition-all text-sm shadow-lg shadow-red-500/30 ${
                       loadingDelete
                         ? "bg-red-400/50 cursor-not-allowed"
-                        : "bg-red-600 hover:bg-red-500"
+                        : "bg-red-500 hover:bg-red-600"
                     }`}
                   >
-                    {loadingDelete ? "Deleting..." : "Delete"}
+                    {loadingDelete ? "Suppression..." : "Supprimer"}
                   </button>
                 </div>
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* --- CONTENT : TOKENS --- */}
+      {activeTab === "tokens" && (
+        <div className="animate-in fade-in duration-500">
+          <div className="text-center py-20">
+            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
+              <span className="text-3xl">🔑</span>
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Tokens API</h3>
+            <p className="text-white/40">Fonctionnalité à venir...</p>
+          </div>
         </div>
       )}
     </div>
