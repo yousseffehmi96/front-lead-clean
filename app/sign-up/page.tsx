@@ -7,7 +7,6 @@ const ROLES = [
   { value: "agent", label: "Agent", icon: "👨‍💻" },
 ];
 
-// AJOUT DE L'INTERFACE POUR TYPESCRIPT
 interface SignUpFormProps {
   onSuccess: () => void;
 }
@@ -41,12 +40,14 @@ export default function SignUpForm({ onSuccess }: SignUpFormProps) {
       });
 
       if (result.success) {
+        console.log(result);
+        
         // RÉUSSITE
         setFirstName("");
         setLastName("");
         setEmail("");
         setRole("");
-        onSuccess(); // Appelle la fermeture de la modale et le refresh
+        onSuccess(); 
       } else {
         setError(result.error || "Une erreur est survenue");
       }
