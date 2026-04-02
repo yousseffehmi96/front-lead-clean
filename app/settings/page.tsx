@@ -169,6 +169,7 @@ const [token, setToken] = useState<string>("")
       await fetchTokens()
       setIsAddTokenModalOpen(false)
       setNewTokenName("")
+      setToken("")
     }
   } catch (err) {
     console.error(err)
