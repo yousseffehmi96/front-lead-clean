@@ -4,6 +4,8 @@ import { useParams, useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { Upload, Sparkles, RefreshCw, Download, Trash2, Menu, X } from "lucide-react"
 import { useAuth } from "@clerk/nextjs"
+import { useSelector } from "react-redux"
+
 /*export default function LeadWrapper() {
   const { isSignedIn, isLoaded } = useAuth()
   const router = useRouter()
@@ -34,7 +36,8 @@ export default function Lead() {
   const [uploadedFilename, setUploadedFilename] = useState<string>("")
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-
+      const userId = useSelector((state:any) => state.user.userId)
+const email = useSelector((state:any) => state.user.email)
   const params = useParams()
   const leads = params.lead
 
@@ -44,6 +47,9 @@ export default function Lead() {
     ).data || []
 
   useEffect(() => {
+      console.log(userId);
+      console.log(email);
+      
     const load = async () => {
       const [{ default: DataTable }, { default: DT }] = await Promise.all([
         import("datatables.net-react"),
@@ -55,7 +61,7 @@ export default function Lead() {
       setDTableComponent(() => DataTable)
     }
     load()
-  }, [])
+  }, [email])
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -65,9 +71,11 @@ export default function Lead() {
     setCleanResult(null)
     setMobileMenuOpen(false)
     try {
+
       const formData = new FormData()
       formData.append("file", file)
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload`, { method: "POST", body: formData })
+      formData.append("userid", userId.toString())
+       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload`, { method: "POST", body: formData })
       if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`)
       setUploadedFilename(file.name)
       setRefresh((prev) => prev + 1)

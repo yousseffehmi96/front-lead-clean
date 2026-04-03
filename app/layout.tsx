@@ -4,6 +4,9 @@ import "./globals.css";
 import Navbar from "../componets/navbar";
 import { ClerkProvider } from "@clerk/nextjs";
 import { usePathname } from "next/navigation"; // Import pour détecter la page
+import { Provider } from "react-redux"
+import { store } from "../store/store"
+import AuthSync from "@/componets/AuthSync"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,14 +35,17 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-row h-screen`}
         style={{ background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)" }}
       >
-        <ClerkProvider 
-        
+        <ClerkProvider
+
         >
           {/* Affiche la Navbar UNIQUEMENT si ce n'est pas une page d'auth */}
           {!isAuthPage && <Navbar />}
 
           <main className={`flex-1 overflow-y-auto h-screen ${isAuthPage ? 'w-full' : ''}`}>
-            {children}
+            <Provider store={store}>
+              <AuthSync />
+              {children}
+            </Provider>
           </main>
         </ClerkProvider>
       </body>

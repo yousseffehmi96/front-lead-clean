@@ -72,6 +72,25 @@ export async function getAllUsers() {
   }
 }
 
+export async function getUserById(userId: string) {
+  try {
+    const clerk = await clerkClient()
+
+    const user = await clerk.users.getUser(userId)
+
+    return {
+      id: user.id,
+      firstName: user.publicMetadata.firstName as string,
+      lastName: user.publicMetadata.lastName as string,
+      email: user.emailAddresses[0]?.emailAddress,
+      role: user.publicMetadata.role as string || "agent",
+    }
+  } catch (err: any) {
+    console.error("Erreur récupération user:", err)
+    return null
+  }
+}
+
 
 export async function deleteUser(userId: string) {
   try {

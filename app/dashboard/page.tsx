@@ -6,7 +6,7 @@ import { Chart, registerables } from "chart.js"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import { useAuth } from "@clerk/nextjs"
 import { useRouter } from "next/navigation"
-
+import { getUserById } from "@/api/user-actions"
 Chart.register(...registerables)
 
 interface Stat {
@@ -25,6 +25,7 @@ interface Stat {
   staging_vs_gold: number
   staging_internal: number
   total_deleted: number
+  iduser:string
   created_at: string
 }
 
@@ -117,6 +118,8 @@ function DoughnutChart({ stats }: { stats: Stat[] }) {
       },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: "65%" },
     })
+    
+    
     return () => chart.destroy()
   }, [stats])
 
@@ -124,10 +127,23 @@ function DoughnutChart({ stats }: { stats: Stat[] }) {
 }
 
 function StatRow({ d, idx }: { d: Stat; idx: number }) {
-  const [open, setOpen] = useState(false)
+    const [open, setOpen] = useState(false)
+const [user, setuser] = useState<{id: string; firstName: string; lastName: string; email: string; role: string; } | null>(null)
   const detected = (d.inserted_rows ?? 0) + (d.total_deleted ?? 0)
   const cleaned  = d.total_deleted ?? 0
   const inserted = d.inserted_rows ?? 0
+  const userid=d.iduser
+  useEffect(() => {
+  const fetchUser = async () => {
+    const user = await getUserById(userid)
+    setuser(user)
+  }
+
+  if (userid) {
+    fetchUser()
+  }
+}, [userid])
+  
 const details = [
   { label: "Emails complétés", val: d.emails_completed ?? 0, i: 2 },
   { label: "Sociétés complétées", val: d.societe_completed ?? 0, i: 3 },
@@ -180,8 +196,13 @@ const details = [
           </span>
         </td>
         <td className="px-4 py-3 text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
+          {user?.firstName}
+        </td>
+        
+        <td className="px-4 py-3 text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
           {new Date(d.created_at).toLocaleDateString("fr-FR")}
         </td>
+        
       </tr>
       {open && (
         <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: "rgba(99,102,241,0.03)" }}>
@@ -297,6 +318,7 @@ const details = [
               <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Détectés</th>
               <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Nettoyés</th>
               <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Insérés</th>
+              <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>User</th>
               <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Date</th>
             </tr>
           </thead>
