@@ -220,7 +220,8 @@ function StatRow({ d, idx }: { d: Stat; idx: number }) {
             <span style={{ color: "rgba(255,255,255,0.2)" }}>...</span>
           ) : user ? (
             <span style={{ color: "rgba(255,255,255,0.6)" }}>
-              {user.firstName} {user.lastName}
+              {userid ? userid.substring(0, 8) : "N/A"}
+
             </span>
           ) : (
             <span style={{ color: "rgba(255,255,255,0.2)" }}>{userid}</span>
