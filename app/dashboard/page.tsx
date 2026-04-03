@@ -25,8 +25,16 @@ interface Stat {
   staging_vs_gold: number
   staging_internal: number
   total_deleted: number
-  iduser:string
+  iduser: string
   created_at: string
+}
+
+type User = {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  role: string
 }
 
 const DATASETS = [
@@ -118,8 +126,7 @@ function DoughnutChart({ stats }: { stats: Stat[] }) {
       },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: "65%" },
     })
-    
-    
+
     return () => chart.destroy()
   }, [stats])
 
@@ -127,35 +134,48 @@ function DoughnutChart({ stats }: { stats: Stat[] }) {
 }
 
 function StatRow({ d, idx }: { d: Stat; idx: number }) {
-    const [open, setOpen] = useState(false)
-const [user, setuser] = useState<{id: string; firstName: string; lastName: string; email: string; role: string; } | null>(null)
-  const detected = (d.inserted_rows ?? 0) + (d.total_deleted ?? 0)
-  const cleaned  = d.total_deleted ?? 0
-  const inserted = d.inserted_rows ?? 0
-  const userid=d.iduser
-  useEffect(() => {
-  const fetchUser = async () => {
-    const user = await getUserById(userid)
-    setuser(user)
-  }
+  const [open, setOpen] = useState(false)
+  const [user, setuser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  if (userid) {
+  const detected = (d.inserted_rows ?? 0) + (d.total_deleted ?? 0)
+  const cleaned = d.total_deleted ?? 0
+  const inserted = d.inserted_rows ?? 0
+  const userid = d.iduser
+
+  useEffect(() => {
+    if (!userid) {
+      setLoading(false)
+      return
+    }
+
+    const fetchUser = async () => {
+      try {
+        const userData = await getUserById(userid)
+        setuser(userData)
+      } catch (error) {
+        console.error("Erreur lors de la récupération de l'utilisateur:", error)
+        setuser(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
     fetchUser()
-  }
-}, [userid])
-  
-const details = [
-  { label: "Emails complétés", val: d.emails_completed ?? 0, i: 2 },
-  { label: "Sociétés complétées", val: d.societe_completed ?? 0, i: 3 },
-  { label: "Sociétés ajoutées", val: d.added_societes ?? 0, i: 4 },
-  { label: "Blacklistés retirés", val: d.blacklisted_removed ?? 0, i: 5 },
-  { label: "🥇 Gold", val: d.moved_to_gold ?? 0, i: 6 },
-  { label: "🥈 Silver", val: d.moved_to_silver ?? 0, i: 7 },
-  { label: "🧹 Clean", val: d.moved_to_clean ?? 0, i: 8 },
-  { label: "Staging vs Silver", val: d.staging_vs_silver ?? 0, i: 0 },
-  { label: "Staging vs Gold", val: d.staging_vs_gold ?? 0, i: 1 },
-  { label: "Staging Internal", val: d.staging_internal ?? 0, i: 2 },
-]
+  }, [userid])
+
+  const details = [
+    { label: "Emails complétés", val: d.emails_completed ?? 0, i: 2 },
+    { label: "Sociétés complétées", val: d.societe_completed ?? 0, i: 3 },
+    { label: "Sociétés ajoutées", val: d.added_societes ?? 0, i: 4 },
+    { label: "Blacklistés retirés", val: d.blacklisted_removed ?? 0, i: 5 },
+    { label: "🥇 Gold", val: d.moved_to_gold ?? 0, i: 6 },
+    { label: "🥈 Silver", val: d.moved_to_silver ?? 0, i: 7 },
+    { label: "🧹 Clean", val: d.moved_to_clean ?? 0, i: 8 },
+    { label: "Staging vs Silver", val: d.staging_vs_silver ?? 0, i: 0 },
+    { label: "Staging vs Gold", val: d.staging_vs_gold ?? 0, i: 1 },
+    { label: "Staging Internal", val: d.staging_internal ?? 0, i: 2 },
+  ]
 
   return (
     <>
@@ -196,17 +216,24 @@ const details = [
           </span>
         </td>
         <td className="px-4 py-3 text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
-    {user ? `${user.firstName} ${user.lastName}` : userid}
-  </td>
-        
+          {loading ? (
+            <span style={{ color: "rgba(255,255,255,0.2)" }}>...</span>
+          ) : user ? (
+            <span style={{ color: "rgba(255,255,255,0.6)" }}>
+              {user.firstName} {user.lastName}
+            </span>
+          ) : (
+            <span style={{ color: "rgba(255,255,255,0.2)" }}>{userid}</span>
+          )}
+        </td>
+
         <td className="px-4 py-3 text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
           {new Date(d.created_at).toLocaleDateString("fr-FR")}
         </td>
-        
       </tr>
       {open && (
         <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: "rgba(99,102,241,0.03)" }}>
-          <td colSpan={5} style={{ padding: "10px 24px 14px" }}>
+          <td colSpan={6} style={{ padding: "10px 24px 14px" }}>
             <div className="flex flex-wrap gap-2">
               {details.map(({ label, val, i }) => (
                 <div key={label} className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: CARD_COLORS[i].bg, border: `1px solid ${CARD_COLORS[i].border}` }}>
@@ -222,7 +249,7 @@ const details = [
   )
 }
 
- export default function Dashboard() {
+export default function Dashboard() {
   const { data } = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/stat`)
   const stats = data as Stat[]
 
