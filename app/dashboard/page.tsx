@@ -63,15 +63,30 @@ const CARD_COLORS = [
   { color: "#f87171", bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.2)" },
 ]
 
+// Hook pour détecter l'écran mobile
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener("resize", checkMobile)
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
+
+  return isMobile
+}
+
 function MultiBarChart({ stats }: { stats: Stat[] }) {
   const ref = useRef<HTMLCanvasElement>(null)
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     if (!ref.current) return
     const chart = new Chart(ref.current, {
       type: "bar",
       data: {
-        labels: stats.map(d => d.filename),
+        labels: stats.map(d => d.filename.substring(0, 15)), // Raccourcir les labels
         datasets: DATASETS.map(d => ({
           label: d.label,
           data: stats.map(s => s[d.key as keyof Stat] as number),
@@ -85,13 +100,22 @@ function MultiBarChart({ stats }: { stats: Stat[] }) {
         maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-          x: { grid: { display: false }, ticks: { color: "rgba(255,255,255,0.3)", font: { size: 10 } }, border: { color: "rgba(255,255,255,0.06)" } },
+          x: {
+            grid: { display: false },
+            ticks: {
+              color: "rgba(255,255,255,0.3)",
+              font: { size: isMobile ? 8 : 10 },
+              maxRotation: isMobile ? 45 : 0,
+              minRotation: isMobile ? 45 : 0,
+            },
+            border: { color: "rgba(255,255,255,0.06)" },
+          },
           y: {
             type: "logarithmic",
             grid: { color: "rgba(255,255,255,0.05)" },
             ticks: {
               color: "rgba(255,255,255,0.3)",
-              font: { size: 10 },
+              font: { size: isMobile ? 8 : 10 },
               callback: (val: string | number) => {
                 const num = Number(val)
                 return Number.isInteger(Math.log10(num)) || num === 0 ? num : ""
@@ -103,7 +127,7 @@ function MultiBarChart({ stats }: { stats: Stat[] }) {
       },
     })
     return () => chart.destroy()
-  }, [stats])
+  }, [stats, isMobile])
 
   return <canvas ref={ref} />
 }
@@ -124,7 +148,15 @@ function DoughnutChart({ stats }: { stats: Stat[] }) {
           borderColor: "rgba(255,255,255,0.05)",
         }],
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: "65%" },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: true }
+        },
+        cutout: "65%",
+      },
     })
 
     return () => chart.destroy()
@@ -137,6 +169,7 @@ function StatRow({ d, idx }: { d: Stat; idx: number }) {
   const [open, setOpen] = useState(false)
   const [user, setuser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const isMobile = useIsMobile()
 
   const detected = (d.inserted_rows ?? 0) + (d.total_deleted ?? 0)
   const cleaned = d.total_deleted ?? 0
@@ -177,6 +210,60 @@ function StatRow({ d, idx }: { d: Stat; idx: number }) {
     { label: "Staging Internal", val: d.staging_internal ?? 0, i: 2 },
   ]
 
+  // Mode mobile : afficher comme une carte
+  if (isMobile) {
+    return (
+      <div className="px-3 py-3 rounded-lg mb-2" style={{ background: open ? "rgba(99,102,241,0.1)" : "rgba(255,255,255,0.01)", border: "1px solid rgba(255,255,255,0.06)", transition: "background 0.2s" }}>
+        <div onClick={() => setOpen(!open)} style={{ cursor: "pointer" }}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <span style={{ color: open ? "#818cf8" : "rgba(255,255,255,0.25)" }}>
+                {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              </span>
+              <span className="text-xs font-medium truncate" style={{ color: open ? "#c7d2fe" : "white" }}>
+                {d.filename}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 mb-2">
+            <div className="rounded-lg p-2" style={{ background: CARD_COLORS[3].bg, border: `1px solid ${CARD_COLORS[3].border}` }}>
+              <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Détectés</p>
+              <p className="text-sm font-bold" style={{ color: CARD_COLORS[3].color }}>{detected}</p>
+            </div>
+            <div className="rounded-lg p-2" style={{ background: CARD_COLORS[2].bg, border: `1px solid ${CARD_COLORS[2].border}` }}>
+              <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Nettoyés</p>
+              <p className="text-sm font-bold" style={{ color: CARD_COLORS[2].color }}>{cleaned}</p>
+            </div>
+            <div className="rounded-lg p-2" style={{ background: CARD_COLORS[0].bg, border: `1px solid ${CARD_COLORS[0].border}` }}>
+              <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Insérés</p>
+              <p className="text-sm font-bold" style={{ color: CARD_COLORS[0].color }}>{inserted}</p>
+            </div>
+          </div>
+
+          <div className="flex justify-between text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
+            <span>{loading ? "..." : (user?.firstName || userid)}</span>
+            <span>{new Date(d.created_at).toLocaleDateString("fr-FR")}</span>
+          </div>
+        </div>
+
+        {open && (
+          <div className="mt-3 pt-3 border-t border-rgba(255,255,255,0.06)" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            <div className="flex flex-wrap gap-2">
+              {details.map(({ label, val, i }) => (
+                <div key={label} className="flex items-center gap-1 px-2 py-1 rounded text-xs" style={{ background: CARD_COLORS[i].bg, border: `1px solid ${CARD_COLORS[i].border}` }}>
+                  <span style={{ color: "rgba(255,255,255,0.35)" }}>{label}</span>
+                  <span style={{ color: CARD_COLORS[i].color, fontWeight: "600" }}>{val}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Mode desktop : afficher comme une table
   return (
     <>
       <tr
@@ -252,6 +339,7 @@ function StatRow({ d, idx }: { d: Stat; idx: number }) {
 export default function Dashboard() {
   const { data } = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/stat`)
   const stats = data as Stat[]
+  const isMobile = useIsMobile()
 
   const totals = useMemo(() => {
     if (!stats) return null
@@ -280,80 +368,97 @@ export default function Dashboard() {
     </div>
   )
 
-  const metricCards = [
-    { label: "Total insérés", value: totals?.inserted ?? 0 },
-    { label: "Emails complétés", value: totals?.emails ?? 0 },
-    { label: "Sociétés complétées", value: totals?.societe ?? 0 },
-    { label: "Sociétés ajoutées", value: totals?.added_societes ?? 0 },
-    { label: "Blacklistés retirés", value: totals?.blacklisted ?? 0 },
-    { label: "🥇 Gold", value: totals?.gold ?? 0 },
-    { label: "🥈 Silver", value: totals?.silver ?? 0 },
-    { label: "Supprimés", value: totals?.total_deleted ?? 0 },
-  ]
+  // Afficher moins de cartes sur mobile
+  const metricCards = isMobile
+    ? [
+      { label: "Total insérés", value: totals?.inserted ?? 0 },
+      { label: "Emails", value: totals?.emails ?? 0 },
+      { label: "Sociétés", value: totals?.societe ?? 0 },
+      { label: "Supprimés", value: totals?.total_deleted ?? 0 },
+    ]
+    : [
+      { label: "Total insérés", value: totals?.inserted ?? 0 },
+      { label: "Emails complétés", value: totals?.emails ?? 0 },
+      { label: "Sociétés complétées", value: totals?.societe ?? 0 },
+      { label: "Sociétés ajoutées", value: totals?.added_societes ?? 0 },
+      { label: "Blacklistés retirés", value: totals?.blacklisted ?? 0 },
+      { label: "🥇 Gold", value: totals?.gold ?? 0 },
+      { label: "🥈 Silver", value: totals?.silver ?? 0 },
+      { label: "Supprimés", value: totals?.total_deleted ?? 0 },
+    ]
 
   return (
-    <div className="h-full overflow-y-auto p-6 space-y-5" style={{ color: "#cbd5e1", background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)" }}>
-      <div style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "16px" }}>
-        <h1 className="text-white font-semibold text-lg">Dashboard</h1>
+    <div className="h-full overflow-y-auto" style={{ color: "#cbd5e1", background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)", padding: isMobile ? "1rem" : "1.5rem" }}>
+      <div style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "1rem", marginBottom: "1.5rem" }}>
+        <h1 className="text-white font-semibold" style={{ fontSize: isMobile ? "1.25rem" : "1.125rem" }}>Dashboard</h1>
         <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>{stats.length} imports enregistrés</p>
       </div>
 
       {totals && (
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(auto-fit, minmax(150px, 1fr))", gap: "0.75rem", marginBottom: "1.5rem" }}>
           {metricCards.map((m, i) => (
-            <div key={m.label} className="rounded-xl p-4" style={{ background: CARD_COLORS[i].bg, border: `1px solid ${CARD_COLORS[i].border}` }}>
-              <p className="text-xs mb-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>{m.label}</p>
-              <p className="text-2xl font-bold" style={{ color: CARD_COLORS[i].color }}>{m.value.toLocaleString("fr-FR")}</p>
+            <div key={m.label} className="rounded-xl p-3" style={{ background: CARD_COLORS[i % CARD_COLORS.length].bg, border: `1px solid ${CARD_COLORS[i % CARD_COLORS.length].border}` }}>
+              <p className="text-xs mb-1" style={{ color: "rgba(255,255,255,0.4)" }}>{m.label}</p>
+              <p style={{ fontSize: isMobile ? "1rem" : "1.5rem", fontWeight: "bold", color: CARD_COLORS[i % CARD_COLORS.length].color }}>{m.value.toLocaleString("fr-FR")}</p>
             </div>
           ))}
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Charts - En colonne sur mobile, en grille sur desktop */}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>
         <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-          <p className="text-sm font-medium text-white mb-3">Statistiques par fichier</p>
-          <div className="flex flex-wrap gap-3 mb-3">
-            {DATASETS.map(d => (
-              <span key={d.key} className="flex items-center gap-1.5 text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
-                <span className="w-2 h-2 rounded-sm inline-block" style={{ background: d.color }} />
+          <p className="text-sm font-medium text-white mb-2">Statistiques par fichier</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem" }}>
+            {DATASETS.slice(0, isMobile ? 5 : 10).map(d => (
+              <span key={d.key} className="flex items-center gap-1" style={{ fontSize: isMobile ? "0.7rem" : "0.75rem", color: "rgba(255,255,255,0.4)" }}>
+                <span className="w-2 h-2 rounded-sm inline-block" style={{ background: d.color, minWidth: "0.5rem", minHeight: "0.5rem" }} />
                 {d.label}
               </span>
             ))}
           </div>
-          <div className="relative h-56"><MultiBarChart stats={stats} /></div>
+          <div style={{ position: "relative", height: isMobile ? "200px" : "224px" }}><MultiBarChart stats={stats} /></div>
         </div>
 
         <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-          <p className="text-sm font-medium text-white mb-3">Répartition des leads insérés</p>
-          <div className="flex flex-wrap gap-3 mb-3">
-            {stats.map((d, i) => (
-              <span key={d.id} className="flex items-center gap-1.5 text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
-                <span className="w-2 h-2 rounded-sm inline-block" style={{ background: CARD_COLORS[i % CARD_COLORS.length].color }} />
-                {d.filename} {total > 0 ? Math.round((d.inserted_rows / total) * 100) : 0}%
+          <p className="text-sm font-medium text-white mb-2">Répartition des leads</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem" }}>
+            {stats.slice(0, isMobile ? 3 : 6).map((d, i) => (
+              <span key={d.id} style={{ fontSize: isMobile ? "0.7rem" : "0.75rem", color: "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", gap: "0.375rem" }}>
+                <span className="w-2 h-2 rounded-sm inline-block" style={{ background: CARD_COLORS[i % CARD_COLORS.length].color, minWidth: "0.5rem", minHeight: "0.5rem" }} />
+                {d.filename.substring(0, isMobile ? 10 : 20)} {total > 0 ? Math.round((d.inserted_rows / total) * 100) : 0}%
               </span>
             ))}
           </div>
-          <div className="relative h-56"><DoughnutChart stats={stats} /></div>
+          <div style={{ position: "relative", height: isMobile ? "200px" : "224px" }}><DoughnutChart stats={stats} /></div>
         </div>
       </div>
 
-      <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
-        <table className="w-full text-sm table-auto border-collapse">
-          <thead>
-            <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-              <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Fichier</th>
-              <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Détectés</th>
-              <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Nettoyés</th>
-              <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Insérés</th>
-              <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>User</th>
-              <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {stats.map((d, idx) => <StatRow key={d.id} d={d} idx={idx} />)}
-          </tbody>
-        </table>
-      </div>
+      {/* Tableau ou Cartes */}
+      {isMobile ? (
+        <div style={{ marginBottom: "1rem" }}>
+          <p className="text-sm font-medium text-white mb-2">Détails des imports</p>
+          {stats.map((d, idx) => <StatRow key={d.id} d={d} idx={idx} />)}
+        </div>
+      ) : (
+        <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
+          <table className="w-full text-sm table-auto border-collapse">
+            <thead>
+              <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Fichier</th>
+                <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Détectés</th>
+                <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Nettoyés</th>
+                <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Insérés</th>
+                <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>User</th>
+                <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.map((d, idx) => <StatRow key={d.id} d={d} idx={idx} />)}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
