@@ -2,7 +2,7 @@
 import Usefetch from "@/hooks/SocieteFetch"
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
-import { Upload, Sparkles, RefreshCw, Download, Trash2, Menu, X, ChevronDown, ChevronUp, Filter, Eye, Phone, Mail, Building, User, Briefcase, Linkedin, Calendar } from "lucide-react"
+import { Upload, Sparkles, RefreshCw, Download, Trash2, Menu, X, ChevronDown, ChevronUp, Filter, Eye, Phone, Mail, Building, User, Briefcase, Linkedin, Calendar, MapPin } from "lucide-react"
 import { useAuth } from "@clerk/nextjs"
 import { useSelector } from "react-redux"
 
@@ -80,7 +80,8 @@ export default function Lead() {
       item.prenom?.toLowerCase().includes(searchLower) ||
       item.email?.toLowerCase().includes(searchLower) ||
       item.societe?.toLowerCase().includes(searchLower) ||
-      item.fonction?.toLowerCase().includes(searchLower)
+      item.fonction?.toLowerCase().includes(searchLower) ||
+      item.location?.toLowerCase().includes(searchLower)
     )
   })
   const totalMobilePages = Math.max(1, Math.ceil(filteredData.length / cardsPerPage))
@@ -279,6 +280,12 @@ export default function Lead() {
                 </a>
               </div>
             )}
+            {lead.location && (
+              <div className="flex items-center gap-2 text-sm">
+                <MapPin size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
+                <span className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>{lead.location}</span>
+              </div>
+            )}
           </div>
 
           {lead.created_at && (
@@ -325,7 +332,7 @@ export default function Lead() {
   }
 
   // Configuration DataTable (inchangée)
-  const searchableCols = new Set(["nom", "prenom", "email", "fonction", "societe", "telephone", "linkedin", "eliminer", "created_at"])
+  const searchableCols = new Set(["nom", "prenom", "email", "fonction", "societe", "telephone", "linkedin", "location", "eliminer", "created_at"])
   const baseColumns = [
     { data: "nom", title: "Nom", defaultContent: "" },
     { data: "prenom", title: "Prénom", defaultContent: "" },
@@ -334,6 +341,7 @@ export default function Lead() {
     { data: "societe", title: "Société", defaultContent: "" },
     { data: "telephone", title: "Téléphone", defaultContent: "" },
     { data: "linkedin", title: "LinkedIn", defaultContent: "", render: (val: string) => val ? `<a href="${val}" target="_blank" rel="noopener noreferrer" style="color:#818cf8;text-decoration:underline;">LinkedIn</a>` : "" },
+    { data: "location", title: "Location", defaultContent: "" },
   ]
   const blackColumn = { data: "eliminer", title: "Eliminer", defaultContent: "" }
   const prodColumn = { data: "id", title: "Action", orderable: false, render: (id: number) => `<div style="display:flex;gap:6px;flex-wrap:wrap;"><button data-id="${id}" data-type="Unsubscribe" class="dt-action-btn" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(244,63,94,0.4);color:#f43f5e;background:rgba(244,63,94,0.08);cursor:pointer;font-size:11px;font-weight:600;">Désabonner</button><button data-id="${id}" data-type="archive" class="dt-action-btn" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(148,163,184,0.3);color:#94a3b8;background:rgba(148,163,184,0.08);cursor:pointer;font-size:11px;font-weight:600;">Archiver</button></div>` }
