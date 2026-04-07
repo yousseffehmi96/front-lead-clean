@@ -33,7 +33,7 @@ export default function Lead() {
   // Détection mobile
   const [isMobile, setIsMobile] = useState(false)
   const isSilverView = leads === "silver"
-  const shouldUseDataTable = !isMobile && !isSilverView
+  const shouldUseDataTable = !isMobile
   const cardsPerPage = 20
   
   useEffect(() => {
@@ -46,10 +46,10 @@ export default function Lead() {
   }, [])
 
   useEffect(() => {
-    if (isSilverView && mobileView !== "cards") {
+    if (isMobile && mobileView !== "cards") {
       setMobileView("cards")
     }
-  }, [isSilverView, mobileView])
+  }, [isMobile, mobileView])
 
   useEffect(() => {
     if (!shouldUseDataTable) return
@@ -406,7 +406,7 @@ export default function Lead() {
             <span className="text-xs hidden sm:inline" style={{ color: "rgba(255,255,255,0.3)" }}>{data.length} entrées</span>
           </div>
           <div className="flex gap-2 w-full sm:w-auto justify-end">
-            {isMobile && !isSilverView && (
+            {isMobile && (
               <button onClick={() => setMobileView(mobileView === "table" ? "cards" : "table")} className="flex items-center gap-1 text-xs font-semibold px-2 py-1.5 rounded-lg md:hidden" style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}>
                 <Eye size={13} /> {mobileView === "table" ? "Cartes" : "Tableau"}
               </button>
@@ -424,7 +424,7 @@ export default function Lead() {
           </div>
         </div>
         {/* Barre de recherche mobile (vue cartes uniquement) */}
-        {(isSilverView || (isMobile && mobileView === "cards")) && data.length > 0 && (
+        {isMobile && mobileView === "cards" && data.length > 0 && (
           <div className="mt-3">
             <div className="relative">
               <input type="text" placeholder="Rechercher par nom, email, société..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0", outline: "none" }} />
@@ -551,7 +551,7 @@ export default function Lead() {
           <div className="text-center py-20" style={{ color: "rgba(255,255,255,0.2)" }}><div className="text-5xl mb-4">📭</div><p className="text-base font-medium" style={{ color: "rgba(255,255,255,0.35)" }}>Aucune donnée disponible</p>{leads === "staging" && <p className="text-xs mt-2" style={{ color: "rgba(255,255,255,0.2)" }}>Importez un fichier CSV ou Excel pour commencer</p>}</div>
         ) : (
           <>
-            {!shouldUseDataTable || (isMobile && mobileView === "cards") ? (
+            {isMobile && mobileView === "cards" ? (
               <div className="pb-4">
                 {filteredData.length === 0 ? (
                   <div className="text-center py-12" style={{ color: "rgba(255,255,255,0.3)" }}><p className="text-sm">Aucun résultat trouvé</p></div>
