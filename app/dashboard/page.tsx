@@ -190,14 +190,14 @@ function StatRow({ d, idx }: { d: Stat; idx: number }) {
         onMouseLeave={(e) => (e.currentTarget.style.background = open ? "rgba(99,102,241,0.07)" : idx % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)")}
         onClick={() => setOpen(!open)}
       >
-        <td className="px-4 py-3">
+<td className="px-3 md:px-4 py-3 text-white/80">
           <div className="flex items-center gap-2">
             <span style={{ color: open ? "#818cf8" : "rgba(255,255,255,0.25)", transition: "color 0.15s" }}>
               {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
             </span>
-            <span className="text-xs font-medium" style={{ color: open ? "#c7d2fe" : "white" }}>
-              {d.filename}
-            </span>
+           <span className="text-xs md:text-sm font-medium text-white truncate max-w-[120px] md:max-w-none">
+  {d.filename}
+</span>
           </div>
         </td>
         <td className="px-4 py-3">
@@ -210,26 +210,23 @@ function StatRow({ d, idx }: { d: Stat; idx: number }) {
             {cleaned}
           </span>
         </td>
-        <td className="px-4 py-3">
-          <span className="text-xs font-semibold px-2 py-1 rounded-md" style={{ color: CARD_COLORS[0].color, background: CARD_COLORS[0].bg, border: `1px solid ${CARD_COLORS[0].border}` }}>
-            {inserted}
-          </span>
-        </td>
-        <td className="px-4 py-3 text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
-          {loading ? (
-            <span style={{ color: "rgba(255,255,255,0.2)" }}>...</span>
-          ) : user ? (
-            <span style={{ color: "rgba(255,255,255,0.6)" }}>
-              {user.firstName}
-            </span>
-          ) : (
-            <span style={{ color: "rgba(255,255,255,0.2)" }}>{userid}</span>
-          )}
-        </td>
+       <td className="px-3 md:px-4 py-3">
+  <div className="flex items-center gap-2">
 
-        <td className="px-4 py-3 text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
-          {new Date(d.created_at).toLocaleDateString("fr-FR")}
-        </td>
+    <div className="w-7 h-7 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400 text-xs font-bold">
+      {user?.firstName?.[0] || "U"}
+    </div>
+
+    <span className="text-xs md:text-sm text-white/80 truncate max-w-[80px]">
+      {loading ? "..." : user?.firstName || userid}
+    </span>
+
+  </div>
+</td>
+
+        <td className="px-3 md:px-4 py-3 text-[11px] md:text-xs text-white/50">
+  {new Date(d.created_at).toLocaleDateString("fr-FR")}
+</td>
       </tr>
       {open && (
         <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: "rgba(99,102,241,0.03)" }}>
@@ -337,22 +334,30 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
-        <table className="w-full text-sm table-auto border-collapse">
-          <thead>
-            <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-              <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Fichier</th>
-              <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Détectés</th>
-              <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Nettoyés</th>
-              <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Insérés</th>
-              <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>User</th>
-              <th className="px-4 py-3 text-left text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {stats.map((d, idx) => <StatRow key={d.id} d={d} idx={idx} />)}
-          </tbody>
-        </table>
+      {/* TABLE */}
+<div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-md">
+
+  <table className="min-w-[600px] w-full text-xs md:text-sm">
+
+    {/* HEADER */}
+    <thead className="bg-white/5">
+      <tr className="text-white/60 text-[11px] md:text-xs uppercase tracking-wider">
+        <th className="px-3 md:px-4 py-3 text-left">Fichier</th>
+        <th className="px-3 md:px-4 py-3 text-left">Insérés</th>
+        <th className="px-3 md:px-4 py-3 text-left">Supprimés</th>
+        <th className="px-3 md:px-4 py-3 text-left">Utilisateur</th>
+        <th className="px-3 md:px-4 py-3 text-left">Date</th>
+      </tr>
+    </thead>
+
+    {/* BODY */}
+    <tbody className="divide-y divide-white/5">
+      {stats.map((d, idx) => (
+        <StatRow key={d.id} d={d} idx={idx} />
+      ))}
+    </tbody>
+
+  </table>
       </div>
     </div>
   )
