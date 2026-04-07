@@ -2,18 +2,18 @@
 import Delete from "@/componets/delete"
 import Usefetch from "@/hooks/SocieteFetch"
 import changeEtat from "@/hooks/Societeusestate"
-import { useState, useMemo, useEffect } from "react"
-import { Plus, Pencil, Trash2, Building2, X, Search, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
-import { useAuth } from "@clerk/nextjs"
-import { useRouter } from "next/navigation"
+import { useState, useMemo } from "react"
+import { 
+  Plus, Pencil, Trash2, Building2, X, Search, 
+  ChevronUp, ChevronDown, ChevronsUpDown, 
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight 
+} from "lucide-react"
 import Navbar from "@/componets/navbar"
 
 type SortDir = "asc" | "desc" | null
 type SortKey = "nom" | "domaine" | "extension" | null
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
-
-
 
 export default function Company() {
   const { societe, setsociete } = changeEtat()
@@ -41,7 +41,7 @@ export default function Company() {
     `${process.env.NEXT_PUBLIC_API_URL}/societe?refresh=` + refresh
   )
 
-  // Filter
+  // Logic: Filter
   const filtered = useMemo(() => {
     return (data ?? []).filter((d: any) =>
       (!colSearch.nom       || d.nom?.toLowerCase().includes(colSearch.nom.toLowerCase())) &&
@@ -50,7 +50,7 @@ export default function Company() {
     )
   }, [data, colSearch])
 
-  // Sort
+  // Logic: Sort
   const sorted = useMemo(() => {
     if (!sortKey || !sortDir) return filtered
     return [...filtered].sort((a: any, b: any) => {
@@ -60,7 +60,7 @@ export default function Company() {
     })
   }, [filtered, sortKey, sortDir])
 
-  // Paginate
+  // Logic: Paginate
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize))
   const safePage = Math.min(page, totalPages)
   const paginated = sorted.slice((safePage - 1) * pageSize, safePage * pageSize)
@@ -125,9 +125,9 @@ export default function Company() {
   }
 
   const SortIcon = ({ colKey }: { colKey: SortKey }) => {
-    if (sortKey !== colKey) return <ChevronsUpDown size={11} style={{ color: "rgba(255,255,255,0.2)" }} />
-    if (sortDir === "asc")  return <ChevronUp size={11} style={{ color: "#818cf8" }} />
-    return <ChevronDown size={11} style={{ color: "#818cf8" }} />
+    if (sortKey !== colKey) return <ChevronsUpDown size={11} className="opacity-20" />
+    if (sortDir === "asc")  return <ChevronUp size={11} className="text-indigo-400" />
+    return <ChevronDown size={11} className="text-indigo-400" />
   }
 
   const headers: { label: string; key: SortKey | null; sortable: boolean }[] = [
@@ -137,9 +137,8 @@ export default function Company() {
     { label: "Actions",   key: null,        sortable: false },
   ]
 
-  // Page numbers to show
   const pageNumbers = useMemo(() => {
-    const delta = 2
+    const delta = 1
     const range: number[] = []
     for (let i = Math.max(1, safePage - delta); i <= Math.min(totalPages, safePage + delta); i++) range.push(i)
     return range
@@ -148,275 +147,218 @@ export default function Company() {
   return (
     <>
       <div
-        className="h-full overflow-y-auto p-6 space-y-5"
+        className="min-h-screen flex flex-col p-4 md:p-8 space-y-6"
         style={{ color: "#cbd5e1", background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)" }}
       >
-        {/* Header */}
-        <div className="flex justify-between items-center pb-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        {/* --- HEADER RESPONSIVE --- */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-white/5">
           <div>
-            <h1 className="text-white font-semibold text-lg flex items-center gap-2">
-              <Building2 size={18} style={{ color: "#818cf8" }} />
-              Liste des sociétés
+            <h1 className="text-white font-bold text-xl flex items-center gap-2">
+              <Building2 size={22} className="text-indigo-400" />
+              Sociétés
             </h1>
-            <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
-              {filtered.length} société{filtered.length !== 1 ? "s" : ""}
-              {Object.keys(colSearch).length > 0 && (
-                <span style={{ color: "#818cf8" }}> · filtrées sur {sorted.length}</span>
-              )}
+            <p className="text-xs text-white/30 mt-1">
+              {filtered.length} résultats trouvés
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Clear filters */}
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             {Object.keys(colSearch).length > 0 && (
               <button
                 onClick={() => { setColSearch({}); setActiveCol(null); setPage(1) }}
-                className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg"
-                style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.2)", color: "#fda4af" }}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1 text-xs px-4 py-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300"
               >
-                <X size={11} /> Effacer filtres
+                <X size={14} /> Réinitialiser
               </button>
             )}
             <button
               onClick={() => setShowForm(true)}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
-              style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", color: "#a5b4fc" }}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-200"
             >
-              <Plus size={13} /> Ajouter une société
+              <Plus size={14} /> Ajouter
             </button>
           </div>
         </div>
 
-        {/* Table */}
-        <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
-          <table className="w-full text-sm">
+        {/* --- VUE MOBILE (CARTES) --- */}
+        <div className="grid grid-cols-1 gap-4 md:hidden">
+          {paginated.length === 0 ? (
+            <div className="text-center py-20 opacity-20">Aucune donnée disponible</div>
+          ) : (
+            paginated.map((d: any, idx: number) => (
+              <div 
+                key={d.id}
+                className="p-5 rounded-2xl space-y-4 border border-white/5 bg-white/5 relative overflow-hidden"
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-indigo-400/60">Société</span>
+                    <h3 className="text-white font-semibold text-lg leading-tight">{d.nom}</h3>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => { setisedit(true); setShowForm(true); setsociete(d) }}
+                      className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-indigo-300"
+                    >
+                      <Pencil size={16}/>
+                    </button>
+                    <button 
+                      onClick={() => { setDeletedata(true); setidsociete(d.id) }}
+                      className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400"
+                    >
+                      <Trash2 size={16}/>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 pt-2">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-white/20">Domaine</span>
+                    <span className="text-sm text-indigo-200">{d.domaine}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-white/20">Extension</span>
+                    <span className="text-sm text-emerald-400">.{d.extension}</span>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* --- VUE DESKTOP (TABLEAU) --- */}
+        <div className="hidden md:block rounded-2xl overflow-hidden border border-white/5 bg-black/20">
+          <table className="w-full text-sm text-left border-collapse">
             <thead>
-              <tr style={{ background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                {/* Row number column */}
-                <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-left w-10"
-                  style={{ color: "rgba(255,255,255,0.2)" }}>#</th>
-
+              <tr className="bg-white/5 border-b border-white/5">
+                <th className="p-4 text-[11px] font-bold uppercase text-white/20 w-12">#</th>
                 {headers.map((h) => (
-                  <th
-                    key={h.label}
-                    className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider ${h.key === null ? "text-center" : "text-left"}`}
-                    style={{ color: "rgba(255,255,255,0.3)", verticalAlign: "top", userSelect: "none" }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      {/* Sort button */}
-                      {h.sortable && h.key ? (
-                        <button
-                          onClick={() => handleSort(h.key as SortKey)}
-                          style={{ display: "flex", alignItems: "center", gap: "4px", cursor: "pointer", background: "none", border: "none", color: sortKey === h.key ? "#a5b4fc" : "rgba(255,255,255,0.3)", padding: 0 }}
-                        >
-                          <span>{h.label}</span>
-                          <SortIcon colKey={h.key as SortKey} />
-                        </button>
-                      ) : (
-                        <span style={{ flex: 1 }}>{h.label}</span>
-                      )}
-
-                      {/* Search toggle */}
-                      {h.key && (
-                        <button
-                          onClick={() => toggleSearch(h.key!)}
-                          style={{
-                            background: colSearch[h.key!] ? "rgba(129,140,248,0.3)" : activeCol === h.key ? "rgba(129,140,248,0.2)" : "rgba(255,255,255,0.06)",
-                            border: colSearch[h.key!] ? "1px solid rgba(129,140,248,0.5)" : "1px solid rgba(255,255,255,0.1)",
-                            borderRadius: "4px", padding: "2px 5px", cursor: "pointer", display: "flex", alignItems: "center",
-                            color: colSearch[h.key!] ? "#818cf8" : "rgba(255,255,255,0.3)", flexShrink: 0,
-                          }}
-                        >
-                          {colSearch[h.key!] ? <X size={10} /> : <Search size={10} />}
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Inline search input */}
-                    {h.key && activeCol === h.key && (
-                      <div style={{ marginTop: "6px" }}>
+                  <th key={h.label} className={`p-4 text-[11px] font-bold uppercase text-white/30 ${h.label === "Actions" ? "text-center w-24" : ""}`}>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        {h.sortable && h.key ? (
+                          <button
+                            onClick={() => handleSort(h.key as SortKey)}
+                            className={`flex items-center gap-2 hover:text-white transition-colors ${sortKey === h.key ? "text-indigo-400" : ""}`}
+                          >
+                            {h.label} <SortIcon colKey={h.key as SortKey} />
+                          </button>
+                        ) : h.label}
+                        
+                        {h.key && (
+                          <button
+                            onClick={() => toggleSearch(h.key!)}
+                            className={`p-1 rounded ${colSearch[h.key!] ? "bg-indigo-500/20 text-indigo-400" : "text-white/20"}`}
+                          >
+                            <Search size={12} />
+                          </button>
+                        )}
+                      </div>
+                      
+                      {h.key && activeCol === h.key && (
                         <input
                           autoFocus
                           value={colSearch[h.key] ?? ""}
-                          onChange={(e) => { setColSearch((prev) => ({ ...prev, [h.key!]: e.target.value })); setPage(1) }}
-                          placeholder={`Filtrer ${h.label.toLowerCase()}...`}
-                          style={{
-                            width: "100%", background: "rgba(129,140,248,0.08)", border: "1px solid rgba(129,140,248,0.3)",
-                            color: "#e2e8f0", borderRadius: "6px", padding: "4px 8px", fontSize: "11px", outline: "none", boxSizing: "border-box",
-                          }}
+                          onChange={(e) => { setColSearch(prev => ({ ...prev, [h.key!]: e.target.value })); setPage(1) }}
+                          className="bg-black/40 border border-white/10 rounded px-2 py-1 text-[11px] outline-none focus:border-indigo-500/50"
+                          placeholder={`Filtrer...`}
                         />
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </th>
                 ))}
               </tr>
             </thead>
-
             <tbody>
-              {paginated.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="text-center py-16" style={{ color: "rgba(255,255,255,0.2)" }}>
-                    <div className="text-4xl mb-3">🏢</div>
-                    <p className="text-sm">Aucune société trouvée</p>
+              {paginated.map((d: any, idx: number) => (
+                <tr key={d.id} className="border-b border-white/5 hover:bg-white/5 transition-colors group">
+                  <td className="p-4 text-white/20 text-xs">{(safePage - 1) * pageSize + idx + 1}</td>
+                  <td className="p-4 font-medium text-white">{d.nom}</td>
+                  <td className="p-4"><span className="px-2 py-1 rounded bg-indigo-500/10 text-indigo-300 text-xs border border-indigo-500/20">{d.domaine}</span></td>
+                  <td className="p-4"><span className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 text-xs border border-emerald-500/20">.{d.extension}</span></td>
+                  <td className="p-4">
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+                      <button onClick={() => { setisedit(true); setShowForm(true); setsociete(d) }} className="p-2 hover:text-indigo-400"><Pencil size={14}/></button>
+                      <button onClick={() => { setDeletedata(true); setidsociete(d.id) }} className="p-2 hover:text-rose-400"><Trash2 size={14}/></button>
+                    </div>
                   </td>
                 </tr>
-              ) : (
-                paginated.map((d: any, idx: number) => {
-                  const globalIdx = (safePage - 1) * pageSize + idx + 1
-                  return (
-                    <tr
-                      key={d.id}
-                      style={{
-                        borderBottom: "1px solid rgba(255,255,255,0.04)",
-                        background: idx % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)",
-                        transition: "background 0.1s",
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = idx % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)")}
-                    >
-                      <td className="px-3 py-3 text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>{globalIdx}</td>
-                      <td className="px-4 py-3 font-medium text-white">{d.nom}</td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs px-2 py-1 rounded-md font-medium"
-                          style={{ color: "#818cf8", background: "rgba(129,140,248,0.1)", border: "1px solid rgba(129,140,248,0.2)" }}>
-                          {d.domaine}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs px-2 py-1 rounded-md font-medium"
-                          style={{ color: "#6ee7b7", background: "rgba(110,231,183,0.1)", border: "1px solid rgba(110,231,183,0.2)" }}>
-                          .{d.extension}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-center gap-2">
-                          <button
-                            onClick={() => { setisedit(true); setShowForm(true); setsociete({ id: d.id, nom: d.nom, domaine: d.domaine, extension: d.extension }) }}
-                            className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg"
-                            style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)", color: "#a5b4fc" }}
-                          >
-                            <Pencil size={11} /> Modifier
-                          </button>
-                          <button
-                            onClick={() => { setDeletedata(true); setidsociete(d.id) }}
-                            className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg"
-                            style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.2)", color: "#fda4af" }}
-                          >
-                            <Trash2 size={11} /> Supprimer
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
+              ))}
             </tbody>
           </table>
         </div>
 
-        {/* Pagination bar */}
-        <div className="flex items-center justify-between flex-wrap gap-3 pt-1">
-          {/* Left: rows per page + info */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
-              <span>Lignes par page</span>
+        {/* --- PAGINATION RESPONSIVE --- */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-4">
+          <div className="flex items-center gap-4 order-2 sm:order-1">
+            <div className="flex items-center gap-2 text-xs text-white/30">
+              <span>Lignes :</span>
               <select
                 value={pageSize}
                 onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1) }}
-                style={{
-                  background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
-                  color: "#e2e8f0", borderRadius: "6px", padding: "3px 8px", fontSize: "11px", outline: "none", cursor: "pointer",
-                }}
+                className="bg-white/5 border border-white/10 rounded-md px-2 py-1 outline-none text-white cursor-pointer"
               >
-                {PAGE_SIZE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                {PAGE_SIZE_OPTIONS.map(s => <option key={s} value={s} className="bg-slate-900">{s}</option>)}
               </select>
             </div>
-            <span className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>
-              {sorted.length === 0 ? "0" : `${(safePage - 1) * pageSize + 1}–${Math.min(safePage * pageSize, sorted.length)}`} sur {sorted.length}
+            <span className="text-[11px] text-white/20">
+              {Math.min((safePage - 1) * pageSize + 1, sorted.length)} - {Math.min(safePage * pageSize, sorted.length)} sur {sorted.length}
             </span>
           </div>
 
-          {/* Right: page controls */}
-          <div className="flex items-center gap-1">
-            <PagBtn onClick={() => setPage(1)} disabled={safePage === 1}><ChevronsLeft size={12} /></PagBtn>
-            <PagBtn onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}><ChevronLeft size={12} /></PagBtn>
+          <div className="flex items-center gap-1 order-1 sm:order-2">
+            <PagBtn onClick={() => setPage(1)} disabled={safePage === 1}><ChevronsLeft size={14} /></PagBtn>
+            <PagBtn onClick={() => setPage(p => p - 1)} disabled={safePage === 1}><ChevronLeft size={14} /></PagBtn>
+            
+            <div className="px-3 py-1 bg-white/5 rounded-lg border border-white/10 mx-1">
+               <span className="text-xs font-bold text-indigo-400">{safePage}</span>
+               <span className="text-xs text-white/20 mx-2">/</span>
+               <span className="text-xs text-white/40">{totalPages}</span>
+            </div>
 
-            {pageNumbers[0] > 1 && (
-              <>
-                <PagBtn onClick={() => setPage(1)}>1</PagBtn>
-                {pageNumbers[0] > 2 && <span className="text-xs px-1" style={{ color: "rgba(255,255,255,0.2)" }}>…</span>}
-              </>
-            )}
-
-            {pageNumbers.map((n) => (
-              <PagBtn key={n} onClick={() => setPage(n)} active={n === safePage}>{n}</PagBtn>
-            ))}
-
-            {pageNumbers[pageNumbers.length - 1] < totalPages && (
-              <>
-                {pageNumbers[pageNumbers.length - 1] < totalPages - 1 && <span className="text-xs px-1" style={{ color: "rgba(255,255,255,0.2)" }}>…</span>}
-                <PagBtn onClick={() => setPage(totalPages)}>{totalPages}</PagBtn>
-              </>
-            )}
-
-            <PagBtn onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}><ChevronRight size={12} /></PagBtn>
-            <PagBtn onClick={() => setPage(totalPages)} disabled={safePage === totalPages}><ChevronsRight size={12} /></PagBtn>
+            <PagBtn onClick={() => setPage(p => p + 1)} disabled={safePage === totalPages}><ChevronRight size={14} /></PagBtn>
+            <PagBtn onClick={() => setPage(totalPages)} disabled={safePage === totalPages}><ChevronsRight size={14} /></PagBtn>
           </div>
         </div>
       </div>
 
-      {/* Modal */}
+      {/* --- MODAL FORMULAIRE --- */}
       {showForm && (
-        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: "rgba(0,0,0,0.6)" }}>
-          <div
-            className="w-full max-w-md rounded-2xl p-6 relative"
-            style={{ background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 25px 50px rgba(0,0,0,0.5)" }}
-          >
-            <button onClick={resetForm} className="absolute top-4 right-4 p-1 rounded-lg"
-              style={{ color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.05)" }}>
-              <X size={14} />
-            </button>
-            <h2 className="text-white font-semibold text-base mb-5 flex items-center gap-2">
-              <Building2 size={16} style={{ color: "#818cf8" }} />
-              {isEdit ? "Modifier une société" : "Ajouter une société"}
-            </h2>
-            <div className="space-y-3">
-              {[
-                { name: "nom",       placeholder: "Nom de la société" },
-                { name: "domaine",   placeholder: "Domaine (ex: capgemini)" },
-                { name: "extension", placeholder: "Extension (ex: com, fr)" },
-              ].map((field) => (
-                <input
-                  key={field.name} name={field.name} placeholder={field.placeholder}
-                  value={societe?.[field.name as keyof typeof societe] ?? ""}
-                  onChange={handle}
-                  className="w-full text-sm px-4 py-2.5 rounded-lg outline-none"
-                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0" }}
-                />
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl p-8 bg-slate-900 border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-white font-bold text-lg flex items-center gap-2">
+                <Building2 size={20} className="text-indigo-400" />
+                {isEdit ? "Édition" : "Nouvelle Société"}
+              </h2>
+              <button onClick={resetForm} className="p-2 rounded-full hover:bg-white/5 text-white/30"><X size={18} /></button>
+            </div>
+            
+            <div className="space-y-4">
+              {["nom", "domaine", "extension"].map((f) => (
+                <div key={f} className="space-y-1.5">
+                  <label className="text-[10px] uppercase font-bold text-white/20 ml-1">{f}</label>
+                  <input
+                    name={f}
+                    placeholder={`Entrer ${f}...`}
+                    value={societe?.[f as keyof typeof societe] ?? ""}
+                    onChange={handle}
+                    className="w-full text-sm px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500/50 transition-all"
+                  />
+                </div>
               ))}
+              
               <button
                 onClick={isEdit ? handleUpdate : handleClick}
-                className="w-full text-sm font-semibold py-2.5 rounded-lg mt-1"
-                style={{
-                  background: isEdit ? "linear-gradient(135deg, rgba(245,158,11,0.3), rgba(245,158,11,0.2))" : "linear-gradient(135deg, rgba(99,102,241,0.3), rgba(139,92,246,0.2))",
-                  border: isEdit ? "1px solid rgba(245,158,11,0.4)" : "1px solid rgba(99,102,241,0.4)",
-                  color: isEdit ? "#fcd34d" : "#a5b4fc",
-                }}
+                className={`w-full py-4 rounded-xl font-bold text-sm mt-4 transition-all shadow-lg ${
+                  isEdit ? "bg-amber-500 text-amber-950 hover:bg-amber-400" : "bg-indigo-600 text-white hover:bg-indigo-500"
+                }`}
               >
-                {isEdit ? "Modifier" : "Ajouter"}
+                {isEdit ? "Enregistrer les modifications" : "Créer la société"}
               </button>
-              {sucee && (
-                <div className="p-3 rounded-lg text-xs text-center font-medium"
-                  style={{ background: "rgba(110,231,183,0.1)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>
-                  ✅ {sucee}
-                </div>
-              )}
-              {err && (
-                <div className="p-3 rounded-lg text-xs text-center font-medium"
-                  style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.2)", color: "#fda4af" }}>
-                  ❌ {err}
-                </div>
-              )}
+              
+              {sucee && <p className="text-center text-xs text-emerald-400 bg-emerald-500/10 py-2 rounded-lg">✅ {sucee}</p>}
+              {err && <p className="text-center text-xs text-rose-400 bg-rose-500/10 py-2 rounded-lg">❌ {err}</p>}
             </div>
           </div>
         </div>
@@ -427,7 +369,6 @@ export default function Company() {
   )
 }
 
-// Small pagination button helper
 function PagBtn({ children, onClick, disabled = false, active = false }: {
   children: React.ReactNode; onClick: () => void; disabled?: boolean; active?: boolean
 }) {
@@ -435,14 +376,10 @@ function PagBtn({ children, onClick, disabled = false, active = false }: {
     <button
       onClick={onClick}
       disabled={disabled}
-      style={{
-        minWidth: "28px", height: "28px", padding: "0 6px", borderRadius: "6px", fontSize: "11px", fontWeight: active ? 600 : 400,
-        cursor: disabled ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-        background: active ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.04)",
-        border: active ? "1px solid rgba(99,102,241,0.5)" : "1px solid rgba(255,255,255,0.08)",
-        color: active ? "#a5b4fc" : disabled ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.4)",
-        transition: "all 0.1s",
-      }}
+      className={`min-w-[36px] h-[36px] rounded-xl flex items-center justify-center transition-all border
+        ${disabled ? "opacity-10 cursor-not-allowed border-transparent" : "hover:bg-white/5 border-white/5 text-white/60 active:scale-95"}
+        ${active ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-300" : ""}
+      `}
     >
       {children}
     </button>
