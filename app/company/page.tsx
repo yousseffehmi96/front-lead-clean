@@ -147,7 +147,7 @@ export default function Company() {
   return (
     <>
       <div
-        className="min-h-screen flex flex-col p-4 md:p-8 space-y-6"
+        className="min-h-screen flex flex-col p-4 pl-14 md:p-8 space-y-6"
         style={{ color: "#cbd5e1", background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)" }}
       >
         {/* --- HEADER RESPONSIVE --- */}

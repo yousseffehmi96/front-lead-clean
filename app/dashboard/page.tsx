@@ -289,7 +289,7 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="h-full overflow-y-auto p-6 space-y-5" style={{ color: "#cbd5e1", background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)" }}>
+    <div className="h-full overflow-y-auto p-4 pl-14 md:p-6 space-y-5" style={{ color: "#cbd5e1", background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)" }}>
       <div style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "16px" }}>
         <h1 className="text-white font-semibold text-lg">Dashboard</h1>
         <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>{stats.length} imports enregistrés</p>

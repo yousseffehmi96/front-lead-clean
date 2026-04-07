@@ -193,7 +193,7 @@ const copyToken = (token: string) => {
 }
 
   return (
-    <div className="min-h-screen p-8" style={{ background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)" }}>
+    <div className="min-h-screen p-4 pl-14 md:p-8" style={{ background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)" }}>
 
       {/* MENU TABS */}
       <div className="flex gap-3 mb-8 border-b border-white/10 pb-3 overflow-x-auto">
