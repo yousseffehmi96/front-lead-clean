@@ -64,7 +64,7 @@ export default function Navbar() {
 
       {/* Sidebar Container */}
       <div
-        className={`fixed top-0 left-0 h-screen w-60 flex flex-col flex-shrink-0 bg-gradient-to-br from-slate-900 to-indigo-950 border-r border-white/10 transition-transform duration-300 z-40
+        className={`fixed top-0 left-0 h-[100dvh] w-60 flex flex-col flex-shrink-0 bg-gradient-to-br from-slate-900 to-indigo-950 border-r border-white/10 transition-transform duration-300 z-40
         ${open ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 md:static md:flex`}
       >
         {/* Logo Section */}
@@ -114,7 +114,7 @@ export default function Navbar() {
         )}
 
         {/* Navigation Links */}
-        <div className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-5">
+        <div className="flex-1 overflow-y-auto px-3 pt-4 pb-24 md:pb-4 flex flex-col gap-5">
           
           {/* Section 1 */}
           <Section title="Flow principal">

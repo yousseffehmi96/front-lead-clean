@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createUser } from "@/api/user-actions";  
 
 const ROLES = [
@@ -18,6 +18,14 @@ export default function SignUpForm({ onSuccess }: SignUpFormProps) {
   const [role, setRole] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 640);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -77,7 +85,7 @@ export default function SignUpForm({ onSuccess }: SignUpFormProps) {
 
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {/* Champs de saisie */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
           <div>
             <label style={labelStyle}>PRÉNOM</label>
             <input

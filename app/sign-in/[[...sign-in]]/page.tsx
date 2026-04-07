@@ -5,12 +5,13 @@ export default function LoginPage() {
   return (
     <div
       style={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
         width: "100%",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)",
+        padding: "16px",
       }}
     >
       <SignIn 
@@ -30,8 +31,9 @@ export default function LoginPage() {
               border: "1px solid rgba(255, 255, 255, 0.08)",
               backdropFilter: "blur(20px)",
               boxShadow: "none",
-              width: "400px",
-              padding: "40px",
+              width: "min(400px, calc(100vw - 32px))",
+              maxWidth: "100%",
+              padding: "clamp(20px, 4vw, 36px)",
             },
             headerTitle: {
               fontSize: "0px !important", 
@@ -63,6 +65,7 @@ export default function LoginPage() {
               background: "white",
               color: "black",
               borderRadius: "8px",
+              minHeight: "42px",
             },
             formFieldLabel: {
               color: "rgba(255, 255, 255, 0.6)",
