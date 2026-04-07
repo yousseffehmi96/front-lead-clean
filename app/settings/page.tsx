@@ -248,20 +248,20 @@ const copyToken = (token: string) => {
                     </div>
 
                     {/* Boutons d'action */}
-<div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={() => startEdit(rule)} 
-                        className="p-2 rounded-lg bg-white/5 text-indigo-400 hover:bg-indigo-500/20 hover:text-indigo-300 transition-all"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button 
-                        onClick={() => setRuleToDelete(rule.id)} 
-                        className="p-2 rounded-lg bg-white/5 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+<div className="flex justify-end gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+  <button 
+    onClick={() => startEdit(rule)} 
+    className="p-2 rounded-lg bg-white/5 text-indigo-400 hover:bg-indigo-500/20 hover:text-indigo-300 transition-all"
+  >
+    <Edit size={16} />
+  </button>
+  <button 
+    onClick={() => setRuleToDelete(rule.id)} 
+    className="p-2 rounded-lg bg-white/5 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all"
+  >
+    <Trash2 size={16} />
+  </button>
+</div>
                   </>
                 ) : (
                   /* Formulaire d'édition */
