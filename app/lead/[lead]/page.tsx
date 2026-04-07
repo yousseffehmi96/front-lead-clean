@@ -2,27 +2,11 @@
 import Usefetch from "@/hooks/SocieteFetch"
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
-import { Upload, Sparkles, RefreshCw, Download, Trash2, Menu, X } from "lucide-react"
+import { Upload, Sparkles, RefreshCw, Download, Trash2, Menu, X, ChevronDown, ChevronUp, Filter, Eye, Phone, Mail, Building, User, Briefcase, Linkedin, Calendar } from "lucide-react"
 import { useAuth } from "@clerk/nextjs"
 import { useSelector } from "react-redux"
+import "datatables.net-dt/css/dataTables.dataTables.min.css"
 
-/*export default function LeadWrapper() {
-  const { isSignedIn, isLoaded } = useAuth()
-  const router = useRouter()
-console.log(isSignedIn);
-console.log(isLoaded);
-
-  useEffect(() => {
-    if (isLoaded && !isSignedIn) {
-      console.log("salut");
-      router.replace("/sign-in")
-    }
-  }, [isLoaded, isSignedIn, router])
-
-  if (!isLoaded || !isSignedIn) return null 
-
-  return <Lead />
-}*/
 export default function Lead() {
   const [DTableComponent, setDTableComponent] = useState<any>(null)
   const [openMenu, setOpenMenu] = useState<number | null>(null)
@@ -35,28 +19,35 @@ export default function Lead() {
   const [cleanResult, setCleanResult] = useState<any>(null)
   const [uploadedFilename, setUploadedFilename] = useState<string>("")
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [expandedCard, setExpandedCard] = useState<number | null>(null)
+  const [mobileView, setMobileView] = useState<"table" | "cards">("cards")
+  const [searchTerm, setSearchTerm] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
-      const userId = useSelector((state:any) => state.user.userId)
-const email = useSelector((state:any) => state.user.email)
+  const userId = useSelector((state:any) => state.user.userId)
+  const email = useSelector((state:any) => state.user.email)
   const params = useParams()
   const leads = params.lead
 
-  const data =
-    Usefetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/${leads}?refresh=${refresh}`
-    ).data || []
+  const data = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/${leads}?refresh=${refresh}`).data || []
+
+  // Détection mobile
+  const [isMobile, setIsMobile] = useState(false)
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   useEffect(() => {
-      console.log(userId);
-      console.log(email);
-      
     const load = async () => {
       const [{ default: DataTable }, { default: DT }] = await Promise.all([
         import("datatables.net-react"),
         import("datatables.net-dt"),
       ])
-      // @ts-ignore
-      await import("datatables.net-dt/css/dataTables.dataTables.css")
       
       DataTable.use(DT)
       setDTableComponent(() => DataTable)
@@ -72,11 +63,10 @@ const email = useSelector((state:any) => state.user.email)
     setCleanResult(null)
     setMobileMenuOpen(false)
     try {
-
       const formData = new FormData()
       formData.append("file", file)
       formData.append("userid", userId.toString())
-       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload`, { method: "POST", body: formData })
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload`, { method: "POST", body: formData })
       if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`)
       setUploadedFilename(file.name)
       setRefresh((prev) => prev + 1)
@@ -170,8 +160,6 @@ const email = useSelector((state:any) => state.user.email)
   }
 
   const handelclick = async (type: string, leadId: number) => {
-    console.log("hhhh");
-    
     setstat(type)
     setError(null)
     try {
@@ -193,29 +181,174 @@ const email = useSelector((state:any) => state.user.email)
     window.open(`${process.env.NEXT_PUBLIC_API_URL}/download-leads-csv/${leads}`)
     setMobileMenuOpen(false)
   }
+  
   const downloadXlsx = () => {
     window.open(`${process.env.NEXT_PUBLIC_API_URL}/download-leads-xlsx/${leads}`)
     setMobileMenuOpen(false)
   }
 
   const badgeConfig: Record<string, { label: string; color: string; bg: string }> = {
-    staging: { label: "RAW",      color: "#f59e0b", bg: "rgba(245,158,11,0.1)"  },
-    gold:    { label: "★ GOLD",   color: "#f59e0b", bg: "rgba(245,158,11,0.1)"  },
-    silver:  { label: "◆ SILVER", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
-    clean:   { label: "✦ CLEAN",  color: "#6ee7b7", bg: "rgba(110,231,183,0.1)" },
-    black:   { label: "⛔ BLACK", color: "#f43f5e", bg: "rgba(244,63,94,0.1)"   },
+    staging: { label: "RAW", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+    gold: { label: "★ GOLD", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+    silver: { label: "◆ SILVER", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
+    clean: { label: "✦ CLEAN", color: "#6ee7b7", bg: "rgba(110,231,183,0.1)" },
+    black: { label: "⛔ BLACK", color: "#f43f5e", bg: "rgba(244,63,94,0.1)" },
   }
 
   const badge = badgeConfig[leads as string] ?? { label: leads, color: "#818cf8", bg: "rgba(129,140,248,0.1)" }
 
+  // Filtrage des données pour la vue mobile
+  const filteredData = data.filter((item: any) => {
+    if (!searchTerm) return true
+    const searchLower = searchTerm.toLowerCase()
+    return (
+      item.nom?.toLowerCase().includes(searchLower) ||
+      item.prenom?.toLowerCase().includes(searchLower) ||
+      item.email?.toLowerCase().includes(searchLower) ||
+      item.societe?.toLowerCase().includes(searchLower) ||
+      item.fonction?.toLowerCase().includes(searchLower)
+    )
+  })
+
+  // Composant Carte mobile
+  const MobileCard = ({ lead, index }: { lead: any; index: number }) => {
+    const isExpanded = expandedCard === index
+    const hasActionButtons = leads === "gold" || leads === "prod" || leads === "silver"
+
+    return (
+      <div
+        className="rounded-xl mb-3 transition-all duration-200"
+        style={{
+          background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)",
+          border: "1px solid rgba(255,255,255,0.06)",
+        }}
+      >
+        <div className="p-4">
+          {/* En-tête de la carte */}
+          <div className="flex justify-between items-start mb-3">
+            <div className="flex-1">
+              <h3 className="text-white font-semibold text-base">
+                {lead.prenom} {lead.nom}
+              </h3>
+              {lead.fonction && (
+                <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+                  <Briefcase size={10} className="inline mr-1" />
+                  {lead.fonction}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => setExpandedCard(isExpanded ? null : index)}
+              className="p-1 rounded-lg transition-colors"
+              style={{ background: "rgba(255,255,255,0.05)" }}
+            >
+              {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+          </div>
+
+          {/* Informations principales */}
+          <div className="space-y-2">
+            {lead.email && (
+              <div className="flex items-center gap-2 text-sm">
+                <Mail size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
+                <a href={`mailto:${lead.email}`} className="text-blue-400 text-xs truncate flex-1">
+                  {lead.email}
+                </a>
+              </div>
+            )}
+            
+            {lead.telephone && (
+              <div className="flex items-center gap-2 text-sm">
+                <Phone size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
+                <a href={`tel:${lead.telephone}`} className="text-green-400 text-xs">
+                  {lead.telephone}
+                </a>
+              </div>
+            )}
+
+            {lead.societe && (
+              <div className="flex items-center gap-2 text-sm">
+                <Building size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
+                <span className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>{lead.societe}</span>
+              </div>
+            )}
+
+            {lead.linkedin && (
+              <div className="flex items-center gap-2 text-sm">
+                <Linkedin size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
+                <a href={lead.linkedin} target="_blank" rel="noopener noreferrer" className="text-blue-400 text-xs truncate">
+                  Profil LinkedIn
+                </a>
+              </div>
+            )}
+          </div>
+
+          {/* Date */}
+          {lead.created_at && (
+            <div className="mt-3 pt-2 text-xs" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.3)" }}>
+              <Calendar size={10} className="inline mr-1" />
+              {new Date(lead.created_at).toLocaleDateString("fr-FR")}
+            </div>
+          )}
+
+          {/* Actions */}
+          {hasActionButtons && isExpanded && (
+            <div className="mt-4 pt-3 flex gap-2" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+              {leads === "silver" && (
+                <button
+                  onClick={() => handleToGold(lead.id)}
+                  className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all"
+                  style={{
+                    background: "rgba(245,158,11,0.15)",
+                    border: "1px solid rgba(245,158,11,0.3)",
+                    color: "#fcd34d"
+                  }}
+                >
+                  ★ Promouvoir Gold
+                </button>
+              )}
+              
+              {(leads === "gold" || leads === "prod") && (
+                <>
+                  <button
+                    onClick={() => handelclick("Unsubscribe", lead.id)}
+                    className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all"
+                    style={{
+                      background: "rgba(244,63,94,0.1)",
+                      border: "1px solid rgba(244,63,94,0.3)",
+                      color: "#f43f5e"
+                    }}
+                  >
+                    Désabonner
+                  </button>
+                  <button
+                    onClick={() => handelclick("archive", lead.id)}
+                    className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all"
+                    style={{
+                      background: "rgba(148,163,184,0.1)",
+                      border: "1px solid rgba(148,163,184,0.3)",
+                      color: "#94a3b8"
+                    }}
+                  >
+                    Archiver
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   const searchableCols = new Set(["nom", "prenom", "email", "fonction", "societe", "telephone", "linkedin", "eliminer", "created_at"])
 
   const baseColumns = [
-    { data: "nom",       title: "Nom",       defaultContent: "" },
-    { data: "prenom",    title: "Prénom",    defaultContent: "" },
-    { data: "email",     title: "Email",     defaultContent: "" },
-    { data: "fonction",  title: "Fonction",  defaultContent: "" },
-    { data: "societe",   title: "Société",   defaultContent: "" },
+    { data: "nom", title: "Nom", defaultContent: "" },
+    { data: "prenom", title: "Prénom", defaultContent: "" },
+    { data: "email", title: "Email", defaultContent: "" },
+    { data: "fonction", title: "Fonction", defaultContent: "" },
+    { data: "societe", title: "Société", defaultContent: "" },
     { data: "telephone", title: "Téléphone", defaultContent: "" },
     {
       data: "linkedin", title: "LinkedIn", defaultContent: "",
@@ -255,9 +388,9 @@ const email = useSelector((state:any) => state.user.email)
 
   const columns = [
     ...baseColumns,
-    ...(leads === "black"                       ? [blackColumn]  : []),
-    ...(leads === "gold" || leads === "prod"    ? [prodColumn]   : []),
-    ...(leads === "silver"                      ? [silverColumn] : []),
+    ...(leads === "black" ? [blackColumn] : []),
+    ...(leads === "gold" || leads === "prod" ? [prodColumn] : []),
+    ...(leads === "silver" ? [silverColumn] : []),
     dateColumn,
   ]
 
@@ -302,8 +435,8 @@ const email = useSelector((state:any) => state.user.email)
         </div>
       `
 
-      const btn   = header.querySelector(".search-icon-btn") as HTMLElement
-      const wrap  = header.querySelector(".search-wrap") as HTMLElement
+      const btn = header.querySelector(".search-icon-btn") as HTMLElement
+      const wrap = header.querySelector(".search-wrap") as HTMLElement
       const input = header.querySelector(".col-search-input") as HTMLInputElement
 
       btn?.addEventListener("click", (e) => {
@@ -349,153 +482,142 @@ const email = useSelector((state:any) => state.user.email)
   }
 
   return (
-    <div className="h-full rounded-none flex flex-col"
-      style={{ background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)", border: "1px solid rgba(255,255,255,0.06)" }}
-    >
+    <div className="h-full rounded-none flex flex-col" style={{ background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)", border: "1px solid rgba(255,255,255,0.06)" }}>
       {/* Header */}
-      <div className="flex justify-between items-center px-3 sm:px-6 py-3 sm:py-4"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
-      >
-        <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-          <h2 className="text-white font-semibold text-sm sm:text-base truncate">Liste des Leads</h2>
-          <span className="text-xs font-bold px-2 py-0.5 rounded-md whitespace-nowrap"
-            style={{ color: badge.color, background: badge.bg, border: `1px solid ${badge.color}30` }}>
-            {badge.label}
-          </span>
-          <span className="text-xs hidden sm:inline" style={{ color: "rgba(255,255,255,0.3)" }}>{data.length} entrées</span>
+      <div className="sticky top-0 z-10 px-3 sm:px-6 py-3 sm:py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "inherit" }}>
+        <div className="flex justify-between items-center flex-wrap gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+            <h2 className="text-white font-semibold text-sm sm:text-base truncate">Liste des Leads</h2>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-md whitespace-nowrap" style={{ color: badge.color, background: badge.bg, border: `1px solid ${badge.color}30` }}>
+              {badge.label}
+            </span>
+            <span className="text-xs hidden sm:inline" style={{ color: "rgba(255,255,255,0.3)" }}>{data.length} entrées</span>
+          </div>
+
+          {/* Boutons d'action */}
+          <div className="flex gap-2">
+            {isMobile && (
+              <button
+                onClick={() => setMobileView(mobileView === "table" ? "cards" : "table")}
+                className="flex items-center gap-1 text-xs font-semibold px-2 py-1.5 rounded-lg md:hidden"
+                style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}
+              >
+                {mobileView === "table" ? <Eye size={13} /> : <Eye size={13} />}
+                {mobileView === "table" ? "Cartes" : "Tableau"}
+              </button>
+            )}
+
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden flex items-center justify-center p-2 rounded-lg" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}>
+              {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
+
+            {/* Desktop Actions */}
+            <div className="hidden md:flex gap-2">
+              <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileUpload} />
+              {leads === "staging" && (
+                <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", color: "#a5b4fc" }}>
+                  <Upload size={13} />{uploading ? "Chargement..." : "Importer"}
+                </button>
+              )}
+              {(leads === "staging" || leads === "clean") && (
+                <button onClick={handleClean} disabled={cleaning || data.length === 0} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}>
+                  <Sparkles size={13} />{cleaning ? "Nettoyage..." : "Nettoyer"}
+                </button>
+              )}
+              {leads === "gold" && (
+                <>
+                  <button onClick={downloadCSV} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}>
+                    <Download size={13} />CSV
+                  </button>
+                  <button onClick={downloadXlsx} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}>
+                    <Download size={13} />XLSX
+                  </button>
+                </>
+              )}
+              <button onClick={() => setRefresh((p) => p + 1)} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}>
+                <RefreshCw size={13} />
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Desktop Actions */}
-        <div className="hidden md:flex gap-2">
-          <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileUpload} />
-
-          {leads === "staging" && (
-            <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
-              style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", color: "#a5b4fc" }}>
-              <Upload size={13} />{uploading ? "Chargement..." : "Importer"}
-            </button>
-          )}
-
-          {(leads === "staging" || leads === "clean") && (
-            <button onClick={handleClean} disabled={cleaning || data.length === 0}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
-              style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}>
-              <Sparkles size={13} />{cleaning ? "Nettoyage..." : "Nettoyer"}
-            </button>
-          )}
-
-          {leads === "gold" && (
-            <button onClick={downloadCSV}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
-              style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}>
-              <Download size={13} />Télécharger CSV
-            </button>
-          )}
-          {leads === "gold" && (
-  <button
-    onClick={downloadXlsx}
-    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
-    style={{
-      background: "rgba(59, 130, 246, 0.15)",
-      border: "1px solid rgba(59, 130, 246, 0.3)",
-      color: "#3b82f6"
-    }}
-  >
-    <Download size={13} /> Télécharger xlsx
-  </button>
-)}
-
-          <button onClick={() => setRefresh((p) => p + 1)}
-            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}>
-            <RefreshCw size={13} />
-          </button>
-        </div>
-
-        {/* Mobile Menu Button */}
-        <button 
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden flex items-center justify-center p-2 rounded-lg"
-          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}
-        >
-          {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
-        </button>
+        {/* Barre de recherche mobile */}
+        {isMobile && data.length > 0 && (
+          <div className="mt-3">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Rechercher par nom, email, société..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm"
+                style={{
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  color: "#e2e8f0",
+                  outline: "none"
+                }}
+              />
+              <Filter size={14} className="absolute right-3 top-1/2 transform -translate-y-1/2" style={{ color: "rgba(255,255,255,0.3)" }} />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden px-3 py-2 flex flex-col gap-2"
-          style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.2)" }}
-        >
+        <div className="md:hidden px-3 py-2 flex flex-col gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.2)" }}>
           <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileUpload} />
-
           {leads === "staging" && (
-            <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
-              className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40 w-full"
-              style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", color: "#a5b4fc" }}>
+            <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40 w-full" style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", color: "#a5b4fc" }}>
               <Upload size={14} />{uploading ? "Chargement..." : "Importer"}
             </button>
           )}
-
           {(leads === "staging" || leads === "clean") && (
-            <button onClick={handleClean} disabled={cleaning || data.length === 0}
-              className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40 w-full"
-              style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}>
+            <button onClick={handleClean} disabled={cleaning || data.length === 0} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40 w-full" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}>
               <Sparkles size={14} />{cleaning ? "Nettoyage..." : "Nettoyer"}
             </button>
           )}
-
           {leads === "gold" && (
-            <button onClick={downloadCSV}
-              className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full"
-              style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}>
-              <Download size={14} />Télécharger CSV
-            </button>
+            <>
+              <button onClick={downloadCSV} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}>
+                <Download size={14} />Télécharger CSV
+              </button>
+              <button onClick={downloadXlsx} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}>
+                <Download size={14} />Télécharger XLSX
+              </button>
+            </>
           )}
-
-          <button onClick={() => { setRefresh((p) => p + 1); setMobileMenuOpen(false); }}
-            className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}>
+          <button onClick={() => { setRefresh((p) => p + 1); setMobileMenuOpen(false); }} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}>
             <RefreshCw size={14} />Actualiser
           </button>
-          
-          <div className="text-xs text-center py-1" style={{ color: "rgba(255,255,255,0.3)" }}>
-            {data.length} entrées
-          </div>
         </div>
       )}
 
-      {/* Message d'erreur */}
+      {/* Messages */}
       {err && (
-        <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm"
-          style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#fda4af" }}>
+        <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#fda4af" }}>
           ❌ {err}
         </div>
       )}
 
-      {/* Message de succès pour actions individuelles */}
       {cleanResult && cleanResult.message && !cleanResult.moved_to_gold && !cleanResult.total_deleted && (
-        <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm"
-          style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>
+        <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>
           ✅ {cleanResult.message}
         </div>
       )}
 
-      {/* Statistiques de suppression des doublons */}
       {cleanResult && cleanResult.total_deleted !== undefined && (
-        <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm"
-          style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)", color: "#fda4af" }}>
+        <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)", color: "#fda4af" }}>
           <p className="font-semibold mb-2">🗑️ Suppression des doublons terminée</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {[
               { label: "Total", val: cleanResult.total_deleted, icon: "🔢" },
-               { label: "Staging vs Gold", val: cleanResult.staging_vs_gold, icon: "🥇" },
+              { label: "Staging vs Gold", val: cleanResult.staging_vs_gold, icon: "🥇" },
               { label: "Staging vs Silver", val: cleanResult.staging_vs_silver, icon: "🥈" },
               { label: "Interne", val: cleanResult.staging_internal, icon: "♻️" },
             ].map((item) => (
-              <div key={item.label} className="px-2 sm:px-3 py-2 rounded-lg text-center"
-                style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.15)" }}>
+              <div key={item.label} className="px-2 sm:px-3 py-2 rounded-lg text-center" style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.15)" }}>
                 <p className="text-xs opacity-70">{item.icon} {item.label}</p>
                 <p className="font-bold text-sm sm:text-base">{item.val ?? 0}</p>
               </div>
@@ -504,22 +626,19 @@ const email = useSelector((state:any) => state.user.email)
         </div>
       )}
 
-      {/* Message de succès pour nettoyage */}
       {cleanResult && cleanResult.moved_to_gold !== undefined && (
-        <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm"
-          style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>
+        <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>
           <p className="font-semibold mb-2">✅ Nettoyage terminé</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {[
-              { label: "🥇 Gold",     val: cleanResult.moved_to_gold },
-              { label: "🥈 Silver",   val: cleanResult.moved_to_silver },
-              { label: "🧹 Clean",    val: cleanResult.moved_to_clean },
-              { label: "📧 Emails complètè",   val: cleanResult.emails_completed },
-              { label: "🏢 Sociétés ajoutè", val: cleanResult.added_societes },
-              { label: "👤 Noms complètè",     val: cleanResult.nom_prenom_completed },
+              { label: "🥇 Gold", val: cleanResult.moved_to_gold },
+              { label: "🥈 Silver", val: cleanResult.moved_to_silver },
+              { label: "🧹 Clean", val: cleanResult.moved_to_clean },
+              { label: "📧 Emails", val: cleanResult.emails_completed },
+              { label: "🏢 Sociétés", val: cleanResult.added_societes },
+              { label: "👤 Noms", val: cleanResult.nom_prenom_completed },
             ].map((item) => (
-              <div key={item.label} className="px-2 sm:px-3 py-2 rounded-lg text-center"
-                style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.15)" }}>
+              <div key={item.label} className="px-2 sm:px-3 py-2 rounded-lg text-center" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.15)" }}>
                 <p className="text-xs opacity-70">{item.label}</p>
                 <p className="font-bold text-sm sm:text-base">{item.val ?? 0}</p>
               </div>
@@ -578,27 +697,7 @@ const email = useSelector((state:any) => state.user.email)
         .search-icon-btn:hover { background: rgba(129,140,248,0.15) !important; border-color: rgba(129,140,248,0.3) !important; color: #818cf8 !important; }
         .col-search-input::placeholder { color: rgba(255,255,255,0.2); }
         
-        /* Mobile responsive styles */
         @media (max-width: 768px) {
-          .dt-container { font-size: 11px; }
-          .dt-container table.dataTable thead th { 
-            padding: 8px 6px !important;
-            font-size: 10px;
-          }
-          .dt-container table.dataTable tbody td { 
-            padding: 8px 6px !important;
-            font-size: 11px;
-          }
-          .dt-container .dt-layout-row { padding: 6px 8px; }
-          .dt-container .dt-length select { font-size: 11px; padding: 3px 6px; }
-          .dt-container .dt-paging .dt-paging-button { 
-            font-size: 10px;
-            padding: 3px 6px !important;
-            margin: 0 1px;
-          }
-          .dt-container .dt-info { font-size: 10px; }
-          
-          /* Hide some columns on mobile */
           .dt-container table.dataTable thead th:nth-child(4),
           .dt-container table.dataTable tbody td:nth-child(4),
           .dt-container table.dataTable thead th:nth-child(6),
@@ -609,8 +708,7 @@ const email = useSelector((state:any) => state.user.email)
           }
         }
         
-        @media (max-width: 480px) {
-          /* Even smaller screens - show only essential columns */
+        @media (max-width: 640px) {
           .dt-container table.dataTable thead th:nth-child(2),
           .dt-container table.dataTable tbody td:nth-child(2) {
             display: none;
@@ -621,18 +719,10 @@ const email = useSelector((state:any) => state.user.email)
             padding: 3px 6px !important;
           }
         }
-        
-        /* Horizontal scroll for table on mobile */
-        @media (max-width: 768px) {
-          .dt-container {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-          }
-        }
       `}</style>
 
       <div className="px-2 pb-4 pt-2 overflow-y-auto flex-1">
-        {!DTableComponent ? (
+        {!DTableComponent && !isMobile ? (
           <div className="text-center py-16" style={{ color: "rgba(255,255,255,0.2)" }}>
             <div className="text-4xl mb-3">⚡</div>
             <p className="text-sm">Chargement...</p>
@@ -648,44 +738,64 @@ const email = useSelector((state:any) => state.user.email)
             )}
           </div>
         ) : (
-          <div onClick={handleTableClick}>
-            <DTableComponent
-              key={data.length}
-              data={data}
-              columns={columns}
-              className="display w-full"
-              options={{
-                order: [[columns.length - 1, "desc"]],
-                pageLength: 10,
-                responsive: true,
-                scrollX: true,
-                initComplete: function (this: any) {
-                  const api = (this as any).api()
-                  injectSearchIcons(api)
-                },
-                language: {
-                  processing: "Traitement en cours...",
-                  search: "Rechercher :",
-                  lengthMenu: "Afficher _MENU_",
-                  info: "_START_ à _END_ sur _TOTAL_",
-                  infoEmpty: "0 à 0 sur 0",
-                  infoFiltered: "(filtré de _MAX_)",
-                  loadingRecords: "Chargement...",
-                  zeroRecords: "Aucun élément",
-                  emptyTable: "Aucune donnée",
-                  paginate: { first: "«", previous: "‹", next: "›", last: "»" },
-                },
-              }}
-            >
-              <thead>
-                <tr>
-                  {columns.map((col, i) => (
-                    <th key={i}>{col.title}</th>
-                  ))}
-                </tr>
-              </thead>
-            </DTableComponent>
-          </div>
+          <>
+            {/* Vue Mobile - Cartes */}
+            {isMobile && mobileView === "cards" && (
+              <div className="pb-4">
+                {filteredData.length === 0 ? (
+                  <div className="text-center py-12" style={{ color: "rgba(255,255,255,0.3)" }}>
+                    <p className="text-sm">Aucun résultat trouvé</p>
+                  </div>
+                ) : (
+                  filteredData.map((lead: any, index: number) => (
+                    <MobileCard key={lead.id || index} lead={lead} index={index} />
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* Vue Tableau (Desktop ou mobile si sélectionné) */}
+            {(!isMobile || mobileView === "table") && (
+              <div onClick={handleTableClick}>
+                <DTableComponent
+                  key={data.length}
+                  data={data}
+                  columns={columns}
+                  className="display w-full"
+                  options={{
+                    order: [[columns.length - 1, "desc"]],
+                    pageLength: isMobile ? 5 : 10,
+                    responsive: true,
+                    scrollX: isMobile,
+                    initComplete: function (this: any) {
+                      const api = (this as any).api()
+                      if (!isMobile) injectSearchIcons(api)
+                    },
+                    language: {
+                      processing: "Traitement en cours...",
+                      search: "Rechercher :",
+                      lengthMenu: "Afficher _MENU_",
+                      info: "_START_ à _END_ sur _TOTAL_",
+                      infoEmpty: "0 à 0 sur 0",
+                      infoFiltered: "(filtré de _MAX_)",
+                      loadingRecords: "Chargement...",
+                      zeroRecords: "Aucun élément",
+                      emptyTable: "Aucune donnée",
+                      paginate: { first: "«", previous: "‹", next: "›", last: "»" },
+                    },
+                  }}
+                >
+                  <thead>
+                    <tr>
+                      {columns.map((col, i) => (
+                        <th key={i}>{col.title}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                </DTableComponent>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
