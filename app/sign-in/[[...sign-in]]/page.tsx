@@ -34,11 +34,10 @@ export default function LoginPage() {
               padding: "40px",
             },
             headerTitle: {
-              // On cache le titre original (ex: "Continue to My Application")
               fontSize: "0px !important", 
               color: "transparent !important",
               "&::before": {
-                content: '"LeadsCleaner"', // Ton titre
+                content: '"LeadsCleaner"',
                 display: "block",
                 fontSize: "26px",
                 fontWeight: "700",
@@ -48,12 +47,10 @@ export default function LoginPage() {
               },
             },
             headerSubtitle: {
-              // On cache le sous-titre original
               fontSize: "0px !important",
               color: "transparent !important",
               marginTop: "8px",
               "&::before": {
-                // ON AJOUTE TA PHRASE ICI
                 content: '"Heureux de vous revoir ! Connectez-vous."', 
                 display: "block",
                 fontSize: "14px",

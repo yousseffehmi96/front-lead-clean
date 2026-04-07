@@ -57,6 +57,7 @@ const email = useSelector((state:any) => state.user.email)
       ])
       // @ts-ignore
       await import("datatables.net-dt/css/dataTables.dataTables.css")
+      
       DataTable.use(DT)
       setDTableComponent(() => DataTable)
     }
@@ -396,9 +397,9 @@ const email = useSelector((state:any) => state.user.email)
     onClick={downloadXlsx}
     className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
     style={{
-      background: "rgba(59, 130, 246, 0.15)", // bleu clair transparent
-      border: "1px solid rgba(59, 130, 246, 0.3)", // bord bleu clair
-      color: "#3b82f6" // texte bleu
+      background: "rgba(59, 130, 246, 0.15)",
+      border: "1px solid rgba(59, 130, 246, 0.3)",
+      color: "#3b82f6"
     }}
   >
     <Download size={13} /> Télécharger xlsx

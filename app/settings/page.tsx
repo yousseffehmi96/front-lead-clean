@@ -30,8 +30,8 @@ const [tokens, setTokens] = useState<any[]>([])
 const [loadingTokens, setLoadingTokens] = useState(false)
 const [isAddTokenModalOpen, setIsAddTokenModalOpen] = useState(false)
 const [newTokenName, setNewTokenName] = useState("")
-const [tokenToDelete, setTokenToDelete] = useState<string | null>(null)
 const [token, setToken] = useState<string>("")
+const [tokenToDelete, setTokenToDelete] = useState<string | null>(null)
 
   // ---------------- FETCH DATA ----------------
   const fetchRules = async () => {
