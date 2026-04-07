@@ -21,6 +21,7 @@ export default function Lead() {
   const [expandedCard, setExpandedCard] = useState<number | null>(null)
   const [mobileView, setMobileView] = useState<"table" | "cards">("cards")
   const [searchTerm, setSearchTerm] = useState("")
+  const [mobilePage, setMobilePage] = useState(1)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const userId = useSelector((state:any) => state.user.userId)
   const email = useSelector((state:any) => state.user.email)
@@ -32,6 +33,8 @@ export default function Lead() {
   // Détection mobile
   const [isMobile, setIsMobile] = useState(false)
   const isSilverView = leads === "silver"
+  const shouldUseDataTable = !isMobile && !isSilverView
+  const cardsPerPage = 20
   
   useEffect(() => {
     const checkMobile = () => {
@@ -49,6 +52,7 @@ export default function Lead() {
   }, [isSilverView, mobileView])
 
   useEffect(() => {
+    if (!shouldUseDataTable) return
     const load = async () => {
       const [{ default: DataTable }, { default: DT }] = await Promise.all([
         import("datatables.net-react"),
@@ -61,7 +65,11 @@ export default function Lead() {
       setDTableComponent(() => DataTable)
     }
     load()
-  }, [email])
+  }, [email, shouldUseDataTable])
+
+  useEffect(() => {
+    setMobilePage(1)
+  }, [searchTerm, leads, refresh])
 
   // Filtrage pour la vue mobile
   const filteredData = data.filter((item: any) => {
@@ -75,6 +83,9 @@ export default function Lead() {
       item.fonction?.toLowerCase().includes(searchLower)
     )
   })
+  const totalMobilePages = Math.max(1, Math.ceil(filteredData.length / cardsPerPage))
+  const startIndex = (mobilePage - 1) * cardsPerPage
+  const paginatedData = filteredData.slice(startIndex, startIndex + cardsPerPage)
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -413,7 +424,7 @@ export default function Lead() {
           </div>
         </div>
         {/* Barre de recherche mobile (vue cartes uniquement) */}
-        {isMobile && mobileView === "cards" && data.length > 0 && (
+        {(isSilverView || (isMobile && mobileView === "cards")) && data.length > 0 && (
           <div className="mt-3">
             <div className="relative">
               <input type="text" placeholder="Rechercher par nom, email, société..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0", outline: "none" }} />
@@ -534,18 +545,43 @@ export default function Lead() {
       `}</style>
 
       <div className="px-2 sm:px-3 pb-4 pt-2 overflow-y-auto flex-1 overflow-x-hidden">
-        {!DTableComponent && !isSilverView ? (
+        {!DTableComponent && shouldUseDataTable ? (
           <div className="text-center py-16" style={{ color: "rgba(255,255,255,0.2)" }}><div className="text-4xl mb-3">⚡</div><p className="text-sm">Chargement...</p></div>
         ) : data.length === 0 ? (
           <div className="text-center py-20" style={{ color: "rgba(255,255,255,0.2)" }}><div className="text-5xl mb-4">📭</div><p className="text-base font-medium" style={{ color: "rgba(255,255,255,0.35)" }}>Aucune donnée disponible</p>{leads === "staging" && <p className="text-xs mt-2" style={{ color: "rgba(255,255,255,0.2)" }}>Importez un fichier CSV ou Excel pour commencer</p>}</div>
         ) : (
           <>
-            {isSilverView || (isMobile && mobileView === "cards") ? (
+            {!shouldUseDataTable || (isMobile && mobileView === "cards") ? (
               <div className="pb-4">
                 {filteredData.length === 0 ? (
                   <div className="text-center py-12" style={{ color: "rgba(255,255,255,0.3)" }}><p className="text-sm">Aucun résultat trouvé</p></div>
                 ) : (
-                  filteredData.map((lead: any, index: number) => <MobileCard key={lead.id || index} lead={lead} index={index} />)
+                  <>
+                    {paginatedData.map((lead: any, index: number) => <MobileCard key={lead.id || index} lead={lead} index={index} />)}
+                    {totalMobilePages > 1 && (
+                      <div className="mt-3 flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => setMobilePage((p) => Math.max(1, p - 1))}
+                          disabled={mobilePage === 1}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40"
+                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}
+                        >
+                          Précédent
+                        </button>
+                        <span className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
+                          Page {mobilePage}/{totalMobilePages}
+                        </span>
+                        <button
+                          onClick={() => setMobilePage((p) => Math.min(totalMobilePages, p + 1))}
+                          disabled={mobilePage === totalMobilePages}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40"
+                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}
+                        >
+                          Suivant
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             ) : (
