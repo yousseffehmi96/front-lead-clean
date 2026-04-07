@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react"
 import { Upload, Sparkles, RefreshCw, Download, Trash2, Menu, X, ChevronDown, ChevronUp, Filter, Eye, Phone, Mail, Building, User, Briefcase, Linkedin, Calendar } from "lucide-react"
 import { useAuth } from "@clerk/nextjs"
 import { useSelector } from "react-redux"
-import "datatables.net-dt/css/dataTables.dataTables.min.css"
 
 export default function Lead() {
   const [DTableComponent, setDTableComponent] = useState<any>(null)
@@ -32,6 +31,7 @@ export default function Lead() {
 
   // Détection mobile
   const [isMobile, setIsMobile] = useState(false)
+  const isSilverView = leads === "silver"
   
   useEffect(() => {
     const checkMobile = () => {
@@ -43,17 +43,38 @@ export default function Lead() {
   }, [])
 
   useEffect(() => {
+    if (isSilverView && mobileView !== "cards") {
+      setMobileView("cards")
+    }
+  }, [isSilverView, mobileView])
+
+  useEffect(() => {
     const load = async () => {
       const [{ default: DataTable }, { default: DT }] = await Promise.all([
         import("datatables.net-react"),
         import("datatables.net-dt"),
       ])
+      // @ts-ignore
+      await import("datatables.net-dt/css/dataTables.dataTables.css")
       
       DataTable.use(DT)
       setDTableComponent(() => DataTable)
     }
     load()
   }, [email])
+
+  // Filtrage pour la vue mobile
+  const filteredData = data.filter((item: any) => {
+    if (!searchTerm) return true
+    const searchLower = searchTerm.toLowerCase()
+    return (
+      item.nom?.toLowerCase().includes(searchLower) ||
+      item.prenom?.toLowerCase().includes(searchLower) ||
+      item.email?.toLowerCase().includes(searchLower) ||
+      item.societe?.toLowerCase().includes(searchLower) ||
+      item.fonction?.toLowerCase().includes(searchLower)
+    )
+  })
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -116,13 +137,8 @@ export default function Lead() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       })
-      
       const data = await res.json()
-      
-      if (!res.ok) {
-        throw new Error(data.detail || `Erreur serveur : ${res.status}`)
-      }
-      
+      if (!res.ok) throw new Error(data.detail || `Erreur serveur : ${res.status}`)
       setCleanResult(data)
       setRefresh((prev) => prev + 1)
     } catch (err: any) {
@@ -135,23 +151,14 @@ export default function Lead() {
   const handleToGold = async (leadId: number) => {
     setError(null)
     setCleanResult(null)
-    
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/togold/${leadId}`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       })
-      
       const data = await res.json()
-      
-      if (!res.ok) {
-        throw new Error(data.detail || `Erreur serveur : ${res.status}`)
-      }
-      
-      setCleanResult({
-        message: data.message || "Lead promu en GOLD avec succès !"
-      })
-      
+      if (!res.ok) throw new Error(data.detail || `Erreur serveur : ${res.status}`)
+      setCleanResult({ message: data.message || "Lead promu en GOLD avec succès !" })
       setRefresh((prev) => prev + 1)
     } catch (err: any) {
       let message = err.message.substring(err.message.lastIndexOf(":") + 1)
@@ -181,7 +188,6 @@ export default function Lead() {
     window.open(`${process.env.NEXT_PUBLIC_API_URL}/download-leads-csv/${leads}`)
     setMobileMenuOpen(false)
   }
-  
   const downloadXlsx = () => {
     window.open(`${process.env.NEXT_PUBLIC_API_URL}/download-leads-xlsx/${leads}`)
     setMobileMenuOpen(false)
@@ -194,21 +200,7 @@ export default function Lead() {
     clean: { label: "✦ CLEAN", color: "#6ee7b7", bg: "rgba(110,231,183,0.1)" },
     black: { label: "⛔ BLACK", color: "#f43f5e", bg: "rgba(244,63,94,0.1)" },
   }
-
   const badge = badgeConfig[leads as string] ?? { label: leads, color: "#818cf8", bg: "rgba(129,140,248,0.1)" }
-
-  // Filtrage des données pour la vue mobile
-  const filteredData = data.filter((item: any) => {
-    if (!searchTerm) return true
-    const searchLower = searchTerm.toLowerCase()
-    return (
-      item.nom?.toLowerCase().includes(searchLower) ||
-      item.prenom?.toLowerCase().includes(searchLower) ||
-      item.email?.toLowerCase().includes(searchLower) ||
-      item.societe?.toLowerCase().includes(searchLower) ||
-      item.fonction?.toLowerCase().includes(searchLower)
-    )
-  })
 
   // Composant Carte mobile
   const MobileCard = ({ lead, index }: { lead: any; index: number }) => {
@@ -224,7 +216,6 @@ export default function Lead() {
         }}
       >
         <div className="p-4">
-          {/* En-tête de la carte */}
           <div className="flex justify-between items-start mb-3">
             <div className="flex-1">
               <h3 className="text-white font-semibold text-base">
@@ -246,17 +237,15 @@ export default function Lead() {
             </button>
           </div>
 
-          {/* Informations principales */}
           <div className="space-y-2">
             {lead.email && (
               <div className="flex items-center gap-2 text-sm">
                 <Mail size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
-                <a href={`mailto:${lead.email}`} className="text-blue-400 text-xs truncate flex-1">
+                <a href={`mailto:${lead.email}`} className="text-blue-400 text-xs truncate flex-1 min-w-0">
                   {lead.email}
                 </a>
               </div>
             )}
-            
             {lead.telephone && (
               <div className="flex items-center gap-2 text-sm">
                 <Phone size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
@@ -265,25 +254,22 @@ export default function Lead() {
                 </a>
               </div>
             )}
-
             {lead.societe && (
               <div className="flex items-center gap-2 text-sm">
                 <Building size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
                 <span className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>{lead.societe}</span>
               </div>
             )}
-
             {lead.linkedin && (
               <div className="flex items-center gap-2 text-sm">
                 <Linkedin size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
-                <a href={lead.linkedin} target="_blank" rel="noopener noreferrer" className="text-blue-400 text-xs truncate">
+                <a href={lead.linkedin} target="_blank" rel="noopener noreferrer" className="text-blue-400 text-xs truncate flex-1 min-w-0">
                   Profil LinkedIn
                 </a>
               </div>
             )}
           </div>
 
-          {/* Date */}
           {lead.created_at && (
             <div className="mt-3 pt-2 text-xs" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.3)" }}>
               <Calendar size={10} className="inline mr-1" />
@@ -291,44 +277,30 @@ export default function Lead() {
             </div>
           )}
 
-          {/* Actions */}
           {hasActionButtons && isExpanded && (
-            <div className="mt-4 pt-3 flex gap-2" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+            <div className="mt-4 pt-3 flex flex-col sm:flex-row gap-2" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
               {leads === "silver" && (
                 <button
                   onClick={() => handleToGold(lead.id)}
                   className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all"
-                  style={{
-                    background: "rgba(245,158,11,0.15)",
-                    border: "1px solid rgba(245,158,11,0.3)",
-                    color: "#fcd34d"
-                  }}
+                  style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}
                 >
                   ★ Promouvoir Gold
                 </button>
               )}
-              
               {(leads === "gold" || leads === "prod") && (
                 <>
                   <button
                     onClick={() => handelclick("Unsubscribe", lead.id)}
                     className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all"
-                    style={{
-                      background: "rgba(244,63,94,0.1)",
-                      border: "1px solid rgba(244,63,94,0.3)",
-                      color: "#f43f5e"
-                    }}
+                    style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#f43f5e" }}
                   >
                     Désabonner
                   </button>
                   <button
                     onClick={() => handelclick("archive", lead.id)}
                     className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all"
-                    style={{
-                      background: "rgba(148,163,184,0.1)",
-                      border: "1px solid rgba(148,163,184,0.3)",
-                      color: "#94a3b8"
-                    }}
+                    style={{ background: "rgba(148,163,184,0.1)", border: "1px solid rgba(148,163,184,0.3)", color: "#94a3b8" }}
                   >
                     Archiver
                   </button>
@@ -341,8 +313,8 @@ export default function Lead() {
     )
   }
 
+  // Configuration DataTable (inchangée)
   const searchableCols = new Set(["nom", "prenom", "email", "fonction", "societe", "telephone", "linkedin", "eliminer", "created_at"])
-
   const baseColumns = [
     { data: "nom", title: "Nom", defaultContent: "" },
     { data: "prenom", title: "Prénom", defaultContent: "" },
@@ -350,42 +322,12 @@ export default function Lead() {
     { data: "fonction", title: "Fonction", defaultContent: "" },
     { data: "societe", title: "Société", defaultContent: "" },
     { data: "telephone", title: "Téléphone", defaultContent: "" },
-    {
-      data: "linkedin", title: "LinkedIn", defaultContent: "",
-      render: (val: string) =>
-        val ? `<a href="${val}" target="_blank" rel="noopener noreferrer" style="color:#818cf8;text-decoration:underline;">LinkedIn</a>` : "",
-    },
+    { data: "linkedin", title: "LinkedIn", defaultContent: "", render: (val: string) => val ? `<a href="${val}" target="_blank" rel="noopener noreferrer" style="color:#818cf8;text-decoration:underline;">LinkedIn</a>` : "" },
   ]
-
   const blackColumn = { data: "eliminer", title: "Eliminer", defaultContent: "" }
-
-  const prodColumn = {
-    data: "id", title: "Action", orderable: false,
-    render: (id: number) =>
-      `<div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button data-id="${id}" data-type="Unsubscribe" class="dt-action-btn"
-          style="padding:4px 10px;border-radius:6px;border:1px solid rgba(244,63,94,0.4);color:#f43f5e;background:rgba(244,63,94,0.08);cursor:pointer;font-size:11px;font-weight:600;">Désabonner</button>
-        <button data-id="${id}" data-type="archive" class="dt-action-btn"
-          style="padding:4px 10px;border-radius:6px;border:1px solid rgba(148,163,184,0.3);color:#94a3b8;background:rgba(148,163,184,0.08);cursor:pointer;font-size:11px;font-weight:600;">Archiver</button>
-      </div>`,
-  }
-
-  const silverColumn = {
-    data: "id", title: "Action", orderable: false,
-    render: (id: number) =>
-      `<button data-id="${id}" data-type="to-gold" class="dt-action-btn"
-        style="padding:4px 12px;border-radius:6px;border:1px solid rgba(245,158,11,0.4);
-        color:#fcd34d;background:rgba(245,158,11,0.08);cursor:pointer;font-size:11px;
-        font-weight:600;display:flex;align-items:center;gap:4px;">
-        ★ → Gold
-      </button>`,
-  }
-
-  const dateColumn = {
-    data: "created_at", title: "Date",
-    render: (val: string) => new Date(val).toLocaleDateString("fr-FR"),
-  }
-
+  const prodColumn = { data: "id", title: "Action", orderable: false, render: (id: number) => `<div style="display:flex;gap:6px;flex-wrap:wrap;"><button data-id="${id}" data-type="Unsubscribe" class="dt-action-btn" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(244,63,94,0.4);color:#f43f5e;background:rgba(244,63,94,0.08);cursor:pointer;font-size:11px;font-weight:600;">Désabonner</button><button data-id="${id}" data-type="archive" class="dt-action-btn" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(148,163,184,0.3);color:#94a3b8;background:rgba(148,163,184,0.08);cursor:pointer;font-size:11px;font-weight:600;">Archiver</button></div>` }
+  const silverColumn = { data: "id", title: "Action", orderable: false, render: (id: number) => `<button data-id="${id}" data-type="to-gold" class="dt-action-btn" style="padding:4px 12px;border-radius:6px;border:1px solid rgba(245,158,11,0.4);color:#fcd34d;background:rgba(245,158,11,0.08);cursor:pointer;font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px;">★ → Gold</button>` }
+  const dateColumn = { data: "created_at", title: "Date", render: (val: string) => new Date(val).toLocaleDateString("fr-FR") }
   const columns = [
     ...baseColumns,
     ...(leads === "black" ? [blackColumn] : []),
@@ -398,73 +340,37 @@ export default function Lead() {
     api.columns().every(function (this: any, index: number) {
       const colData = columns[index]?.data
       if (!colData || !searchableCols.has(colData)) return
-
       const header = api.column(index).header() as HTMLElement
       if (header.querySelector(".search-icon-btn")) return
-
       const title = header.innerText.trim()
       const sortSpan = header.querySelector(".dt-column-title") as HTMLElement
       const titleText = sortSpan ? sortSpan.innerText.trim() : title
       const existingContent = header.innerHTML
-
       header.innerHTML = `
         <div style="display:flex;align-items:center;gap:5px;">
-          <div style="flex:1;display:flex;align-items:center;gap:3px;">
-            ${existingContent}
-          </div>
-          <button class="search-icon-btn"
-            style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
-            border-radius:4px;padding:2px 5px;cursor:pointer;color:rgba(255,255,255,0.3);
-            display:flex;align-items:center;flex-shrink:0;">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <circle cx="11" cy="11" r="8"/>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-          </button>
+          <div style="flex:1;display:flex;align-items:center;gap:3px;">${existingContent}</div>
+          <button class="search-icon-btn" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:4px;padding:2px 5px;cursor:pointer;color:rgba(255,255,255,0.3);display:flex;align-items:center;flex-shrink:0;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
         </div>
         <div class="search-wrap" style="display:none;margin-top:5px;">
-          ${colData === "created_at"
-            ? `<input class="col-search-input" type="date"
-                style="width:100%;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.3);
-                color:#e2e8f0;border-radius:6px;padding:4px 8px;font-size:11px;outline:none;
-                box-sizing:border-box;color-scheme:dark;"/>`
-            : `<input class="col-search-input" placeholder="Filtrer ${titleText.toLowerCase()}..."
-                style="width:100%;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.3);
-                color:#e2e8f0;border-radius:6px;padding:4px 8px;font-size:11px;outline:none;box-sizing:border-box;"/>`
-          }
-        </div>
-      `
-
+          ${colData === "created_at" ? `<input class="col-search-input" type="date" style="width:100%;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.3);color:#e2e8f0;border-radius:6px;padding:4px 8px;font-size:11px;outline:none;box-sizing:border-box;color-scheme:dark;"/>` : `<input class="col-search-input" placeholder="Filtrer ${titleText.toLowerCase()}..." style="width:100%;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.3);color:#e2e8f0;border-radius:6px;padding:4px 8px;font-size:11px;outline:none;box-sizing:border-box;"/>`}
+        </div>`
       const btn = header.querySelector(".search-icon-btn") as HTMLElement
       const wrap = header.querySelector(".search-wrap") as HTMLElement
       const input = header.querySelector(".col-search-input") as HTMLInputElement
-
       btn?.addEventListener("click", (e) => {
         e.stopPropagation()
         const open = wrap.style.display !== "none"
         wrap.style.display = open ? "none" : "block"
-        if (open) {
-          input.value = ""
-          api.column(index).search("").draw()
-          btn.style.cssText += ";background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.1);color:rgba(255,255,255,0.3);"
-        } else {
-          input.focus()
-          btn.style.cssText += ";background:rgba(129,140,248,0.2);border-color:rgba(129,140,248,0.4);color:#818cf8;"
-        }
+        if (open) { input.value = ""; api.column(index).search("").draw(); btn.style.cssText += ";background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.1);color:rgba(255,255,255,0.3);" }
+        else { input.focus(); btn.style.cssText += ";background:rgba(129,140,248,0.2);border-color:rgba(129,140,248,0.4);color:#818cf8;" }
       })
-
       input?.addEventListener("input", (e) => {
         e.stopPropagation()
         let val = (e.target as HTMLInputElement).value
-        if (colData === "created_at" && val) {
-          val = new Date(val).toLocaleDateString("fr-FR")
-        }
+        if (colData === "created_at" && val) val = new Date(val).toLocaleDateString("fr-FR")
         api.column(index).search(val).draw()
-        btn.style.cssText += val
-          ? ";background:rgba(129,140,248,0.3);border-color:rgba(129,140,248,0.5);color:#818cf8;"
-          : ";background:rgba(129,140,248,0.2);border-color:rgba(129,140,248,0.4);color:#818cf8;"
+        btn.style.cssText += val ? ";background:rgba(129,140,248,0.3);border-color:rgba(129,140,248,0.5);color:#818cf8;" : ";background:rgba(129,140,248,0.2);border-color:rgba(129,140,248,0.4);color:#818cf8;"
       })
-
       input?.addEventListener("click", (e) => e.stopPropagation())
     })
   }
@@ -474,90 +380,43 @@ export default function Lead() {
     if (!btn) return
     const id = Number(btn.dataset.id)
     const type = btn.dataset.type!
-    if (type === "to-gold") {
-      handleToGold(id)
-    } else {
-      handelclick(type, id)
-    }
+    if (type === "to-gold") handleToGold(id)
+    else handelclick(type, id)
   }
 
   return (
     <div className="h-full rounded-none flex flex-col" style={{ background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)", border: "1px solid rgba(255,255,255,0.06)" }}>
       {/* Header */}
       <div className="sticky top-0 z-10 px-3 sm:px-6 py-3 sm:py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "inherit" }}>
-        <div className="flex justify-between items-center flex-wrap gap-3">
+        <div className="flex justify-between items-start sm:items-center flex-wrap gap-3">
           <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
             <h2 className="text-white font-semibold text-sm sm:text-base truncate">Liste des Leads</h2>
-            <span className="text-xs font-bold px-2 py-0.5 rounded-md whitespace-nowrap" style={{ color: badge.color, background: badge.bg, border: `1px solid ${badge.color}30` }}>
-              {badge.label}
-            </span>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-md whitespace-nowrap" style={{ color: badge.color, background: badge.bg, border: `1px solid ${badge.color}30` }}>{badge.label}</span>
             <span className="text-xs hidden sm:inline" style={{ color: "rgba(255,255,255,0.3)" }}>{data.length} entrées</span>
           </div>
-
-          {/* Boutons d'action */}
-          <div className="flex gap-2">
-            {isMobile && (
-              <button
-                onClick={() => setMobileView(mobileView === "table" ? "cards" : "table")}
-                className="flex items-center gap-1 text-xs font-semibold px-2 py-1.5 rounded-lg md:hidden"
-                style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}
-              >
-                {mobileView === "table" ? <Eye size={13} /> : <Eye size={13} />}
-                {mobileView === "table" ? "Cartes" : "Tableau"}
+          <div className="flex gap-2 w-full sm:w-auto justify-end">
+            {isMobile && !isSilverView && (
+              <button onClick={() => setMobileView(mobileView === "table" ? "cards" : "table")} className="flex items-center gap-1 text-xs font-semibold px-2 py-1.5 rounded-lg md:hidden" style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}>
+                <Eye size={13} /> {mobileView === "table" ? "Cartes" : "Tableau"}
               </button>
             )}
-
             <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden flex items-center justify-center p-2 rounded-lg" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}>
               {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
-
-            {/* Desktop Actions */}
             <div className="hidden md:flex gap-2">
               <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileUpload} />
-              {leads === "staging" && (
-                <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", color: "#a5b4fc" }}>
-                  <Upload size={13} />{uploading ? "Chargement..." : "Importer"}
-                </button>
-              )}
-              {(leads === "staging" || leads === "clean") && (
-                <button onClick={handleClean} disabled={cleaning || data.length === 0} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}>
-                  <Sparkles size={13} />{cleaning ? "Nettoyage..." : "Nettoyer"}
-                </button>
-              )}
-              {leads === "gold" && (
-                <>
-                  <button onClick={downloadCSV} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}>
-                    <Download size={13} />CSV
-                  </button>
-                  <button onClick={downloadXlsx} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}>
-                    <Download size={13} />XLSX
-                  </button>
-                </>
-              )}
-              <button onClick={() => setRefresh((p) => p + 1)} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}>
-                <RefreshCw size={13} />
-              </button>
+              {leads === "staging" && <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", color: "#a5b4fc" }}><Upload size={13} />{uploading ? "Chargement..." : "Importer"}</button>}
+              {(leads === "staging" || leads === "clean") && <button onClick={handleClean} disabled={cleaning || data.length === 0} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}><Sparkles size={13} />{cleaning ? "Nettoyage..." : "Nettoyer"}</button>}
+              {leads === "gold" && <><button onClick={downloadCSV} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={13} />CSV</button><button onClick={downloadXlsx} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={13} />XLSX</button></>}
+              <button onClick={() => setRefresh((p) => p + 1)} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}><RefreshCw size={13} /></button>
             </div>
           </div>
         </div>
-
-        {/* Barre de recherche mobile */}
-        {isMobile && data.length > 0 && (
+        {/* Barre de recherche mobile (vue cartes uniquement) */}
+        {isMobile && mobileView === "cards" && data.length > 0 && (
           <div className="mt-3">
             <div className="relative">
-              <input
-                type="text"
-                placeholder="Rechercher par nom, email, société..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg text-sm"
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  color: "#e2e8f0",
-                  outline: "none"
-                }}
-              />
+              <input type="text" placeholder="Rechercher par nom, email, société..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0", outline: "none" }} />
               <Filter size={14} className="absolute right-3 top-1/2 transform -translate-y-1/2" style={{ color: "rgba(255,255,255,0.3)" }} />
             </div>
           </div>
@@ -568,84 +427,30 @@ export default function Lead() {
       {mobileMenuOpen && (
         <div className="md:hidden px-3 py-2 flex flex-col gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.2)" }}>
           <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileUpload} />
-          {leads === "staging" && (
-            <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40 w-full" style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", color: "#a5b4fc" }}>
-              <Upload size={14} />{uploading ? "Chargement..." : "Importer"}
-            </button>
-          )}
-          {(leads === "staging" || leads === "clean") && (
-            <button onClick={handleClean} disabled={cleaning || data.length === 0} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40 w-full" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}>
-              <Sparkles size={14} />{cleaning ? "Nettoyage..." : "Nettoyer"}
-            </button>
-          )}
-          {leads === "gold" && (
-            <>
-              <button onClick={downloadCSV} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}>
-                <Download size={14} />Télécharger CSV
-              </button>
-              <button onClick={downloadXlsx} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}>
-                <Download size={14} />Télécharger XLSX
-              </button>
-            </>
-          )}
-          <button onClick={() => { setRefresh((p) => p + 1); setMobileMenuOpen(false); }} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}>
-            <RefreshCw size={14} />Actualiser
-          </button>
+          {leads === "staging" && <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40 w-full" style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", color: "#a5b4fc" }}><Upload size={14} />{uploading ? "Chargement..." : "Importer"}</button>}
+          {(leads === "staging" || leads === "clean") && <button onClick={handleClean} disabled={cleaning || data.length === 0} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40 w-full" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}><Sparkles size={14} />{cleaning ? "Nettoyage..." : "Nettoyer"}</button>}
+          {leads === "gold" && <><button onClick={downloadCSV} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={14} />Télécharger CSV</button><button onClick={downloadXlsx} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={14} />Télécharger XLSX</button></>}
+          <button onClick={() => { setRefresh((p) => p + 1); setMobileMenuOpen(false); }} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}><RefreshCw size={14} />Actualiser</button>
         </div>
       )}
 
-      {/* Messages */}
-      {err && (
-        <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#fda4af" }}>
-          ❌ {err}
-        </div>
-      )}
-
-      {cleanResult && cleanResult.message && !cleanResult.moved_to_gold && !cleanResult.total_deleted && (
-        <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>
-          ✅ {cleanResult.message}
-        </div>
-      )}
-
-      {cleanResult && cleanResult.total_deleted !== undefined && (
-        <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)", color: "#fda4af" }}>
-          <p className="font-semibold mb-2">🗑️ Suppression des doublons terminée</p>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { label: "Total", val: cleanResult.total_deleted, icon: "🔢" },
-              { label: "Staging vs Gold", val: cleanResult.staging_vs_gold, icon: "🥇" },
-              { label: "Staging vs Silver", val: cleanResult.staging_vs_silver, icon: "🥈" },
-              { label: "Interne", val: cleanResult.staging_internal, icon: "♻️" },
-            ].map((item) => (
-              <div key={item.label} className="px-2 sm:px-3 py-2 rounded-lg text-center" style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.15)" }}>
-                <p className="text-xs opacity-70">{item.icon} {item.label}</p>
-                <p className="font-bold text-sm sm:text-base">{item.val ?? 0}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {cleanResult && cleanResult.moved_to_gold !== undefined && (
-        <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>
-          <p className="font-semibold mb-2">✅ Nettoyage terminé</p>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { label: "🥇 Gold", val: cleanResult.moved_to_gold },
-              { label: "🥈 Silver", val: cleanResult.moved_to_silver },
-              { label: "🧹 Clean", val: cleanResult.moved_to_clean },
-              { label: "📧 Emails", val: cleanResult.emails_completed },
-              { label: "🏢 Sociétés", val: cleanResult.added_societes },
-              { label: "👤 Noms", val: cleanResult.nom_prenom_completed },
-            ].map((item) => (
-              <div key={item.label} className="px-2 sm:px-3 py-2 rounded-lg text-center" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.15)" }}>
-                <p className="text-xs opacity-70">{item.label}</p>
-                <p className="font-bold text-sm sm:text-base">{item.val ?? 0}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Messages d'erreur / succès (inchangés) */}
+      {err && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#fda4af" }}>❌ {err}</div>}
+      {cleanResult && cleanResult.message && !cleanResult.moved_to_gold && !cleanResult.total_deleted && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>✅ {cleanResult.message}</div>}
+      {cleanResult && cleanResult.total_deleted !== undefined && (<div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)", color: "#fda4af" }}><p className="font-semibold mb-2">🗑️ Suppression des doublons terminée</p><div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{[
+        { label: "Total", val: cleanResult.total_deleted, icon: "🔢" },
+        { label: "Staging vs Gold", val: cleanResult.staging_vs_gold, icon: "🥇" },
+        { label: "Staging vs Silver", val: cleanResult.staging_vs_silver, icon: "🥈" },
+        { label: "Interne", val: cleanResult.staging_internal, icon: "♻️" },
+      ].map((item) => (<div key={item.label} className="px-2 sm:px-3 py-2 rounded-lg text-center" style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.15)" }}><p className="text-xs opacity-70">{item.icon} {item.label}</p><p className="font-bold text-sm sm:text-base">{item.val ?? 0}</p></div>))}</div></div>)}
+      {cleanResult && cleanResult.moved_to_gold !== undefined && (<div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}><p className="font-semibold mb-2">✅ Nettoyage terminé</p><div className="grid grid-cols-2 sm:grid-cols-3 gap-2">{[
+        { label: "🥇 Gold", val: cleanResult.moved_to_gold },
+        { label: "🥈 Silver", val: cleanResult.moved_to_silver },
+        { label: "🧹 Clean", val: cleanResult.moved_to_clean },
+        { label: "📧 Emails complètè", val: cleanResult.emails_completed },
+        { label: "🏢 Sociétés ajoutè", val: cleanResult.added_societes },
+        { label: "👤 Noms complètè", val: cleanResult.nom_prenom_completed },
+      ].map((item) => (<div key={item.label} className="px-2 sm:px-3 py-2 rounded-lg text-center" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.15)" }}><p className="text-xs opacity-70">{item.label}</p><p className="font-bold text-sm sm:text-base">{item.val ?? 0}</p></div>))}</div></div>)}
 
       <style>{`
         .dt-container { color: #cbd5e1; font-size: 13px; }
@@ -698,65 +503,53 @@ export default function Lead() {
         .col-search-input::placeholder { color: rgba(255,255,255,0.2); }
         
         @media (max-width: 768px) {
+          .dt-container .dt-layout-row {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+            padding: 8px;
+          }
+          .dt-container .dt-length,
+          .dt-container .dt-info,
+          .dt-container .dt-paging {
+            width: 100%;
+            text-align: center;
+          }
           .dt-container table.dataTable thead th:nth-child(4),
           .dt-container table.dataTable tbody td:nth-child(4),
           .dt-container table.dataTable thead th:nth-child(6),
           .dt-container table.dataTable tbody td:nth-child(6),
           .dt-container table.dataTable thead th:nth-child(7),
-          .dt-container table.dataTable tbody td:nth-child(7) {
-            display: none;
-          }
+          .dt-container table.dataTable tbody td:nth-child(7) { display: none; }
         }
-        
         @media (max-width: 640px) {
           .dt-container table.dataTable thead th:nth-child(2),
-          .dt-container table.dataTable tbody td:nth-child(2) {
-            display: none;
-          }
-          
-          .dt-action-btn {
-            font-size: 10px !important;
-            padding: 3px 6px !important;
-          }
+          .dt-container table.dataTable tbody td:nth-child(2) { display: none; }
+          .dt-action-btn { font-size: 10px !important; padding: 3px 6px !important; }
+        }
+        @media (max-width: 768px) {
+          .dt-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
         }
       `}</style>
 
-      <div className="px-2 pb-4 pt-2 overflow-y-auto flex-1">
-        {!DTableComponent && !isMobile ? (
-          <div className="text-center py-16" style={{ color: "rgba(255,255,255,0.2)" }}>
-            <div className="text-4xl mb-3">⚡</div>
-            <p className="text-sm">Chargement...</p>
-          </div>
+      <div className="px-2 sm:px-3 pb-4 pt-2 overflow-y-auto flex-1 overflow-x-hidden">
+        {!DTableComponent && !isSilverView ? (
+          <div className="text-center py-16" style={{ color: "rgba(255,255,255,0.2)" }}><div className="text-4xl mb-3">⚡</div><p className="text-sm">Chargement...</p></div>
         ) : data.length === 0 ? (
-          <div className="text-center py-20" style={{ color: "rgba(255,255,255,0.2)" }}>
-            <div className="text-5xl mb-4">📭</div>
-            <p className="text-base font-medium" style={{ color: "rgba(255,255,255,0.35)" }}>Aucune donnée disponible</p>
-            {leads === "staging" && (
-              <p className="text-xs mt-2" style={{ color: "rgba(255,255,255,0.2)" }}>
-                Importez un fichier CSV ou Excel pour commencer
-              </p>
-            )}
-          </div>
+          <div className="text-center py-20" style={{ color: "rgba(255,255,255,0.2)" }}><div className="text-5xl mb-4">📭</div><p className="text-base font-medium" style={{ color: "rgba(255,255,255,0.35)" }}>Aucune donnée disponible</p>{leads === "staging" && <p className="text-xs mt-2" style={{ color: "rgba(255,255,255,0.2)" }}>Importez un fichier CSV ou Excel pour commencer</p>}</div>
         ) : (
           <>
-            {/* Vue Mobile - Cartes */}
-            {isMobile && mobileView === "cards" && (
+            {isSilverView || (isMobile && mobileView === "cards") ? (
               <div className="pb-4">
                 {filteredData.length === 0 ? (
-                  <div className="text-center py-12" style={{ color: "rgba(255,255,255,0.3)" }}>
-                    <p className="text-sm">Aucun résultat trouvé</p>
-                  </div>
+                  <div className="text-center py-12" style={{ color: "rgba(255,255,255,0.3)" }}><p className="text-sm">Aucun résultat trouvé</p></div>
                 ) : (
-                  filteredData.map((lead: any, index: number) => (
-                    <MobileCard key={lead.id || index} lead={lead} index={index} />
-                  ))
+                  filteredData.map((lead: any, index: number) => <MobileCard key={lead.id || index} lead={lead} index={index} />)
                 )}
               </div>
-            )}
-
-            {/* Vue Tableau (Desktop ou mobile si sélectionné) */}
-            {(!isMobile || mobileView === "table") && (
-              <div onClick={handleTableClick}>
+            ) : (
+              <div onClick={handleTableClick} className="w-full overflow-x-auto">
                 <DTableComponent
                   key={data.length}
                   data={data}
@@ -767,31 +560,11 @@ export default function Lead() {
                     pageLength: isMobile ? 5 : 10,
                     responsive: true,
                     scrollX: isMobile,
-                    initComplete: function (this: any) {
-                      const api = (this as any).api()
-                      if (!isMobile) injectSearchIcons(api)
-                    },
-                    language: {
-                      processing: "Traitement en cours...",
-                      search: "Rechercher :",
-                      lengthMenu: "Afficher _MENU_",
-                      info: "_START_ à _END_ sur _TOTAL_",
-                      infoEmpty: "0 à 0 sur 0",
-                      infoFiltered: "(filtré de _MAX_)",
-                      loadingRecords: "Chargement...",
-                      zeroRecords: "Aucun élément",
-                      emptyTable: "Aucune donnée",
-                      paginate: { first: "«", previous: "‹", next: "›", last: "»" },
-                    },
+                    initComplete: function (this: any) { const api = (this as any).api(); if (!isMobile) injectSearchIcons(api); },
+                    language: { processing: "Traitement en cours...", search: "Rechercher :", lengthMenu: "Afficher _MENU_", info: "_START_ à _END_ sur _TOTAL_", infoEmpty: "0 à 0 sur 0", infoFiltered: "(filtré de _MAX_)", loadingRecords: "Chargement...", zeroRecords: "Aucun élément", emptyTable: "Aucune donnée", paginate: { first: "«", previous: "‹", next: "›", last: "»" } }
                   }}
                 >
-                  <thead>
-                    <tr>
-                      {columns.map((col, i) => (
-                        <th key={i}>{col.title}</th>
-                      ))}
-                    </tr>
-                  </thead>
+                  <thead><tr>{columns.map((col, i) => <th key={i}>{col.title}</th>)}</tr></thead>
                 </DTableComponent>
               </div>
             )}
