@@ -398,8 +398,8 @@ export default function Lead() {
   return (
     <div className="h-full rounded-none flex flex-col" style={{ background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)", border: "1px solid rgba(255,255,255,0.06)" }}>
       {/* Header */}
-      <div className="sticky top-0 z-10 px-3 sm:px-6 py-3 sm:py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "inherit" }}>
-        <div className="flex justify-between items-start sm:items-center flex-wrap gap-3">
+      <div className="sticky top-0 z-10 pr-3 pl-14 sm:px-6 py-3 sm:py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "inherit" }}>
+        <div className="flex justify-between items-start sm:items-center flex-wrap gap-2 sm:gap-3">
           <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
             <h2 className="text-white font-semibold text-sm sm:text-base truncate">Liste des Leads</h2>
             <span className="text-xs font-bold px-2 py-0.5 rounded-md whitespace-nowrap" style={{ color: badge.color, background: badge.bg, border: `1px solid ${badge.color}30` }}>{badge.label}</span>

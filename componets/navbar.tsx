@@ -10,6 +10,8 @@ import {
   Zap,
   Settings,
   LogOut,
+  Menu,
+  X,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useClerk, useUser } from "@clerk/nextjs";
@@ -53,10 +55,11 @@ export default function Navbar() {
     <>
       {/* Hamburger mobile */}
       <button
-        className="md:hidden fixed top-4 left-4 z-50 p-2 rounded bg-indigo-600 text-white"
+        className={`md:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-indigo-600 text-white transition-opacity ${open ? "opacity-0 pointer-events-none" : "opacity-100"}`}
         onClick={() => setOpen(!open)}
+        aria-label="Ouvrir le menu"
       >
-        ☰
+        <Menu size={18} />
       </button>
 
       {/* Sidebar Container */}
@@ -65,7 +68,14 @@ export default function Navbar() {
         ${open ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 md:static md:flex`}
       >
         {/* Logo Section */}
-        <div className="px-5 pt-6 pb-5 border-b border-white/5 flex items-center gap-2.5">
+        <div className="px-5 pt-6 pb-5 border-b border-white/5 flex items-center gap-2.5 relative">
+          <button
+            className="md:hidden absolute top-4 right-3 p-1.5 rounded-md text-white/70 hover:text-white hover:bg-white/10"
+            onClick={() => setOpen(false)}
+            aria-label="Fermer le menu"
+          >
+            <X size={16} />
+          </button>
           <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-tr from-indigo-500 to-purple-500 shadow-lg">
             <Zap size={15} color="white" fill="white" />
           </div>
