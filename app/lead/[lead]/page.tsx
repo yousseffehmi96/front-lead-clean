@@ -626,16 +626,16 @@ export default function Lead() {
       {cleanResult && cleanResult.message && !cleanResult.moved_to_gold && !cleanResult.total_deleted && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>✅ {cleanResult.message}</div>}
       {cleanResult && cleanResult.total_deleted !== undefined && (<div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)", color: "#fda4af" }}><p className="font-semibold mb-2">🗑️ Suppression des doublons terminée</p><div className="grid grid-cols-2 sm:grid-cols-5 gap-2">{[
         { label: "Total", val: cleanResult.total_deleted, icon: "🔢" },
-        { label: "Staging vs Gold", val: cleanResult.staging_vs_gold, icon: "🥇" },
-        { label: "Staging vs Silver", val: cleanResult.staging_vs_silver, icon: "🥈" },
-        { label: "Staging vs Applique", val: cleanResult.staging_vs_applique, icon: "🧩" },
-        { label: "Interne", val: cleanResult.staging_internal, icon: "♻️" },
+        { label: "Doublons en Gold", val: cleanResult.staging_vs_gold, icon: "🥇" },
+        { label: "Doublons en Silver", val: cleanResult.staging_vs_silver, icon: "🥈" },
+        { label: "Doublons Interne", val: cleanResult.staging_internal, icon: "♻️" },
+        { label: "Doublons Staging ", val: cleanResult.staging_vs_applique, icon: "🧩" },
       ].map((item) => (<div key={item.label} className="px-2 sm:px-3 py-2 rounded-lg text-center" style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.15)" }}><p className="text-xs opacity-70">{item.icon} {item.label}</p><p className="font-bold text-sm sm:text-base">{item.val ?? 0}</p></div>))}</div>{uploadedRows > 0 && (Number(cleanResult.total_deleted || 0) + Number(cleanResult.moved_to_steaging_applique || 0)) === uploadedRows && (<p className="mt-3 text-xs sm:text-sm font-semibold" style={{ color: "#fca5a5" }}>⚠️ Tu as deja traite ce fichier: tous les leads importes ont ete supprimes comme doublons.</p>)}</div>)}
       {cleanResult && cleanResult.moved_to_gold !== undefined && (<div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}><p className="font-semibold mb-2">✅ Nettoyage terminé</p><div className="grid grid-cols-2 sm:grid-cols-3 gap-2">{[
         { label: "🥇 Gold", val: cleanResult.moved_to_gold },
         { label: "🥈 Silver", val: cleanResult.moved_to_silver },
         { label: "🧹 Clean", val: cleanResult.moved_to_clean },
-        { label: "🧩 Staging applique", val: cleanResult.moved_to_steaging_applique },
+        { label: "🧩 Staging", val: cleanResult.moved_to_steaging_applique },
         { label: "📧 Emails complètè", val: cleanResult.emails_completed },
         { label: "👤 Noms complètè", val: cleanResult.nom_prenom_completed },
       ].map((item) => (<div key={item.label} className="px-2 sm:px-3 py-2 rounded-lg text-center" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.15)" }}><p className="text-xs opacity-70">{item.label}</p><p className="font-bold text-sm sm:text-base">{item.val ?? 0}</p></div>))}</div></div>)}

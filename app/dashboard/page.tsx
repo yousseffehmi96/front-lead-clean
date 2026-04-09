@@ -23,6 +23,7 @@ interface Stat {
   moved_to_gold: number
   staging_vs_silver: number
   staging_vs_gold: number
+  staging_vs_applique: number
   staging_internal: number
   total_deleted: number
   iduser: string
@@ -139,7 +140,7 @@ function StatRow({ d, idx }: { d: Stat; idx: number }) {
   const [loading, setLoading] = useState(true)
 
   const detected = (d.inserted_rows ?? 0) + (d.total_deleted ?? 0)
-  const cleaned = d.total_deleted ?? 0
+  const duplicatesDeleted = d.total_deleted ?? 0
   const inserted = d.inserted_rows ?? 0
   const userid = d.iduser
 
@@ -174,6 +175,7 @@ function StatRow({ d, idx }: { d: Stat; idx: number }) {
     { label: "🧹 Clean", val: d.moved_to_clean ?? 0, i: 8 },
     { label: "Staging vs Silver", val: d.staging_vs_silver ?? 0, i: 0 },
     { label: "Staging vs Gold", val: d.staging_vs_gold ?? 0, i: 1 },
+    { label: "Staging vs Appliqué", val: d.staging_vs_applique ?? 0, i: 4 },
     { label: "Staging Internal", val: d.staging_internal ?? 0, i: 2 },
   ]
 
@@ -207,7 +209,7 @@ function StatRow({ d, idx }: { d: Stat; idx: number }) {
         </td>
         <td className="px-4 py-3">
           <span className="text-xs font-semibold px-2 py-1 rounded-md" style={{ color: CARD_COLORS[2].color, background: CARD_COLORS[2].bg, border: `1px solid ${CARD_COLORS[2].border}` }}>
-            {cleaned}
+            {duplicatesDeleted}
           </span>
         </td>
        <td className="px-3 md:px-4 py-3">
@@ -272,17 +274,22 @@ export default function Dashboard() {
 
   const totals = useMemo(() => {
     if (!stats) return null
+    const totalInserted = stats.reduce((s, d) => s + (d.inserted_rows ?? 0), 0)
+    const totalDeleted = stats.reduce((s, d) => s + (d.total_deleted ?? 0), 0)
     return {
-      inserted: stats.reduce((s, d) => s + d.inserted_rows, 0),
-      duplicates: stats.reduce((s, d) => s + d.duplicates_deleted, 0),
-      emails: stats.reduce((s, d) => s + d.emails_completed, 0),
-      societe: stats.reduce((s, d) => s + d.societe_completed, 0),
-      added_societes: stats.reduce((s, d) => s + d.added_societes, 0),
-      blacklisted: stats.reduce((s, d) => s + d.blacklisted_removed, 0),
-      gold: stats.reduce((s, d) => s + d.moved_to_gold, 0),
-      silver: stats.reduce((s, d) => s + d.moved_to_silver, 0),
-      clean: stats.reduce((s, d) => s + d.moved_to_clean, 0),
-      total_deleted: stats.reduce((s, d) => s + d.total_deleted, 0),
+      files_uploaded: stats.length,
+      detected: totalInserted + totalDeleted,
+      duplicates_deleted: totalDeleted,
+
+      inserted: totalInserted,
+      emails: stats.reduce((s, d) => s + (d.emails_completed ?? 0), 0),
+      societe: stats.reduce((s, d) => s + (d.societe_completed ?? 0), 0),
+      added_societes: stats.reduce((s, d) => s + (d.added_societes ?? 0), 0),
+      blacklisted: stats.reduce((s, d) => s + (d.blacklisted_removed ?? 0), 0),
+      gold: stats.reduce((s, d) => s + (d.moved_to_gold ?? 0), 0),
+      silver: stats.reduce((s, d) => s + (d.moved_to_silver ?? 0), 0),
+      clean: stats.reduce((s, d) => s + (d.moved_to_clean ?? 0), 0),
+      total_deleted: totalDeleted,
     }
   }, [stats])
 
@@ -298,14 +305,9 @@ export default function Dashboard() {
   )
 
   const metricCards = [
-    { label: "Total insérés", value: totals?.inserted ?? 0 },
-    { label: "Emails complétés", value: totals?.emails ?? 0 },
-    { label: "Sociétés complétées", value: totals?.societe ?? 0 },
-    { label: "Sociétés ajoutées", value: totals?.added_societes ?? 0 },
-    { label: "Blacklistés retirés", value: totals?.blacklisted ?? 0 },
-    { label: "🥇 Gold", value: totals?.gold ?? 0 },
-    { label: "🥈 Silver", value: totals?.silver ?? 0 },
-    { label: "Doublons", value: totals?.total_deleted ?? 0 },
+    { label: "Fichiers uploadés", value: totals?.files_uploaded ?? 0 },
+    { label: "Total détectés", value: totals?.detected ?? 0 },
+    { label: "Doublons effacés", value: totals?.duplicates_deleted ?? 0 },
   ]
 
   return (
@@ -316,7 +318,7 @@ export default function Dashboard() {
       </div>
 
       {totals && (
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {metricCards.map((m, i) => (
             <div key={m.label} className="rounded-xl p-4" style={{ background: CARD_COLORS[i].bg, border: `1px solid ${CARD_COLORS[i].border}` }}>
               <p className="text-xs mb-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>{m.label}</p>
@@ -364,7 +366,7 @@ export default function Dashboard() {
       <tr className="text-white/60 text-[11px] md:text-xs uppercase tracking-wider">
         <th className="px-3 md:px-4 py-3 text-left">Fichier</th>
         <th className="px-3 md:px-4 py-3 text-left">detectés</th>
-        <th className="px-3 md:px-4 py-3 text-left">Doublons</th>
+        <th className="px-3 md:px-4 py-3 text-left">Doublons effacés</th>
         <th className="px-3 md:px-4 py-3 text-left">Utilisateur</th>
         <th className="px-3 md:px-4 py-3 text-left">Date</th>
       </tr>
