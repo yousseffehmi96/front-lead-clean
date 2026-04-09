@@ -4,7 +4,7 @@ import { useMemo, useRef, useEffect, useState } from "react"
 import Usefetch from "@/hooks/SocieteFetch"
 import { Chart, registerables } from "chart.js"
 import { ChevronDown, ChevronRight } from "lucide-react"
-import { useAuth } from "@clerk/nextjs"
+import { useUser } from "@clerk/nextjs"
 import { useRouter } from "next/navigation"
 import { getUserById } from "@/api/user-actions"
 Chart.register(...registerables)
@@ -247,7 +247,27 @@ function StatRow({ d, idx }: { d: Stat; idx: number }) {
 }
 
 export default function Dashboard() {
-  const { data } = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/stat`)
+  const { user, isLoaded, isSignedIn } = useUser()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      router.push("/sign-in")
+    }
+  }, [isLoaded, isSignedIn, router])
+
+  const role = ((user?.publicMetadata?.role as string) || "agent").toLowerCase()
+  const isManager = role === "manager"
+  const userId = user?.id
+
+  const statUrl = useMemo(() => {
+    const base = `${process.env.NEXT_PUBLIC_API_URL}/stat`
+    if (isManager) return `${base}?is_manager=true`
+    if (userId) return `${base}?userid=${encodeURIComponent(userId)}`
+    return base
+  }, [isManager, userId])
+
+  const { data } = Usefetch(statUrl)
   const stats = data as Stat[]
 
   const totals = useMemo(() => {
@@ -285,7 +305,7 @@ export default function Dashboard() {
     { label: "Blacklistés retirés", value: totals?.blacklisted ?? 0 },
     { label: "🥇 Gold", value: totals?.gold ?? 0 },
     { label: "🥈 Silver", value: totals?.silver ?? 0 },
-    { label: "Supprimés", value: totals?.total_deleted ?? 0 },
+    { label: "Doublons", value: totals?.total_deleted ?? 0 },
   ]
 
   return (
@@ -343,8 +363,8 @@ export default function Dashboard() {
     <thead className="bg-white/5">
       <tr className="text-white/60 text-[11px] md:text-xs uppercase tracking-wider">
         <th className="px-3 md:px-4 py-3 text-left">Fichier</th>
-        <th className="px-3 md:px-4 py-3 text-left">Insérés</th>
-        <th className="px-3 md:px-4 py-3 text-left">Supprimés</th>
+        <th className="px-3 md:px-4 py-3 text-left">detectés</th>
+        <th className="px-3 md:px-4 py-3 text-left">Doublons</th>
         <th className="px-3 md:px-4 py-3 text-left">Utilisateur</th>
         <th className="px-3 md:px-4 py-3 text-left">Date</th>
       </tr>
