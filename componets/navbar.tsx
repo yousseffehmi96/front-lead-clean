@@ -12,6 +12,8 @@ import {
   LogOut,
   Menu,
   X,
+  User,
+  ChevronDown,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useClerk, useUser } from "@clerk/nextjs";
@@ -19,6 +21,7 @@ import { useClerk, useUser } from "@clerk/nextjs";
 export default function Navbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const { user } = useUser();
   const { signOut } = useClerk();
 
@@ -41,14 +44,9 @@ export default function Navbar() {
 
   const flow2Links = [
     { id: "Clean", href: "/lead/clean", text: "Clean", icon: <Sparkles size={16} />, badge: "✦", badgeColor: "#6ee7b7", desc: "À corriger" },
+    { id: "StagingApplique", href: "/lead/steaging-applique", text: "Staging Applique", icon: <Database size={16} />, badge: "🧩", badgeColor: "#fbbf24", desc: "Aucune règle" },
     { id: "Blacklist", href: "/lead/black", text: "Blacklist", icon: <Shield size={16} />, badge: "⛔", badgeColor: "#f43f5e", desc: "Bannis" },
-  ];
-
-  const settingsLinks = [
-    { id: "Dashboard", href: "/dashboard", text: "Dashboard", icon: <LayoutDashboard size={16} /> },
-    // "adminOnly: true" signifie que seul un manager peut voir ces liens
-    { id: "Settings", href: "/settings", text: "Paramètres", icon: <Settings size={16} /> ,adminOnly: true },
-    { id: "Company", href: "/company", text: "Sociétés", icon: <Building2 size={16} />},
+    { id: "CompanyGestion", href: "/company", text: "Sociétés", icon: <Building2 size={16} />, badge: "🏢", badgeColor: "#60a5fa", desc: "Référentiel" },
   ];
 
   return (
@@ -87,31 +85,75 @@ export default function Navbar() {
 
         {/* User Profile Section */}
         {user && (
-          <div className="px-4 py-4 border-b border-white/5 flex flex-col gap-3 bg-white/2">
-            <div className="flex flex-col gap-1">
-              <p className="text-white text-sm font-medium">
-                Bonjour, {firstName}
-              </p>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider" style={{
-                  background: userRole === 'manager' ? 'rgba(99,102,241,0.2)' : 'rgba(139,92,246,0.2)',
-                  color: userRole === 'manager' ? '#818cf8' : '#a78bfa',
-                  border: `1px solid ${userRole === 'manager' ? 'rgba(99,102,241,0.3)' : 'rgba(139,92,246,0.3)'}`,
-                }}>
-                  {userRole === 'manager' ? '🧑‍💼 Manager' : '👨‍💻 Agent'}
-                </span>
-              </div>
-            </div>
-
+          <div className="px-4 py-4 border-b border-white/5 bg-white/2">
             <button
-              onClick={handleLogout}
-              className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 bg-red-500/5 border border-red-500/20 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+              onClick={() => setProfileOpen((v) => !v)}
+              className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-white/15 bg-slate-900/70 text-white hover:bg-slate-900 transition-colors"
+              aria-label="Ouvrir le menu profil"
             >
-              <LogOut size={14} />
-              Se déconnecter
+              <span className="flex items-center gap-2 min-w-0">
+                <User size={14} />
+                <span className="text-sm font-medium truncate">Profil {firstName}</span>
+              </span>
+              <ChevronDown size={14} className={`transition-transform ${profileOpen ? "rotate-180" : ""}`} />
             </button>
+
+            {profileOpen && (
+              <div className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/95 shadow-xl overflow-hidden">
+               
+                {(userRole === "manager") && (
+                  <a
+                    href="/settings"
+                    className="flex items-center gap-2 px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 hover:text-white"
+                    onClick={() => setProfileOpen(false)}
+                  >
+                    <Settings size={14} />
+                    Paramètres
+                  </a>
+                )}
+                <a
+                  href="/company"
+                  className="flex items-center gap-2 px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 hover:text-white"
+                  onClick={() => setProfileOpen(false)}
+                >
+                  <Building2 size={14} />
+                  Sociétés
+                </a>
+                <button
+                  onClick={async () => {
+                    setProfileOpen(false);
+                    await handleLogout();
+                  }}
+                  className="w-full text-left flex items-center gap-2 px-3 py-2.5 text-sm text-red-300 hover:bg-red-500/10"
+                >
+                  <LogOut size={14} />
+                  Se déconnecter
+                </button>
+              </div>
+            )}
           </div>
         )}
+
+        {/* Dashboard en avant */}
+        <div className="px-3 pt-3">
+          <a
+            href="/dashboard"
+            className="group flex items-center gap-3 px-3 py-3 rounded-xl border transition-all duration-200"
+            style={{
+              background: pathname === "/dashboard" ? "rgba(99,102,241,0.2)" : "rgba(99,102,241,0.08)",
+              borderColor: pathname === "/dashboard" ? "rgba(99,102,241,0.45)" : "rgba(99,102,241,0.25)",
+            }}
+          >
+            <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+              <LayoutDashboard size={16} />
+            </div>
+            <div className="flex-1">
+              <p className="text-white text-sm font-semibold">Dashboard</p>
+              <p className="text-[10px] text-indigo-200/70">Vue globale et KPI</p>
+            </div>
+            <ChevronRight size={15} className="text-indigo-300 group-hover:translate-x-0.5 transition-transform" />
+          </a>
+        </div>
 
         {/* Navigation Links */}
         <div className="flex-1 overflow-y-auto px-3 pt-4 pb-24 md:pb-4 flex flex-col gap-5">
@@ -133,15 +175,6 @@ export default function Navbar() {
             ))}
           </Section>
 
-          {/* Section 3 - Filtrée par rôle */}
-          <Section title="Settings">
-            {settingsLinks
-              .filter(link => !link.adminOnly || userRole === 'manager')
-              .map((link) => (
-                <NavItem key={link.id} link={link} active={pathname === link.href} />
-              ))
-            }
-          </Section>
         </div>
       </div>
 
@@ -152,6 +185,7 @@ export default function Navbar() {
           onClick={() => setOpen(false)}
         />
       )}
+
     </>
   );
 }

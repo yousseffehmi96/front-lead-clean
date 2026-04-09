@@ -3,9 +3,13 @@ import { useState, useEffect } from "react"
 import { Plus, Trash2, Edit, X, Mail, ShieldCheck, Calendar, AlertTriangle, Clipboard } from "lucide-react"
 import { deleteUser, getAllUsers } from "@/api/user-actions" 
 import SignUpForm from "../sign-up/page"
+import { useUser } from "@clerk/nextjs"
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("rules")
+  const { user, isLoaded } = useUser()
+  const userRole = ((user?.publicMetadata?.role as string) || "agent").toLowerCase()
+  const isManager = userRole === "manager"
 
   // ---------------- STATE RULES ----------------
   const [rules, setRules] = useState<any[]>([])
@@ -33,6 +37,13 @@ const [newTokenName, setNewTokenName] = useState("")
 const [token, setToken] = useState<string>("")
 const [tokenToDelete, setTokenToDelete] = useState<string | null>(null)
 
+  // ---------------- STATE EMAIL PATTERN ----------------
+  const [emailPattern, setEmailPattern] = useState<string>("{prenom}.{nom}@{domaine}.{extension}")
+  const [loadingEmailPattern, setLoadingEmailPattern] = useState(false)
+  const [savingEmailPattern, setSavingEmailPattern] = useState(false)
+  const [emailPatternError, setEmailPatternError] = useState<string | null>(null)
+  const [emailPatternSaved, setEmailPatternSaved] = useState<string | null>(null)
+
   // ---------------- FETCH DATA ----------------
   const fetchRules = async () => {
     try {
@@ -57,7 +68,46 @@ const [tokenToDelete, setTokenToDelete] = useState<string | null>(null)
   if (activeTab === "rules") fetchRules()
   if (activeTab === "users") fetchUsers()
   if (activeTab === "tokens") fetchTokens()
+  if (activeTab === "email-pattern") fetchEmailPattern()
 }, [activeTab])
+
+  const fetchEmailPattern = async () => {
+    setLoadingEmailPattern(true)
+    setEmailPatternError(null)
+    setEmailPatternSaved(null)
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/settings/email-pattern`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || `Erreur serveur : ${res.status}`)
+      if (data?.pattern) setEmailPattern(String(data.pattern))
+    } catch (err: any) {
+      setEmailPatternError(err.message || "Erreur récupération pattern")
+    } finally {
+      setLoadingEmailPattern(false)
+    }
+  }
+
+  const saveEmailPattern = async () => {
+    if (!isManager) return
+    setSavingEmailPattern(true)
+    setEmailPatternError(null)
+    setEmailPatternSaved(null)
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/settings/email-pattern`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pattern: emailPattern, is_manager: true }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || `Erreur serveur : ${res.status}`)
+      setEmailPatternSaved("✅ Pattern enregistré")
+      if (data?.pattern) setEmailPattern(String(data.pattern))
+    } catch (err: any) {
+      setEmailPatternError(err.message || "Erreur enregistrement pattern")
+    } finally {
+      setSavingEmailPattern(false)
+    }
+  }
 
   // ---------------- CRUD RULES ----------------
   const addRule = async () => {
@@ -133,7 +183,8 @@ const [tokenToDelete, setTokenToDelete] = useState<string | null>(null)
   const tabs = [
     { id: "rules", label: "Règles de validation" },
     { id: "users", label: "Utilisateurs" },
-    { id: "tokens", label: "Tokens" }
+    { id: "tokens", label: "Tokens" },
+    ...(isManager ? [{ id: "email-pattern", label: "Pattern email" }, { id: "export", label: "Export base" }] : []),
   ]
 
 
@@ -211,6 +262,89 @@ const copyToken = (token: string) => {
           </button>
         ))}
       </div>
+
+      {/* --- CONTENT : EMAIL PATTERN (MANAGER) --- */}
+      {activeTab === "email-pattern" && isManager && (
+        <div className="animate-in fade-in duration-500">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h2 className="text-2xl font-bold text-white">Pattern email</h2>
+              <p className="text-sm text-white/40 mt-1">Définir le pattern global utilisé pour compléter les emails</p>
+            </div>
+            <button
+              onClick={fetchEmailPattern}
+              className="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 transition text-sm font-semibold"
+            >
+              Actualiser
+            </button>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 max-w-3xl">
+            <label className="block text-white/60 text-xs font-semibold mb-2 tracking-wider">
+              PATTERN (tokens requis: {"{prenom}"} {"{nom}"} {"{domaine}"} {"{extension}"})
+            </label>
+            <input
+              value={emailPattern}
+              onChange={(e) => setEmailPattern(e.target.value)}
+              disabled={loadingEmailPattern || savingEmailPattern}
+              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:border-indigo-500/50 outline-none transition"
+              placeholder="{prenom}.{nom}@{domaine}.{extension}"
+            />
+
+            <div className="flex flex-col sm:flex-row gap-3 mt-4">
+              <button
+                onClick={saveEmailPattern}
+                disabled={savingEmailPattern || loadingEmailPattern}
+                className={`px-5 py-2.5 rounded-xl text-white font-semibold text-sm transition shadow-lg ${
+                  savingEmailPattern
+                    ? "bg-indigo-500/40 cursor-not-allowed shadow-none"
+                    : "bg-gradient-to-br from-indigo-500 to-indigo-400 shadow-indigo-500/30 hover:shadow-indigo-500/50"
+                }`}
+              >
+                {savingEmailPattern ? "Enregistrement..." : "Enregistrer"}
+              </button>
+              {loadingEmailPattern && (
+                <span className="text-xs text-white/40 flex items-center">Chargement...</span>
+              )}
+            </div>
+
+            {emailPatternError && (
+              <div className="mt-4 bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-xs">
+                {emailPatternError}
+              </div>
+            )}
+            {emailPatternSaved && (
+              <div className="mt-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-emerald-300 text-xs">
+                {emailPatternSaved}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* --- CONTENT : EXPORT BASE (MANAGER) --- */}
+      {activeTab === "export" && isManager && (
+        <div className="animate-in fade-in duration-500">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h2 className="text-2xl font-bold text-white">Export base</h2>
+              <p className="text-sm text-white/40 mt-1">Télécharger toute la base (ZIP de CSV)</p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 max-w-3xl">
+            <button
+              onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_URL}/export/database-zip?is_manager=true`)}
+              className="px-5 py-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/25 transition text-sm font-semibold"
+            >
+              Exporter toute la base (.zip)
+            </button>
+            <p className="mt-3 text-xs text-white/40">
+              Le fichier contient un CSV par table (séparateur ;).
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* --- CONTENT : RULES --- */}
       {activeTab === "rules" && (
