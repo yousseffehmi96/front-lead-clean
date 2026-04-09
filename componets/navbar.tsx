@@ -37,16 +37,15 @@ export default function Navbar() {
   // --- CONFIGURATION DES LIENS ---
 
   const flow1Links = [
-    { id: "Staging", href: "/lead/staging", text: "Staging", icon: <Zap size={16} />, badge: "1", badgeColor: "#f59e0b", desc: "Import & brut" },
+    { id: "Import", href: "/lead/staging", text: "Import", icon: <Zap size={16} />, badge: "1", badgeColor: "#f59e0b", desc: "Import & brut" },
+    { id: "Staging", href: "/lead/steaging-applique", text: "Staging", icon: <Database size={16} />, badge: "🧩", badgeColor: "#fbbf24", desc: "Aucune règle" },
     { id: "Silver", href: "/lead/silver", text: "Silver", icon: <Database size={16} />, badge: "2", badgeColor: "#94a3b8", desc: "Incomplets" },
     { id: "Gold", href: "/lead/gold", text: "Gold", icon: <Sparkles size={16} />, badge: "3", badgeColor: "#f59e0b", desc: "Complets" },
   ];
 
   const flow2Links = [
     { id: "Clean", href: "/lead/clean", text: "Clean", icon: <Sparkles size={16} />, badge: "✦", badgeColor: "#6ee7b7", desc: "À corriger" },
-    { id: "StagingApplique", href: "/lead/steaging-applique", text: "Staging Applique", icon: <Database size={16} />, badge: "🧩", badgeColor: "#fbbf24", desc: "Aucune règle" },
     { id: "Blacklist", href: "/lead/black", text: "Blacklist", icon: <Shield size={16} />, badge: "⛔", badgeColor: "#f43f5e", desc: "Bannis" },
-    { id: "CompanyGestion", href: "/company", text: "Sociétés", icon: <Building2 size={16} />, badge: "🏢", badgeColor: "#60a5fa", desc: "Référentiel" },
   ];
 
   return (
