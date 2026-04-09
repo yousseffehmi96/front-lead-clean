@@ -25,6 +25,7 @@ export default function Lead() {
   const [mobilePage, setMobilePage] = useState(1)
   const [stagingHistory, setStagingHistory] = useState<any[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [emailPattern, setEmailPattern] = useState<string>("{prenom}.{nom}@{domaine}.{extension}")
   const [applyingEmailPattern, setApplyingEmailPattern] = useState(false)
   const [savingEmailPattern, setSavingEmailPattern] = useState(false)
@@ -42,6 +43,7 @@ export default function Lead() {
   useEffect(() => {
     const fetchStagingHistory = async () => {
       if (leads !== "staging") return
+      if (!historyOpen) return
       // Evite de vider la table pendant l'hydratation user/redux.
       if (!isLoaded) return
       if (!isManager && !userId) {
@@ -72,7 +74,7 @@ export default function Lead() {
     }
 
     fetchStagingHistory()
-  }, [leads, refresh, userId, isManager, isLoaded])
+  }, [leads, refresh, userId, isManager, isLoaded, historyOpen])
 
   useEffect(() => {
     const fetchPattern = async () => {
@@ -829,14 +831,23 @@ export default function Lead() {
               border: "1px solid rgba(255,255,255,0.08)",
             }}
           >
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm sm:text-base font-semibold text-white">Historique des imports</h3>
-              <span className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
-                {stagingHistory.length} lignes
+            <button
+              type="button"
+              onClick={() => setHistoryOpen((v) => !v)}
+              className="w-full flex items-center justify-between mb-3"
+            >
+              <h3 className="text-sm sm:text-base font-semibold text-white">
+                Historique des imports
+              </h3>
+              <span className="flex items-center gap-2 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+                {historyOpen ? "Masquer" : "Afficher"} ({stagingHistory.length} lignes)
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-md" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  {historyOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </span>
               </span>
-            </div>
+            </button>
 
-            {loadingHistory ? (
+            {historyOpen && (loadingHistory ? (
               <p className="text-xs sm:text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
                 Chargement de l'historique...
               </p>
@@ -881,7 +892,7 @@ export default function Lead() {
                   </DTableComponent>
                 )}
               </div>
-            )}
+            ))}
           </div>
         )}
       </div>
