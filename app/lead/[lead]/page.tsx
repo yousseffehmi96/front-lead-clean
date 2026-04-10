@@ -1,7 +1,7 @@
 "use client"
 import Usefetch from "@/hooks/SocieteFetch"
 import { useParams, useRouter } from "next/navigation"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Upload, Sparkles, RefreshCw, Download, Trash2, Menu, X, ChevronDown, ChevronUp, Filter, Eye, Phone, Mail, Building, User, Briefcase, Linkedin, Calendar, MapPin } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
 import { useSelector } from "react-redux"
@@ -23,12 +23,15 @@ export default function Lead() {
   const [mobileView, setMobileView] = useState<"table" | "cards">("cards")
   const [searchTerm, setSearchTerm] = useState("")
   const [mobilePage, setMobilePage] = useState(1)
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<number>>(() => new Set())
   const [stagingHistory, setStagingHistory] = useState<any[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [emailPattern, setEmailPattern] = useState<string>("{prenom}.{nom}@{domaine}.{extension}")
   const [applyingEmailPattern, setApplyingEmailPattern] = useState(false)
   const [savingEmailPattern, setSavingEmailPattern] = useState(false)
+  const [sendingToSilver, setSendingToSilver] = useState(false)
+  const [deletingClean, setDeletingClean] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const userId = useSelector((state:any) => state.user.userId)
   const email = useSelector((state:any) => state.user.email)
@@ -37,8 +40,112 @@ export default function Lead() {
   const isManager = userRole === "manager"
   const params = useParams()
   const leads = params.lead
+  const isStaging = leads === "staging"
+  const isSelectableList = leads === "steaging-applique" || leads === "clean"
+  const isSteagingApplique = leads === "steaging-applique"
 
-  const data = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/${leads}?refresh=${refresh}`).data || []
+  const rawData = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/${leads}?refresh=${refresh}`).data || []
+  // Ajout refresh pour éviter cache/stale data côté mobile/DT
+  const societes = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/societe?refresh=${refresh}`).data || []
+  
+  const normalizeTextKey = (v: any) =>
+    String(v ?? "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "")
+
+  const data = useMemo(() => {
+    if (!isSteagingApplique) return rawData
+    const bestByKey = new Map<string, any>()
+
+    const getKey = (lead: any) => {
+      const email = String(lead?.email ?? "").trim().toLowerCase()
+      if (email && email !== "nan" && email !== "none" && email !== "null") return `e:${email}`
+      const nom = normalizeTextKey(lead?.nom)
+      const prenom = normalizeTextKey(lead?.prenom)
+      const societe = normalizeTextKey(lead?.societe)
+      return `nps:${nom}|${prenom}|${societe}`
+    }
+
+    const toTime = (v: any) => {
+      const t = Date.parse(String(v ?? ""))
+      return Number.isFinite(t) ? t : -1
+    }
+
+    for (const lead of rawData as any[]) {
+      const key = getKey(lead)
+      const existing = bestByKey.get(key)
+      if (!existing) {
+        bestByKey.set(key, lead)
+        continue
+      }
+      // garder le plus récent (created_at), sinon plus grand id
+      const a = toTime(existing?.created_at)
+      const b = toTime(lead?.created_at)
+      if (b > a) bestByKey.set(key, lead)
+      else if (b === a) {
+        const ida = Number(existing?.id)
+        const idb = Number(lead?.id)
+        if (Number.isFinite(idb) && (!Number.isFinite(ida) || idb > ida)) bestByKey.set(key, lead)
+      }
+    }
+    return Array.from(bestByKey.values())
+  }, [rawData, isSteagingApplique])
+
+  // Règle "cadre vert": égalité stricte (trim + lower) entre societe_leads.nom et lead.societe
+  const societeExactKey = (s: any) =>
+    String(s ?? "")
+      // retire les caractères invisibles fréquents (zero‑width, BOM)
+      .replace(/[\u200B-\u200D\uFEFF]/g, "")
+      // normalise les espaces unicode en espace simple
+      .replace(/[\u00A0\u202F\u2007]/g, " ")
+      .trim()
+      .toLowerCase()
+  // Normalisation forte (utilisée pour dédup et noms/prénoms)
+  const normalizeSociete = (s: any) =>
+    String(s ?? "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "")
+  const societesSet = useMemo(() => {
+    const set = new Set<string>()
+    for (const s of societes as any[]) {
+      // backend retourne généralement { nom, domaine, extension }
+      if (s?.nom) set.add(societeExactKey(s.nom))
+    }
+    return set
+  }, [societes])
+
+  const societesMap = useMemo(() => {
+    const map = new Map<string, { domaine: string; extension: string }>()
+    for (const s of societes as any[]) {
+      const key = s?.nom ? societeExactKey(s.nom) : ""
+      if (!key) continue
+      map.set(key, {
+        domaine: String(s?.domaine ?? "").trim().toLowerCase(),
+        extension: String(s?.extension ?? "").trim().toLowerCase(),
+      })
+    }
+    return map
+  }, [societes])
+
+  const normalizeToken = (v: any) =>
+    String(v ?? "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "")
+
+  // L'email est généré côté backend lors de "Envoyer à Silver"
+
+  useEffect(() => {
+    setSelectedLeadIds(new Set())
+  }, [leads, refresh])
 
   useEffect(() => {
     const fetchStagingHistory = async () => {
@@ -127,6 +234,7 @@ export default function Lead() {
     load()
   }, [email, shouldUseDataTable])
 
+
   useEffect(() => {
     setMobilePage(1)
   }, [searchTerm, leads, refresh])
@@ -147,6 +255,109 @@ export default function Lead() {
   const totalMobilePages = Math.max(1, Math.ceil(filteredData.length / cardsPerPage))
   const startIndex = (mobilePage - 1) * cardsPerPage
   const paginatedData = filteredData.slice(startIndex, startIndex + cardsPerPage)
+
+  const toggleLeadSelected = (leadId: number, value?: boolean) => {
+    setSelectedLeadIds((prev) => {
+      const next = new Set(prev)
+      const shouldSelect = value ?? !next.has(leadId)
+      if (shouldSelect) next.add(leadId)
+      else next.delete(leadId)
+      return next
+    })
+  }
+
+  const clearSelection = () => setSelectedLeadIds(new Set())
+  const selectAllLeads = () =>
+    setSelectedLeadIds(new Set((data ?? []).map((d: any) => Number(d.id)).filter((n: number) => Number.isFinite(n))))
+
+  const selectAllGreenLeads = () => {
+    const ids = (data ?? [])
+      .filter((d: any) => societesSet.has(societeExactKey(d?.societe)))
+      .map((d: any) => Number(d.id))
+      .filter((n: number) => Number.isFinite(n))
+    setSelectedLeadIds(new Set(ids))
+  }
+
+  const sendSelectedToSilver = async () => {
+    if (!isSteagingApplique) return
+    const ids = Array.from(selectedLeadIds)
+    if (ids.length === 0) return
+    setSendingToSilver(true)
+    setError(null)
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/steaging-applique/to-silver`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, pattern: emailPattern }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.detail || `Erreur serveur : ${res.status}`)
+      setCleanResult({ message: `✅ Envoyé vers Silver: ${json?.moved_to_silver ?? 0} | déjà en Silver supprimés: ${json?.deleted_already_in_silver ?? 0} | doublons supprimés: ${json?.deleted_duplicates ?? 0} | ignorés: ${json?.skipped ?? 0}` })
+      clearSelection()
+      setRefresh((p) => p + 1)
+    } catch (e: any) {
+      setError(e?.message || "Erreur lors de l'envoi vers Silver")
+    } finally {
+      setSendingToSilver(false)
+    }
+  }
+
+  const deleteSelectedFromClean = async () => {
+    if (leads !== "clean") return
+    const ids = Array.from(selectedLeadIds)
+    if (ids.length === 0) return
+    setDeletingClean(true)
+    setError(null)
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clean/delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.detail || `Erreur serveur : ${res.status}`)
+      setCleanResult({ message: `🗑️ Supprimés: ${json?.deleted ?? 0}` })
+      clearSelection()
+      setRefresh((p) => p + 1)
+    } catch (e: any) {
+      setError(e?.message || "Erreur lors de la suppression")
+    } finally {
+      setDeletingClean(false)
+    }
+  }
+
+  // DataTables ne re-render pas automatiquement les cellules "render" sur changement d'état React.
+  // On synchronise donc les checkbox visibles avec selectedLeadIds.
+  useEffect(() => {
+    if (!shouldUseDataTable) return
+    if (!isSelectableList) return
+    const nodes = document.querySelectorAll<HTMLInputElement>(".dt-select-row")
+    nodes.forEach((el) => {
+      const id = Number(el.dataset.id)
+      el.checked = Number.isFinite(id) && selectedLeadIds.has(id)
+    })
+  }, [selectedLeadIds, shouldUseDataTable, isSelectableList])
+
+  useEffect(() => {
+    if (!shouldUseDataTable) return
+    if (!isSteagingApplique) return
+    const nodes = document.querySelectorAll<HTMLElement>(".dt-email-pill")
+    nodes.forEach((el) => {
+      const socRaw = decodeURIComponent(el.dataset.soc || "")
+      const soc = societeExactKey(socRaw)
+      const companyExists = soc && societesSet.has(soc)
+      el.style.border = companyExists ? "1px solid rgba(34,197,94,0.55)" : "1px solid rgba(255,255,255,0.08)"
+      el.style.background = companyExists ? "rgba(34,197,94,0.10)" : "transparent"
+      el.style.color = companyExists ? "#86efac" : "#e2e8f0"
+
+      const txt = (el.textContent || "").trim()
+      if (companyExists) {
+        if (txt === "Email manquant") el.textContent = "Email générable"
+      } else {
+        if (txt === "Email générable") el.textContent = "Email manquant"
+      }
+    })
+  }, [societesSet, shouldUseDataTable, isSteagingApplique])
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -343,6 +554,8 @@ export default function Lead() {
   const MobileCard = ({ lead, index }: { lead: any; index: number }) => {
     const isExpanded = expandedCard === index
     const hasActionButtons = leads === "gold" || leads === "prod" || leads === "silver"
+    const id = Number(lead?.id)
+    const isSelected = Number.isFinite(id) && selectedLeadIds.has(id)
 
     return (
       <div
@@ -353,7 +566,7 @@ export default function Lead() {
         }}
       >
         <div className="p-4">
-          <div className="flex justify-between items-start mb-3">
+          <div className="flex justify-between items-start mb-3 gap-2">
             <div className="flex-1">
               <h3 className="text-white font-semibold text-base">
                 {lead.prenom} {lead.nom}
@@ -365,22 +578,50 @@ export default function Lead() {
                 </p>
               )}
             </div>
-            <button
-              onClick={() => setExpandedCard(isExpanded ? null : index)}
-              className="p-1 rounded-lg transition-colors"
-              style={{ background: "rgba(255,255,255,0.05)" }}
-            >
-              {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
+            <div className="flex items-center gap-2">
+              {isSelectableList && Number.isFinite(id) && (
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={(e) => toggleLeadSelected(id, e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: "#818cf8" }}
+                />
+              )}
+              <button
+                onClick={() => setExpandedCard(isExpanded ? null : index)}
+                className="p-1 rounded-lg transition-colors"
+                style={{ background: "rgba(255,255,255,0.05)" }}
+              >
+                {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+            </div>
           </div>
 
           <div className="space-y-2">
-            {lead.email && (
-              <div className="flex items-center gap-2 text-sm">
+            {(lead.email || isSteagingApplique) && (
+              <div
+                className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-lg"
+                style={{
+                  border:
+                    isSteagingApplique && societesSet.has(societeExactKey(lead?.societe))
+                      ? "1px solid rgba(34,197,94,0.55)"
+                      : "1px solid rgba(255,255,255,0.08)",
+                  background:
+                    isSteagingApplique && societesSet.has(societeExactKey(lead?.societe))
+                      ? "rgba(34,197,94,0.10)"
+                      : "transparent",
+                }}
+              >
                 <Mail size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
-                <a href={`mailto:${lead.email}`} className="text-blue-400 text-xs truncate flex-1 min-w-0">
-                  {lead.email}
-                </a>
+                {lead.email ? (
+                  <a href={`mailto:${lead.email}`} className="text-blue-400 text-xs truncate flex-1 min-w-0">
+                    {lead.email}
+                  </a>
+                ) : (
+                  <span className="text-xs truncate flex-1 min-w-0" style={{ color: "rgba(255,255,255,0.45)" }}>
+                    {isSteagingApplique && societesSet.has(societeExactKey(lead?.societe)) ? "Email générable" : "Email manquant"}
+                  </span>
+                )}
               </div>
             )}
             {lead.telephone && (
@@ -462,18 +703,54 @@ export default function Lead() {
   const baseColumns = [
     { data: "nom", title: "Nom", defaultContent: "" },
     { data: "prenom", title: "Prénom", defaultContent: "" },
-    { data: "email", title: "Email", defaultContent: "" },
+    {
+      data: "email",
+      title: "Email",
+      defaultContent: "",
+      render: (val: string, _t: any, row: any) => {
+        const id = Number(row?.id)
+        const socRaw = String(row?.societe ?? "")
+        const soc = societeExactKey(socRaw)
+        const companyExists = isSteagingApplique && soc && societesSet.has(soc)
+        const border = companyExists ? "1px solid rgba(34,197,94,0.55)" : "1px solid rgba(255,255,255,0.08)"
+        const bg = companyExists ? "rgba(34,197,94,0.10)" : "transparent"
+        const color = companyExists ? "#86efac" : "#e2e8f0"
+        const value = val ? String(val) : ""
+        const text =
+          value
+            ? value
+            : isSteagingApplique
+              ? (companyExists ? "Email générable" : "Email manquant")
+              : ""
+        const opacity = value ? 1 : 0.55
+        const pill = `<span class="dt-email-pill" data-soc="${encodeURIComponent(socRaw)}" data-id="${id}" style="display:block;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;border-radius:8px;border:${border};background:${bg};color:${color};opacity:${opacity};">${text || ""}</span>`
+        return pill
+      },
+    },
     { data: "fonction", title: "Fonction", defaultContent: "" },
     { data: "societe", title: "Société", defaultContent: "" },
     { data: "telephone", title: "Téléphone", defaultContent: "" },
     { data: "linkedin", title: "LinkedIn", defaultContent: "", render: (val: string) => val ? `<a href="${val}" target="_blank" rel="noopener noreferrer" style="color:#818cf8;text-decoration:underline;">LinkedIn</a>` : "" },
     { data: "location", title: "Location", defaultContent: "" },
   ]
+  const selectColumn = {
+    data: "__select__",
+    title: "",
+    orderable: false,
+    searchable: false,
+    width: "34px",
+    render: (_: any, _t: any, row: any) => {
+      const id = Number(row?.id)
+      const checked = Number.isFinite(id) && selectedLeadIds.has(id)
+      return `<input type="checkbox" class="dt-select-row" data-id="${id}" ${checked ? "checked" : ""} style="width:14px;height:14px;accent-color:#818cf8;cursor:pointer;" />`
+    },
+  }
   const blackColumn = { data: "eliminer", title: "Eliminer", defaultContent: "" }
   const prodColumn = { data: "id", title: "Action", orderable: false, render: (id: number) => `<div style="display:flex;gap:6px;flex-wrap:wrap;"><button data-id="${id}" data-type="Unsubscribe" class="dt-action-btn" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(244,63,94,0.4);color:#f43f5e;background:rgba(244,63,94,0.08);cursor:pointer;font-size:11px;font-weight:600;">Désabonner</button><button data-id="${id}" data-type="archive" class="dt-action-btn" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(148,163,184,0.3);color:#94a3b8;background:rgba(148,163,184,0.08);cursor:pointer;font-size:11px;font-weight:600;">Archiver</button></div>` }
   const silverColumn = { data: "id", title: "Action", orderable: false, render: (id: number) => `<button data-id="${id}" data-type="to-gold" class="dt-action-btn" style="padding:4px 12px;border-radius:6px;border:1px solid rgba(245,158,11,0.4);color:#fcd34d;background:rgba(245,158,11,0.08);cursor:pointer;font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px;">★ → Gold</button>` }
   const dateColumn = { data: "created_at", title: "Date", render: (val: string) => new Date(val).toLocaleDateString("fr-FR") }
   const columns = [
+    ...(isSelectableList ? [selectColumn] : []),
     ...baseColumns,
     ...(leads === "black" ? [blackColumn] : []),
     ...(leads === "gold" || leads === "prod" ? [prodColumn] : []),
@@ -562,6 +839,14 @@ export default function Lead() {
   }
 
   const handleTableClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const selectRow = (e.target as HTMLElement).closest(".dt-select-row") as HTMLInputElement | null
+    if (selectRow) {
+      const id = Number(selectRow.dataset.id)
+      if (Number.isFinite(id)) {
+        toggleLeadSelected(id, selectRow.checked)
+      }
+      return
+    }
     const btn = (e.target as HTMLElement).closest(".dt-action-btn") as HTMLElement | null
     if (!btn) return
     const id = Number(btn.dataset.id)
@@ -592,8 +877,62 @@ export default function Lead() {
             <div className="hidden md:flex gap-2">
               <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileUpload} />
               {leads === "staging" && <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", color: "#a5b4fc" }}><Upload size={13} />{uploading ? "Chargement..." : "Importer"}</button>}
+              {isSelectableList && (
+                <>
+                  <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <span className="text-[11px] font-semibold" style={{ color: "rgba(255,255,255,0.55)" }}>
+                      Sélection: <span className="text-white">{selectedLeadIds.size}</span>
+                    </span>
+                  </div>
+                  {isSteagingApplique && (
+                    <button
+                      onClick={selectAllGreenLeads}
+                      disabled={(data?.length || 0) === 0}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
+                      style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.30)", color: "#86efac" }}
+                    >
+                      Sélectionner verts
+                    </button>
+                  )}
+                  <button
+                    onClick={() => (selectedLeadIds.size === (data?.length || 0) ? clearSelection() : selectAllLeads())}
+                    disabled={(data?.length || 0) === 0}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
+                    style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}
+                  >
+                    {selectedLeadIds.size === (data?.length || 0) ? "Tout désélectionner" : "Tout sélectionner"}
+                  </button>
+                  {isSteagingApplique ? (
+                    <button
+                      onClick={sendSelectedToSilver}
+                      disabled={selectedLeadIds.size === 0 || sendingToSilver}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
+                      style={{ background: "rgba(148,163,184,0.12)", border: "1px solid rgba(148,163,184,0.28)", color: "#e2e8f0" }}
+                    >
+                      {sendingToSilver ? "Envoi..." : "Envoyer à Silver"}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={deleteSelectedFromClean}
+                      disabled={selectedLeadIds.size === 0 || deletingClean}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
+                      style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.25)", color: "#fda4af" }}
+                    >
+                      {deletingClean ? "Suppression..." : "Supprimer"}
+                    </button>
+                  )}
+                  <button
+                    onClick={clearSelection}
+                    disabled={selectedLeadIds.size === 0}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
+                    style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.25)", color: "#fda4af" }}
+                  >
+                    Effacer
+                  </button>
+                </>
+              )}
               {leads === "staging" && !isManager && <><button onClick={downloadLastImportCSV} disabled={!userId} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={13} />Dernier CSV</button><button onClick={downloadLastImportXlsx} disabled={!userId} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={13} />Dernier XLSX</button></>}
-              {(leads === "staging" || leads === "clean") && <button onClick={handleClean} disabled={cleaning || data.length === 0} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}><Sparkles size={13} />{cleaning ? "Nettoyage..." : "Nettoyer"}</button>}
+              {leads === "staging" && <button onClick={handleClean} disabled={cleaning || data.length === 0} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}><Sparkles size={13} />{cleaning ? "Nettoyage..." : "Nettoyer"}</button>}
               {leads === "gold" && <><button onClick={downloadCSV} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={13} />CSV</button><button onClick={downloadXlsx} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={13} />XLSX</button></>}
             </div>
           </div>
@@ -615,7 +954,7 @@ export default function Lead() {
           <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileUpload} />
           {leads === "staging" && <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40 w-full" style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", color: "#a5b4fc" }}><Upload size={14} />{uploading ? "Chargement..." : "Importer"}</button>}
           {leads === "staging" && !isManager && <><button onClick={downloadLastImportCSV} disabled={!userId} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40 w-full" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={14} />Exporter dernier CSV</button><button onClick={downloadLastImportXlsx} disabled={!userId} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40 w-full" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={14} />Exporter dernier XLSX</button></>}
-          {(leads === "staging" || leads === "clean") && <button onClick={handleClean} disabled={cleaning || data.length === 0} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40 w-full" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}><Sparkles size={14} />{cleaning ? "Nettoyage..." : "Nettoyer"}</button>}
+          {leads === "staging" && <button onClick={handleClean} disabled={cleaning || data.length === 0} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40 w-full" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}><Sparkles size={14} />{cleaning ? "Nettoyage..." : "Nettoyer"}</button>}
           {leads === "gold" && <><button onClick={downloadCSV} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={14} />Télécharger CSV</button><button onClick={downloadXlsx} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={14} />Télécharger XLSX</button></>}
           <button onClick={() => { setRefresh((p) => p + 1); setMobileMenuOpen(false); }} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}><RefreshCw size={14} />Actualiser</button>
         </div>
@@ -803,7 +1142,7 @@ export default function Lead() {
             ) : (
               <div onClick={handleTableClick} className="w-full overflow-x-auto">
                 <DTableComponent
-                  key={data.length}
+                  key={`${String(leads)}-${refresh}`}
                   data={data}
                   columns={columns}
                   className="display w-full"
@@ -812,7 +1151,10 @@ export default function Lead() {
                     pageLength: isMobile ? 5 : 10,
                     responsive: true,
                     scrollX: isMobile,
-                    initComplete: function (this: any) { const api = (this as any).api(); if (!isMobile) injectSearchIcons(api, columns, searchableCols, "created_at"); },
+                    initComplete: function (this: any) {
+                      const api = (this as any).api()
+                      if (!isMobile) injectSearchIcons(api, columns, searchableCols, "created_at")
+                    },
                     language: { processing: "Traitement en cours...", search: "Rechercher :", lengthMenu: "Afficher _MENU_", info: "_START_ à _END_ sur _TOTAL_", infoEmpty: "0 à 0 sur 0", infoFiltered: "(filtré de _MAX_)", loadingRecords: "Chargement...", zeroRecords: "Aucun élément", emptyTable: "Aucune donnée", paginate: { first: "«", previous: "‹", next: "›", last: "»" } }
                   }}
                 >
