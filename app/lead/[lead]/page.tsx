@@ -32,6 +32,11 @@ export default function Lead() {
   const [savingEmailPattern, setSavingEmailPattern] = useState(false)
   const [sendingToSilver, setSendingToSilver] = useState(false)
   const [deletingClean, setDeletingClean] = useState(false)
+  const [reformulatingLocation, setReformulatingLocation] = useState(false)
+  const [verifyingEmailId, setVerifyingEmailId] = useState<number | null>(null)
+  const [sendingBulkVerify, setSendingBulkVerify] = useState(false)
+  const [emailVerifyResults, setEmailVerifyResults] = useState<Record<number, { status: "valid" | "invalid" | "error"; message: string }>>({})
+  const emailVerifyResultsRef = useRef<Record<number, { status: "valid" | "invalid" | "error"; message: string }>>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
   const userId = useSelector((state:any) => state.user.userId)
   const email = useSelector((state:any) => state.user.email)
@@ -41,7 +46,7 @@ export default function Lead() {
   const params = useParams()
   const leads = params.lead
   const isStaging = leads === "staging"
-  const isSelectableList = leads === "steaging-applique" || leads === "clean"
+  const isSelectableList = leads === "steaging-applique" || leads === "clean" || leads === "silver" || leads === "gold"
   const isSteagingApplique = leads === "steaging-applique"
 
   const rawData = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/${leads}?refresh=${refresh}`).data || []
@@ -200,6 +205,7 @@ export default function Lead() {
   // Détection mobile
   const [isMobile, setIsMobile] = useState(false)
   const isSilverView = leads === "silver"
+  const isVerifiableView = leads === "silver" || leads === "gold"
   const shouldUseDataTable = !isMobile
   const cardsPerPage = 20
   
@@ -503,6 +509,77 @@ export default function Lead() {
     }
   }
 
+  const handleBulkVerifyEmails = async () => {
+    const ids = Array.from(selectedLeadIds)
+    if (ids.length === 0) return
+   const emails = (data as any[])
+  .filter((d: any) => ids.includes(Number(d.id)) && d.email && (d.statu === "" || !d.statu))
+  .map((d: any) => String(d.email))
+      
+    if (emails.length === 0) return
+    setSendingBulkVerify(true)
+    setError(null)
+    try {
+      
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/send/bulk`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(emails),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.detail || `Erreur serveur : ${res.status}`)
+      setCleanResult({ message: json?.message || `✅ ${emails.length} emails vérifiés` })
+      setRefresh((p) => p + 1)
+    } catch (e: any) {
+      setError(e?.message || "Erreur lors de la vérification en masse")
+    } finally {
+      setSendingBulkVerify(false)
+    }
+  }
+
+  const handleVerifyEmail = async (leadId: number, emailAddr: string) => {
+    if (!emailAddr) return
+    setVerifyingEmailId(leadId)
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/send/${encodeURIComponent(emailAddr)}`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || `Erreur serveur : ${res.status}`)
+      const isValid = Number(data.code) === 250
+      setEmailVerifyResults((prev) => ({
+        ...prev,
+        [leadId]: { status: isValid ? "valid" : "invalid", message: data.status || (isValid ? "✅ Email livré" : "❌ Email introuvable") },
+      }))
+    } catch (e: any) {
+      setEmailVerifyResults((prev) => ({ ...prev, [leadId]: { status: "error", message: e.message || "Erreur de vérification" } }))
+    } finally {
+      setVerifyingEmailId(null)
+    }
+  }
+
+  const handleVerifyEmailRef = useRef(handleVerifyEmail)
+  useEffect(() => { handleVerifyEmailRef.current = handleVerifyEmail })
+  useEffect(() => { emailVerifyResultsRef.current = emailVerifyResults }, [emailVerifyResults])
+
+  const handleReformulerLocalisation = async () => {
+    setReformulatingLocation(true)
+    setError(null)
+    setCleanResult(null)
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/location/${leads}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || `Erreur serveur : ${res.status}`)
+      setCleanResult({ message: data.message || "Localisation reformulée avec succès !" })
+      setRefresh((prev) => prev + 1)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setReformulatingLocation(false)
+    }
+  }
+
   const handelclick = async (type: string, leadId: number) => {
     setstat(type)
     setError(null)
@@ -624,6 +701,23 @@ export default function Lead() {
                 )}
               </div>
             )}
+            {isVerifiableView && lead.email && (
+              <div>
+                <button
+                  onClick={() => handleVerifyEmail(Number(lead.id), lead.email)}
+                  disabled={verifyingEmailId === Number(lead.id)}
+                  className="w-full text-xs font-semibold px-2 py-1.5 rounded-lg disabled:opacity-40"
+                  style={{ background: "rgba(129,140,248,0.12)", border: "1px solid rgba(129,140,248,0.25)", color: "#a5b4fc" }}
+                >
+                  {verifyingEmailId === Number(lead.id) ? "Vérification..." : "Vérifier email"}
+                </button>
+                {emailVerifyResults[Number(lead.id)] && (
+                  <p className="text-xs mt-1 px-1" style={{ color: emailVerifyResults[Number(lead.id)].status === "valid" ? "#86efac" : "#fda4af" }}>
+                    {emailVerifyResults[Number(lead.id)].message}
+                  </p>
+                )}
+              </div>
+            )}
             {lead.telephone && (
               <div className="flex items-center gap-2 text-sm">
                 <Phone size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
@@ -698,7 +792,7 @@ export default function Lead() {
   }
 
   // Configuration DataTable (inchangée)
-  const searchableCols = new Set(["nom", "prenom", "email", "fonction", "societe", "telephone", "linkedin", "location", "eliminer", "created_at"])
+  const searchableCols = new Set(["nom", "prenom", "email", "fonction", "societe", "telephone", "linkedin", "location", "statu", "eliminer", "created_at"])
   const historySearchableCols = new Set(["imported_at", "filename", "nom", "prenom", "email", "fonction", "societe", "telephone", "linkedin", "location", "destination"])
   const baseColumns = [
     { data: "nom", title: "Nom", defaultContent: "" },
@@ -724,7 +818,10 @@ export default function Lead() {
               : ""
         const opacity = value ? 1 : 0.55
         const pill = `<span class="dt-email-pill" data-soc="${encodeURIComponent(socRaw)}" data-id="${id}" style="display:block;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;border-radius:8px;border:${border};background:${bg};color:${color};opacity:${opacity};">${text || ""}</span>`
-        return pill
+        const verifyBtn = isVerifiableView && value
+          ? `<button data-id="${id}" data-type="verify-email" data-email="${encodeURIComponent(value)}" class="dt-verify-email-btn" style="display:block;margin-top:4px;padding:2px 8px;border-radius:5px;border:1px solid rgba(129,140,248,0.3);color:#a5b4fc;background:rgba(129,140,248,0.1);cursor:pointer;font-size:10px;font-weight:600;width:100%;text-align:center;">Vérifier email</button>`
+          : ""
+        return `<div>${pill}${verifyBtn}</div>`
       },
     },
     { data: "fonction", title: "Fonction", defaultContent: "" },
@@ -732,6 +829,20 @@ export default function Lead() {
     { data: "telephone", title: "Téléphone", defaultContent: "" },
     { data: "linkedin", title: "LinkedIn", defaultContent: "", render: (val: string) => val ? `<a href="${val}" target="_blank" rel="noopener noreferrer" style="color:#818cf8;text-decoration:underline;">LinkedIn</a>` : "" },
     { data: "location", title: "Location", defaultContent: "" },
+    {
+      data: "statu",
+      title: "Statut",
+      defaultContent: "",
+      render: (val: string) => {
+        if (!val) return `<span style="color:rgba(255,255,255,0.25);font-size:11px;">—</span>`
+        const v = String(val)
+        const isUnavailable = v.toLowerCase().includes("non")
+        const color = isUnavailable ? "#fda4af" : "#86efac"
+        const bg = isUnavailable ? "rgba(244,63,94,0.1)" : "rgba(34,197,94,0.1)"
+        const border = isUnavailable ? "rgba(244,63,94,0.3)" : "rgba(34,197,94,0.3)"
+        return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;color:${color};background:${bg};border:1px solid ${border};white-space:nowrap;">${v}</span>`
+      },
+    },
   ]
   const selectColumn = {
     data: "__select__",
@@ -852,6 +963,7 @@ export default function Lead() {
     const id = Number(btn.dataset.id)
     const type = btn.dataset.type!
     if (type === "to-gold") handleToGold(id)
+    else if (type === "verify-email") handleVerifyEmail(id, decodeURIComponent(btn.dataset.email || ""))
     else handelclick(type, id)
   }
 
@@ -902,7 +1014,7 @@ export default function Lead() {
                   >
                     {selectedLeadIds.size === (data?.length || 0) ? "Tout désélectionner" : "Tout sélectionner"}
                   </button>
-                  {isSteagingApplique ? (
+                  {isSteagingApplique && (
                     <button
                       onClick={sendSelectedToSilver}
                       disabled={selectedLeadIds.size === 0 || sendingToSilver}
@@ -911,7 +1023,18 @@ export default function Lead() {
                     >
                       {sendingToSilver ? "Envoi..." : "Envoyer à Silver"}
                     </button>
-                  ) : (
+                  )}
+                  {(leads === "silver" || leads === "gold") && (
+                    <button
+                      onClick={handleBulkVerifyEmails}
+                      disabled={selectedLeadIds.size === 0 || sendingBulkVerify}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
+                      style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}
+                    >
+                      {sendingBulkVerify ? "Vérification..." : "Vérifier emails"}
+                    </button>
+                  )}
+                  {leads === "clean" && (
                     <button
                       onClick={deleteSelectedFromClean}
                       disabled={selectedLeadIds.size === 0 || deletingClean}
@@ -921,19 +1044,12 @@ export default function Lead() {
                       {deletingClean ? "Suppression..." : "Supprimer"}
                     </button>
                   )}
-                  <button
-                    onClick={clearSelection}
-                    disabled={selectedLeadIds.size === 0}
-                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
-                    style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.25)", color: "#fda4af" }}
-                  >
-                    Effacer
-                  </button>
                 </>
               )}
               {leads === "staging" && !isManager && <><button onClick={downloadLastImportCSV} disabled={!userId} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={13} />Dernier CSV</button><button onClick={downloadLastImportXlsx} disabled={!userId} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={13} />Dernier XLSX</button></>}
               {leads === "staging" && <button onClick={handleClean} disabled={cleaning || data.length === 0} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}><Sparkles size={13} />{cleaning ? "Nettoyage..." : "Nettoyer"}</button>}
               {leads === "gold" && <><button onClick={downloadCSV} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={13} />CSV</button><button onClick={downloadXlsx} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={13} />XLSX</button></>}
+              {(leads === "silver" || leads === "gold") && <button onClick={handleReformulerLocalisation} disabled={reformulatingLocation} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}><MapPin size={13} />{reformulatingLocation ? "Reformulation..." : "Reformuler localisation"}</button>}
             </div>
           </div>
         </div>
@@ -1155,6 +1271,38 @@ export default function Lead() {
                       const api = (this as any).api()
                       if (!isMobile) injectSearchIcons(api, columns, searchableCols, "created_at")
                     },
+                    drawCallback: function () {
+                      // Attacher les listeners sur les boutons vérifier
+                      document.querySelectorAll<HTMLElement>(".dt-verify-email-btn:not([data-vl])").forEach((btn) => {
+                        btn.dataset.vl = "1"
+                        btn.addEventListener("click", async (e) => {
+                          e.stopPropagation()
+                          const leadId = Number(btn.dataset.id)
+                          const emailAddr = decodeURIComponent(btn.dataset.email || "")
+                          if (!emailAddr) return
+                          btn.textContent = "Vérification..."
+                          btn.style.opacity = "0.6"
+                          btn.setAttribute("disabled", "true")
+                          try {
+                            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/send/${encodeURIComponent(emailAddr)}`)
+                            const data = await res.json()
+                            const isValid = Number(data.code) === 250
+                            const color = isValid ? "#86efac" : "#fda4af"
+                            btn.textContent = isValid ? "✅ Vérifié" : "❌ Introuvable"
+                            btn.style.borderColor = isValid ? "rgba(34,197,94,0.4)" : "rgba(244,63,94,0.4)"
+                            btn.style.color = color
+                            btn.style.background = isValid ? "rgba(34,197,94,0.1)" : "rgba(244,63,94,0.1)"
+                            setEmailVerifyResults((prev) => ({ ...prev, [leadId]: { status: isValid ? "valid" : "invalid", message: data.status || "" } }))
+                          } catch (err: any) {
+                            btn.textContent = "❌ Erreur"
+                            btn.style.color = "#fda4af"
+                          } finally {
+                            btn.style.opacity = "1"
+                            btn.removeAttribute("disabled")
+                          }
+                        })
+                      })
+                    },
                     language: { processing: "Traitement en cours...", search: "Rechercher :", lengthMenu: "Afficher _MENU_", info: "_START_ à _END_ sur _TOTAL_", infoEmpty: "0 à 0 sur 0", infoFiltered: "(filtré de _MAX_)", loadingRecords: "Chargement...", zeroRecords: "Aucun élément", emptyTable: "Aucune donnée", paginate: { first: "«", previous: "‹", next: "›", last: "»" } }
                   }}
                 >
@@ -1182,7 +1330,7 @@ export default function Lead() {
                 Historique des imports
               </h3>
               <span className="flex items-center gap-2 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
-                {historyOpen ? "Masquer" : "Afficher"} ({stagingHistory.length} lignes)
+                
                 <span className="inline-flex items-center justify-center w-6 h-6 rounded-md" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
                   {historyOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </span>
