@@ -1,12 +1,11 @@
 "use client"
 import Usefetch from "@/hooks/SocieteFetch"
-import { useParams, useRouter } from "next/navigation"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Upload, Sparkles, RefreshCw, Download, Trash2, Menu, X, ChevronDown, ChevronUp, Filter, Eye, Phone, Mail, Building, User, Briefcase, Linkedin, Calendar, MapPin } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
 import { useSelector } from "react-redux"
 
-export default function Lead() {
+export default function LeadList({ leads }: { leads: string }) {
   const [DTableComponent, setDTableComponent] = useState<any>(null)
   const [openMenu, setOpenMenu] = useState<number | null>(null)
   const [stat, setstat] = useState<string | null>(null)
@@ -43,8 +42,6 @@ export default function Lead() {
   const { user, isLoaded } = useUser()
   const userRole = ((user?.publicMetadata?.role as string) || "agent").toLowerCase()
   const isManager = userRole === "manager"
-  const params = useParams()
-  const leads = params.lead
   const isStaging = leads === "staging"
   const isSelectableList = leads === "steaging-applique" || leads === "clean" || leads === "silver" || leads === "gold"
   const isSteagingApplique = leads === "steaging-applique"
