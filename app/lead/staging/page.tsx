@@ -15,6 +15,7 @@ export default function StagingPage() {
   const [refresh, setRefresh] = useState<number>(0)
   const [uploading, setUploading] = useState(false)
   const [cleaning, setCleaning] = useState(false)
+  const [applyingMapping, setApplyingMapping] = useState(false)
   const [removingDuplicates, setRemovingDuplicates] = useState(false)
   const [cleanResult, setCleanResult] = useState<any>(null)
   const [uploadedFilename, setUploadedFilename] = useState<string>("")
@@ -186,27 +187,55 @@ export default function StagingPage() {
   const guessField = (title: string) => FIELD_ALIASES[normalizeHeader(title)] || ""
 
   // Applique le mapping manuel : transforme les colonnes brutes du fichier en
-  // champs lead standard, puis bascule l'affichage sur les colonnes leads.
-  const handleApplyMapping = () => {
+  // champs lead standard et ENVOIE les lignes au backend (staging_leads), pour
+  // qu'elles soient enregistrées et nettoyables via « Nettoyer ».
+  const handleApplyMapping = async () => {
     if (!importedColumns || !importedRows) return
-    const nowIso = new Date().toISOString()
-    const mapped = importedRows.map((row, i) => {
-      const obj: Record<string, any> = {
-        id: i + 1,
-        nom: "", prenom: "", email: "", fonction: "", societe: "",
-        telephone: "", linkedin: "", location: "", statu: "", created_at: nowIso,
-      }
-      importedColumns.forEach((c) => {
-        const field = columnMapping[c.key]
-        if (field) obj[field] = String(row[c.key] ?? "").trim()
+    if (!Object.values(columnMapping).some((v) => v)) {
+      setError("Associez au moins une colonne à un champ lead avant d'appliquer.")
+      return
+    }
+    setApplyingMapping(true)
+    setError(null)
+    setCleanResult(null)
+    try {
+      const mapped = importedRows.map((row) => {
+        const obj: Record<string, any> = {
+          nom: "", prenom: "", email: "", fonction: "", societe: "",
+          telephone: "", linkedin: "", location: "",
+        }
+        importedColumns.forEach((c) => {
+          const field = columnMapping[c.key]
+          if (field) obj[field] = String(row[c.key] ?? "").trim()
+        })
+        return obj
       })
-      return obj
-    })
-    setImportedRows(mapped)
-    setImportedColumns(null)
-    setColumnMapping({})
-    setCleanResult({ message: `✅ Mapping appliqué sur ${mapped.length} ligne(s).` })
-    setRefresh((prev) => prev + 1)
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload-mapped`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rows: mapped,
+          userid: userId || "",
+          username: String(user?.firstName || ""),
+          filename: uploadedFilename || "import-mappe",
+        }),
+      })
+      if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`)
+      const result = await res.json()
+
+      // Fin de l'aperçu local : on affiche désormais les données du backend.
+      setImportedRows(null)
+      setImportedColumns(null)
+      setColumnMapping({})
+      setUploadedRows(Number(result?.inserted_rows || mapped.length))
+      setCleanResult(result?.message ? result : { message: `✅ ${result?.inserted_rows ?? mapped.length} ligne(s) enregistrée(s) en staging.` })
+      setRefresh((prev) => prev + 1)
+    } catch (err: any) {
+      setError(err?.message || "Échec de l'enregistrement des données mappées")
+    } finally {
+      setApplyingMapping(false)
+    }
   }
 
   // Importation 100% front : on parse le CSV/Excel dans le navigateur et on affiche
@@ -807,10 +836,11 @@ export default function StagingPage() {
               </div>
               <button
                 onClick={handleApplyMapping}
-                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
+                disabled={applyingMapping}
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
                 style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}
               >
-                <Sparkles size={13} /> Appliquer le mapping
+                <Sparkles size={13} /> {applyingMapping ? "Enregistrement..." : "Appliquer le mapping"}
               </button>
             </div>
             <div className="flex gap-3 overflow-x-auto pb-2">
