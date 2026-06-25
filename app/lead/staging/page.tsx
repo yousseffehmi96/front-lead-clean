@@ -22,6 +22,8 @@ export default function StagingPage() {
   const [importedRows, setImportedRows] = useState<any[] | null>(null)
   // Colonnes d'origine du fichier importé (affichage brut, sans transformation)
   const [importedColumns, setImportedColumns] = useState<{ key: string; title: string }[] | null>(null)
+  // Mapping manuel : clé de colonne du fichier (c0, c1…) -> champ lead ("" = ignorer)
+  const [columnMapping, setColumnMapping] = useState<Record<string, string>>({})
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [expandedCard, setExpandedCard] = useState<number | null>(null)
   const [mobileView, setMobileView] = useState<"table" | "cards">("cards")
@@ -148,6 +150,65 @@ export default function StagingPage() {
   const startIndex = (mobilePage - 1) * cardsPerPage
   const paginatedData = filteredData.slice(startIndex, startIndex + cardsPerPage)
 
+  // Champs lead disponibles pour le mapping manuel des colonnes du fichier.
+  const TARGET_FIELDS: { key: string; label: string }[] = [
+    { key: "nom", label: "Nom" },
+    { key: "prenom", label: "Prénom" },
+    { key: "email", label: "Email" },
+    { key: "fonction", label: "Fonction" },
+    { key: "societe", label: "Société" },
+    { key: "telephone", label: "Téléphone" },
+    { key: "linkedin", label: "LinkedIn" },
+    { key: "location", label: "Location" },
+  ]
+
+  // Normalise un en-tête (minuscule, sans accents) pour la détection auto.
+  const normalizeHeader = (h: any) =>
+    String(h ?? "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+
+  // Devine le champ lead correspondant à un en-tête de fichier (proposition initiale).
+  const FIELD_ALIASES: Record<string, string> = {
+    nom: "nom", "nom de famille": "nom", lastname: "nom", "last name": "nom",
+    prenom: "prenom", firstname: "prenom", "first name": "prenom",
+    email: "email", mail: "email", "e mail": "email", courriel: "email",
+    fonction: "fonction", poste: "fonction", titre: "fonction", title: "fonction", "job title": "fonction",
+    societe: "societe", entreprise: "societe", company: "societe", organisation: "societe", organization: "societe",
+    telephone: "telephone", tel: "telephone", phone: "telephone", mobile: "telephone", numero: "telephone",
+    linkedin: "linkedin", "linkedin url": "linkedin", profil: "linkedin",
+    location: "location", localisation: "location", ville: "location", city: "location", pays: "location", region: "location", adresse: "location",
+  }
+  const guessField = (title: string) => FIELD_ALIASES[normalizeHeader(title)] || ""
+
+  // Applique le mapping manuel : transforme les colonnes brutes du fichier en
+  // champs lead standard, puis bascule l'affichage sur les colonnes leads.
+  const handleApplyMapping = () => {
+    if (!importedColumns || !importedRows) return
+    const nowIso = new Date().toISOString()
+    const mapped = importedRows.map((row, i) => {
+      const obj: Record<string, any> = {
+        id: i + 1,
+        nom: "", prenom: "", email: "", fonction: "", societe: "",
+        telephone: "", linkedin: "", location: "", statu: "", created_at: nowIso,
+      }
+      importedColumns.forEach((c) => {
+        const field = columnMapping[c.key]
+        if (field) obj[field] = String(row[c.key] ?? "").trim()
+      })
+      return obj
+    })
+    setImportedRows(mapped)
+    setImportedColumns(null)
+    setColumnMapping({})
+    setCleanResult({ message: `✅ Mapping appliqué sur ${mapped.length} ligne(s).` })
+    setRefresh((prev) => prev + 1)
+  }
+
   // Importation 100% front : on parse le CSV/Excel dans le navigateur et on affiche
   // le contenu EXACT du fichier (colonnes d'origine, aucune transformation).
   // Rien n'est envoyé ni enregistré au backend.
@@ -183,7 +244,15 @@ export default function StagingPage() {
         return obj
       })
 
+      // Détection automatique des correspondances (modifiable manuellement).
+      const autoMapping: Record<string, string> = {}
+      cols.forEach((c) => {
+        const guess = guessField(c.title)
+        if (guess) autoMapping[c.key] = guess
+      })
+
       setImportedColumns(cols)
+      setColumnMapping(autoMapping)
       setImportedRows(rows)
       setUploadedFilename(file.name)
       setUploadedRows(rows.length)
@@ -724,6 +793,52 @@ export default function StagingPage() {
       `}</style>
 
       <div className="px-2 sm:px-3 pb-4 pt-2 overflow-y-auto flex-1 overflow-x-hidden">
+        {importedColumns && importedColumns.length > 0 && (
+          <div
+            className="mb-4 rounded-xl p-3 sm:p-4"
+            style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.25)" }}
+          >
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+              <div>
+                <h3 className="text-sm sm:text-base font-semibold text-white">Mapping des colonnes</h3>
+                <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
+                  Associez chaque colonne du fichier à un champ lead, puis appliquez.
+                </p>
+              </div>
+              <button
+                onClick={handleApplyMapping}
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
+                style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}
+              >
+                <Sparkles size={13} /> Appliquer le mapping
+              </button>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {importedColumns.map((c) => (
+                <div key={c.key} className="flex flex-col gap-1.5" style={{ minWidth: 160 }}>
+                  <span
+                    title={c.title}
+                    className="text-xs font-semibold truncate px-1"
+                    style={{ color: "rgba(255,255,255,0.7)", maxWidth: 160 }}
+                  >
+                    {c.title}
+                  </span>
+                  <select
+                    value={columnMapping[c.key] || ""}
+                    onChange={(e) => setColumnMapping((m) => ({ ...m, [c.key]: e.target.value }))}
+                    className="text-xs rounded-lg px-2 py-1.5 outline-none"
+                    style={{ background: "rgba(15,23,42,0.8)", border: "1px solid rgba(255,255,255,0.15)", color: "#e2e8f0" }}
+                  >
+                    <option value="">— Ignorer —</option>
+                    {TARGET_FIELDS.map((f) => (
+                      <option key={f.key} value={f.key}>{f.label}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {!DTableComponent && shouldUseDataTable ? (
           <div className="text-center py-16" style={{ color: "rgba(255,255,255,0.2)" }}><div className="text-4xl mb-3">⚡</div><p className="text-sm">Chargement...</p></div>
         ) : data.length === 0 ? (
