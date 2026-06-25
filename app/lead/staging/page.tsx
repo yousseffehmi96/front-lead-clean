@@ -20,6 +20,8 @@ export default function StagingPage() {
   const [uploadedFilename, setUploadedFilename] = useState<string>("")
   const [uploadedRows, setUploadedRows] = useState<number>(0)
   const [importedRows, setImportedRows] = useState<any[] | null>(null)
+  // Colonnes d'origine du fichier importé (affichage brut, sans transformation)
+  const [importedColumns, setImportedColumns] = useState<{ key: string; title: string }[] | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [expandedCard, setExpandedCard] = useState<number | null>(null)
   const [mobileView, setMobileView] = useState<"table" | "cards">("cards")
@@ -127,6 +129,12 @@ export default function StagingPage() {
   const filteredData = data.filter((item: any) => {
     if (!searchTerm) return true
     const searchLower = searchTerm.toLowerCase()
+    // Pour un fichier importé brut, on recherche dans toutes les valeurs.
+    if (importedColumns) {
+      return Object.values(item).some((v: any) =>
+        String(v ?? "").toLowerCase().includes(searchLower)
+      )
+    }
     return (
       item.nom?.toLowerCase().includes(searchLower) ||
       item.prenom?.toLowerCase().includes(searchLower) ||
@@ -140,30 +148,9 @@ export default function StagingPage() {
   const startIndex = (mobilePage - 1) * cardsPerPage
   const paginatedData = filteredData.slice(startIndex, startIndex + cardsPerPage)
 
-  // Normalise un en-tête de colonne (minuscule, sans accents, espaces réduits)
-  const normalizeHeader = (h: any) =>
-    String(h ?? "")
-      .trim()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim()
-
-  // Associe les en-têtes du fichier aux champs internes du lead
-  const FIELD_ALIASES: Record<string, string> = {
-    nom: "nom", "nom de famille": "nom", lastname: "nom", "last name": "nom",
-    prenom: "prenom", firstname: "prenom", "first name": "prenom",
-    email: "email", mail: "email", "e mail": "email", courriel: "email",
-    fonction: "fonction", poste: "fonction", titre: "fonction", title: "fonction", "job title": "fonction",
-    societe: "societe", entreprise: "societe", company: "societe", organisation: "societe", organization: "societe",
-    telephone: "telephone", tel: "telephone", phone: "telephone", mobile: "telephone", numero: "telephone",
-    linkedin: "linkedin", "linkedin url": "linkedin", profil: "linkedin",
-    location: "location", localisation: "location", ville: "location", city: "location", pays: "location", region: "location", adresse: "location",
-  }
-
   // Importation 100% front : on parse le CSV/Excel dans le navigateur et on affiche
-  // le contenu directement dans la table. Rien n'est envoyé ni enregistré au backend.
+  // le contenu EXACT du fichier (colonnes d'origine, aucune transformation).
+  // Rien n'est envoyé ni enregistré au backend.
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -176,26 +163,31 @@ export default function StagingPage() {
       const workbook = XLSX.read(buffer, { type: "array" })
       const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
       if (!firstSheet) throw new Error("Fichier vide ou illisible")
-      const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(firstSheet, { defval: "" })
+      // Lecture brute en tableau de tableaux pour conserver l'ordre et les
+      // en-têtes exacts du fichier (aucun remapping de colonnes).
+      const aoa = XLSX.utils.sheet_to_json<any[]>(firstSheet, { header: 1, defval: "" })
+      if (!aoa.length) throw new Error("Fichier vide")
 
-      const nowIso = new Date().toISOString()
-      const rows = rawRows.map((raw, i) => {
-        const mapped: Record<string, any> = {
-          id: i + 1,
-          nom: "", prenom: "", email: "", fonction: "", societe: "",
-          telephone: "", linkedin: "", location: "", statu: "", created_at: nowIso,
-        }
-        for (const key of Object.keys(raw)) {
-          const field = FIELD_ALIASES[normalizeHeader(key)]
-          if (field) mapped[field] = String(raw[key] ?? "").trim()
-        }
-        return mapped
+      const headerRow = (aoa[0] as any[]) || []
+      const cols = headerRow.map((h, idx) => ({
+        key: `c${idx}`,
+        title: String(h ?? "").trim() || `Colonne ${idx + 1}`,
+      }))
+
+      const bodyRows = aoa.slice(1)
+      const rows = bodyRows.map((arr, i) => {
+        const obj: Record<string, any> = { id: i + 1 }
+        cols.forEach((c, idx) => {
+          obj[c.key] = String((arr as any[])[idx] ?? "")
+        })
+        return obj
       })
 
+      setImportedColumns(cols)
       setImportedRows(rows)
       setUploadedFilename(file.name)
       setUploadedRows(rows.length)
-      setCleanResult({ message: `📄 ${rows.length} ligne(s) importée(s) depuis « ${file.name} » — aperçu local, non enregistré.` })
+      setCleanResult({ message: `📄 ${rows.length} ligne(s) importée(s) depuis « ${file.name} » — aperçu local du fichier, non enregistré.` })
       setRefresh((prev) => prev + 1)
     } catch (err: any) {
       setError(err?.message || "Impossible de lire le fichier")
@@ -413,6 +405,26 @@ export default function StagingPage() {
     )
   }
 
+  // Carte mobile générique : affiche toutes les colonnes du fichier importé, brut.
+  const RawMobileCard = ({ row }: { row: any }) => (
+    <div
+      className="rounded-xl mb-3 p-4"
+      style={{
+        background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)",
+        border: "1px solid rgba(255,255,255,0.06)",
+      }}
+    >
+      <div className="space-y-1.5">
+        {(importedColumns || []).map((c) => (
+          <div key={c.key} className="flex gap-2 text-xs">
+            <span className="font-semibold whitespace-nowrap" style={{ color: "rgba(255,255,255,0.4)" }}>{c.title}:</span>
+            <span className="break-words" style={{ color: "rgba(255,255,255,0.75)" }}>{String(row[c.key] ?? "")}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
   // Configuration DataTable (inchangée)
   const searchableCols = new Set(["nom", "prenom", "email", "fonction", "societe", "telephone", "linkedin", "location", "statu", "eliminer", "created_at"])
   const historySearchableCols = new Set(["imported_at", "filename", "nom", "prenom", "email", "fonction", "societe", "telephone", "linkedin", "location", "destination"])
@@ -462,6 +474,15 @@ export default function StagingPage() {
     ...baseColumns,
     dateColumn,
   ]
+  // Colonnes affichées : si un fichier a été importé, on affiche EXACTEMENT ses
+  // colonnes d'origine (titres du fichier), sinon les colonnes leads par défaut.
+  const activeColumns = importedColumns
+    ? importedColumns.map((c) => ({ data: c.key, title: c.title, defaultContent: "" }))
+    : columns
+  const activeSearchableCols = importedColumns
+    ? new Set(importedColumns.map((c) => c.key))
+    : searchableCols
+  const activeDateField = importedColumns ? "__none__" : "created_at"
   const historyColumns = [
     {
       data: "imported_at",
@@ -715,7 +736,9 @@ export default function StagingPage() {
                   <div className="text-center py-12" style={{ color: "rgba(255,255,255,0.3)" }}><p className="text-sm">Aucun résultat trouvé</p></div>
                 ) : (
                   <>
-                    {paginatedData.map((lead: any, index: number) => <MobileCard key={lead.id || index} lead={lead} index={index} />)}
+                    {paginatedData.map((lead: any, index: number) => importedColumns
+                      ? <RawMobileCard key={lead.id || index} row={lead} />
+                      : <MobileCard key={lead.id || index} lead={lead} index={index} />)}
                     {totalMobilePages > 1 && (
                       <div className="mt-3 flex items-center justify-center gap-2">
                         <button
@@ -747,21 +770,21 @@ export default function StagingPage() {
                 <DTableComponent
                   key={`${String(leads)}-${refresh}`}
                   data={data}
-                  columns={columns}
+                  columns={activeColumns}
                   className="display w-full"
                   options={{
-                    order: [[columns.length - 1, "desc"]],
+                    order: importedColumns ? [] : [[activeColumns.length - 1, "desc"]],
                     pageLength: isMobile ? 5 : 10,
                     responsive: true,
                     scrollX: isMobile,
                     initComplete: function (this: any) {
                       const api = (this as any).api()
-                      if (!isMobile) injectSearchIcons(api, columns, searchableCols, "created_at")
+                      if (!isMobile) injectSearchIcons(api, activeColumns, activeSearchableCols, activeDateField)
                     },
                     language: { processing: "Traitement en cours...", search: "Rechercher :", lengthMenu: "Afficher _MENU_", info: "_START_ à _END_ sur _TOTAL_", infoEmpty: "0 à 0 sur 0", infoFiltered: "(filtré de _MAX_)", loadingRecords: "Chargement...", zeroRecords: "Aucun élément", emptyTable: "Aucune donnée", paginate: { first: "«", previous: "‹", next: "›", last: "»" } }
                   }}
                 >
-                  <thead><tr>{columns.map((col, i) => <th key={i}>{col.title}</th>)}</tr></thead>
+                  <thead><tr>{activeColumns.map((col, i) => <th key={i}>{col.title}</th>)}</tr></thead>
                 </DTableComponent>
               </div>
             )}
