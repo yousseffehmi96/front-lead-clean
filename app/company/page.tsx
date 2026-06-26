@@ -11,9 +11,12 @@ import {
 import Navbar from "@/componets/navbar"
 
 type SortDir = "asc" | "desc" | null
-type SortKey = "nom" | "domaine" | "extension" | null
+type SortKey = "nom" | "patterne" | null
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
+
+// Patterne email de la société (ex: {prenom}.{nom}@soprat.fr)
+const emailPattern = (d: any) => String(d?.patterne ?? "")
 
 export default function Company() {
   const { societe, setsociete } = changeEtat()
@@ -24,6 +27,9 @@ export default function Company() {
   const [refresh, setRefresh] = useState<number>(0)
   const [deletedata, setDeletedata] = useState(false)
   const [idsociete, setidsociete] = useState<number>(0)
+
+  // Saisie du patterne dans le formulaire (ex: {prenom}.{nom}@soprat.fr)
+  const [patterne, setPatterne] = useState("")
 
   // Search per column
   const [colSearch, setColSearch] = useState<Record<string, string>>({})
@@ -44,9 +50,8 @@ export default function Company() {
   // Logic: Filter
   const filtered = useMemo(() => {
     return (data ?? []).filter((d: any) =>
-      (!colSearch.nom       || d.nom?.toLowerCase().includes(colSearch.nom.toLowerCase())) &&
-      (!colSearch.domaine   || d.domaine?.toLowerCase().includes(colSearch.domaine.toLowerCase())) &&
-      (!colSearch.extension || d.extension?.toLowerCase().includes(colSearch.extension.toLowerCase()))
+      (!colSearch.nom      || d.nom?.toLowerCase().includes(colSearch.nom.toLowerCase())) &&
+      (!colSearch.patterne || emailPattern(d).toLowerCase().includes(colSearch.patterne.toLowerCase()))
     )
   }, [data, colSearch])
 
@@ -54,8 +59,8 @@ export default function Company() {
   const sorted = useMemo(() => {
     if (!sortKey || !sortDir) return filtered
     return [...filtered].sort((a: any, b: any) => {
-      const av = (a[sortKey] ?? "").toLowerCase()
-      const bv = (b[sortKey] ?? "").toLowerCase()
+      const av = (sortKey === "patterne" ? emailPattern(a) : a[sortKey] ?? "").toLowerCase()
+      const bv = (sortKey === "patterne" ? emailPattern(b) : b[sortKey] ?? "").toLowerCase()
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
   }, [filtered, sortKey, sortDir])
@@ -90,16 +95,35 @@ export default function Company() {
   const resetForm = () => {
     setShowForm(false)
     setisedit(false)
-    setsociete({ id: "", nom: "", domaine: "", extension: "" })
+    setsociete({ id: "", nom: "", patterne: "" })
+    setPatterne("")
     seterror("")
     setsucee("")
+  }
+
+  const openAdd = () => {
+    setisedit(false)
+    setsociete({ id: "", nom: "", patterne: "" })
+    setPatterne("")
+    seterror("")
+    setsucee("")
+    setShowForm(true)
+  }
+
+  const openEdit = (d: any) => {
+    setisedit(true)
+    setsociete(d)
+    setPatterne(String(d?.patterne ?? ""))
+    seterror("")
+    setsucee("")
+    setShowForm(true)
   }
 
   const handleUpdate = async () => {
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/societe/${societe.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(societe),
+      body: JSON.stringify({ nom: societe.nom, patterne }),
     })
     if (!res.ok) { seterror((await res.json()).detail); return }
     seterror(null)
@@ -112,13 +136,14 @@ export default function Company() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/societe`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(societe),
+        body: JSON.stringify({ nom: societe.nom, patterne }),
       })
       if (!res.ok) { seterror((await res.json()).detail); return }
       seterror(null)
       setRefresh((p) => p + 1)
       setsucee((await res.json()).message)
-      setsociete({ id: "", nom: "", domaine: "", extension: "" })
+      setsociete({ id: "", nom: "", patterne: "" })
+      setPatterne("")
     } catch (error) {
       seterror(error)
     }
@@ -131,10 +156,9 @@ export default function Company() {
   }
 
   const headers: { label: string; key: SortKey | null; sortable: boolean }[] = [
-    { label: "Nom",       key: "nom",       sortable: true  },
-    { label: "Domaine",   key: "domaine",   sortable: true  },
-    { label: "Extension", key: "extension", sortable: true  },
-    { label: "Actions",   key: null,        sortable: false },
+    { label: "Nom",      key: "nom",      sortable: true  },
+    { label: "Patterne", key: "patterne", sortable: true  },
+    { label: "Actions",  key: null,       sortable: false },
   ]
 
   const pageNumbers = useMemo(() => {
@@ -172,7 +196,7 @@ export default function Company() {
               </button>
             )}
             <button
-              onClick={() => setShowForm(true)}
+              onClick={openAdd}
               className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-200"
             >
               <Plus size={14} /> Ajouter
@@ -194,10 +218,13 @@ export default function Company() {
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-widest text-indigo-400/60">Société</span>
                     <h3 className="text-white font-semibold text-lg leading-tight">{d.nom}</h3>
+                    <span className="mt-1 inline-block font-mono text-[11px] text-emerald-300/80 bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10">
+                      {emailPattern(d)}
+                    </span>
                   </div>
                   <div className="flex gap-2">
-                    <button 
-                      onClick={() => { setisedit(true); setShowForm(true); setsociete(d) }}
+                    <button
+                      onClick={() => openEdit(d)}
                       className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-indigo-300"
                     >
                       <Pencil size={16}/>
@@ -211,16 +238,6 @@ export default function Company() {
                   </div>
                 </div>
 
-                <div className="flex gap-4 pt-2">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold tracking-widest text-white/20">Domaine</span>
-                    <span className="text-sm text-indigo-200">{d.domaine}</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold tracking-widest text-white/20">Extension</span>
-                    <span className="text-sm text-emerald-400">.{d.extension}</span>
-                  </div>
-                </div>
               </div>
             ))
           )}
@@ -274,11 +291,10 @@ export default function Company() {
                 <tr key={d.id} className="border-b border-white/5 hover:bg-white/5 transition-colors group">
                   <td className="p-4 text-white/20 text-xs">{(safePage - 1) * pageSize + idx + 1}</td>
                   <td className="p-4 font-medium text-white">{d.nom}</td>
-                  <td className="p-4"><span className="px-2 py-1 rounded bg-indigo-500/10 text-indigo-300 text-xs border border-indigo-500/20">{d.domaine}</span></td>
-                  <td className="p-4"><span className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 text-xs border border-emerald-500/20">.{d.extension}</span></td>
+                  <td className="p-4"><span className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-300 text-xs border border-emerald-500/20 font-mono">{emailPattern(d)}</span></td>
                   <td className="p-4">
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
-                      <button onClick={() => { setisedit(true); setShowForm(true); setsociete(d) }} className="p-2 hover:text-indigo-400"><Pencil size={14}/></button>
+                      <button onClick={() => openEdit(d)} className="p-2 hover:text-indigo-400"><Pencil size={14}/></button>
                       <button onClick={() => { setDeletedata(true); setidsociete(d.id) }} className="p-2 hover:text-rose-400"><Trash2 size={14}/></button>
                     </div>
                   </td>
@@ -335,18 +351,27 @@ export default function Company() {
             </div>
             
             <div className="space-y-4">
-              {["nom", "domaine", "extension"].map((f) => (
-                <div key={f} className="space-y-1.5">
-                  <label className="text-[10px] uppercase font-bold text-white/20 ml-1">{f}</label>
-                  <input
-                    name={f}
-                    placeholder={`Entrer ${f}...`}
-                    value={societe?.[f as keyof typeof societe] ?? ""}
-                    onChange={handle}
-                    className="w-full text-sm px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500/50 transition-all"
-                  />
-                </div>
-              ))}
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-bold text-white/20 ml-1">nom de société</label>
+                <input
+                  name="nom"
+                  placeholder="Entrer le nom..."
+                  value={societe?.nom ?? ""}
+                  onChange={handle}
+                  className="w-full text-sm px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500/50 transition-all"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-bold text-white/20 ml-1">patterne</label>
+                <input
+                  name="patterne"
+                  placeholder="{prenom}.{nom}@soprat.fr"
+                  value={patterne}
+                  onChange={(e) => setPatterne(e.target.value)}
+                  className="w-full text-sm px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-emerald-200 font-mono outline-none focus:border-indigo-500/50 transition-all"
+                />
+              </div>
               
               <button
                 onClick={isEdit ? handleUpdate : handleClick}

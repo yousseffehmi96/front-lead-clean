@@ -123,13 +123,12 @@ export default function LeadList({ leads }: { leads: string }) {
   }, [societes])
 
   const societesMap = useMemo(() => {
-    const map = new Map<string, { domaine: string; extension: string }>()
+    const map = new Map<string, { patterne: string }>()
     for (const s of societes as any[]) {
       const key = s?.nom ? societeExactKey(s.nom) : ""
       if (!key) continue
       map.set(key, {
-        domaine: String(s?.domaine ?? "").trim().toLowerCase(),
-        extension: String(s?.extension ?? "").trim().toLowerCase(),
+        patterne: String(s?.patterne ?? "").trim(),
       })
     }
     return map
