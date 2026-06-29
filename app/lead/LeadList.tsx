@@ -5,6 +5,45 @@ import { Upload, Sparkles, RefreshCw, Download, Trash2, Menu, X, ChevronDown, Ch
 import { useUser } from "@clerk/nextjs"
 import { useSelector } from "react-redux"
 
+// --- Vérification email <-> patterne société (regex) ---
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+const normForRx = (v?: string) =>
+  String(v ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, "")
+
+/**
+ * Construit une regex à partir du patterne d'une société et teste l'email.
+ * Tokens: {prenom} {nom} -> nom complet, {p} {n} -> initiale.
+ * Si le prénom/nom du lead sont connus on les injecte (vérif précise),
+ * sinon on utilise des classes génériques [a-z]+ / [a-z] (vérif de structure + domaine).
+ * Retourne true/false, ou null si rien à vérifier (email ou patterne absent).
+ */
+function emailMatchesPatterne(email?: string, patterne?: string, prenom?: string, nom?: string): boolean | null {
+  const e = String(email ?? "").trim().toLowerCase()
+  const pat = String(patterne ?? "").trim()
+  if (!e || !pat || !pat.includes("@")) return null
+  const p = normForRx(prenom)
+  const n = normForRx(nom)
+  let rx = ""
+  let last = 0
+  const tokenRe = /\{prenom\}|\{nom\}|\{p\}|\{n\}/g
+  let m: RegExpExecArray | null
+  while ((m = tokenRe.exec(pat)) !== null) {
+    rx += escapeRegex(pat.slice(last, m.index))
+    const tok = m[0]
+    if (tok === "{prenom}") rx += p ? escapeRegex(p) : "[a-z]+"
+    else if (tok === "{nom}") rx += n ? escapeRegex(n) : "[a-z]+"
+    else if (tok === "{p}") rx += p ? escapeRegex(p[0]) : "[a-z]"
+    else rx += n ? escapeRegex(n[0]) : "[a-z]"
+    last = m.index + tok.length
+  }
+  rx += escapeRegex(pat.slice(last))
+  try {
+    return new RegExp("^" + rx + "$", "i").test(e)
+  } catch {
+    return null
+  }
+}
+
 export default function LeadList({ leads }: { leads: string }) {
   const [DTableComponent, setDTableComponent] = useState<any>(null)
   const [openMenu, setOpenMenu] = useState<number | null>(null)
@@ -361,9 +400,42 @@ export default function LeadList({ leads }: { leads: string }) {
     })
   }, [societesSet, shouldUseDataTable, isSteagingApplique])
 
+  // Coloration des emails selon leur conformité au patterne de la société (vérif regex).
+  // Vert = conforme, rouge = non conforme. Ne touche que les pastilles ayant un email réel.
+  useEffect(() => {
+    if (!shouldUseDataTable) return
+    if (!isSelectableList && !isSteagingApplique) return
+    const byId = new Map<number, any>()
+    for (const d of (data as any[])) {
+      const idn = Number(d?.id)
+      if (Number.isFinite(idn)) byId.set(idn, d)
+    }
+    document.querySelectorAll<HTMLElement>(".dt-email-pill").forEach((el) => {
+      const lead = byId.get(Number(el.dataset.id))
+      if (!lead) return
+      const email = String(lead?.email ?? "").trim()
+      if (!email || email.toLowerCase() === "nan") return // pas d'email -> laissé aux autres effets
+      const patterne = societesMap.get(societeExactKey(lead?.societe))?.patterne || ""
+      const match = emailMatchesPatterne(email, patterne, lead?.prenom, lead?.nom)
+      if (match === null) return // société inconnue / sans patterne -> on ne juge pas
+      el.style.border = match ? "1px solid rgba(34,197,94,0.55)" : "1px solid rgba(244,63,94,0.55)"
+      el.style.background = match ? "rgba(34,197,94,0.10)" : "rgba(244,63,94,0.10)"
+      el.style.color = match ? "#86efac" : "#fda4af"
+      el.title = match
+        ? "Email conforme au patterne de la société"
+        : `Email NON conforme au patterne (${patterne})`
+    })
+  }, [data, societesMap, shouldUseDataTable, isSelectableList, isSteagingApplique])
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    // Le fichier importé doit avoir l'extension .csv ou .xlsx (.xls accepté)
+    if (!/\.(csv|xlsx|xls)$/i.test(file.name)) {
+      setError("Format invalide : seuls les fichiers .csv, .xlsx ou .xls sont acceptés.")
+      if (fileInputRef.current) fileInputRef.current.value = ""
+      return
+    }
     setUploading(true)
     setError(null)
     setCleanResult(null)
@@ -629,6 +701,9 @@ export default function LeadList({ leads }: { leads: string }) {
     const hasActionButtons = leads === "gold" || leads === "prod" || leads === "silver"
     const id = Number(lead?.id)
     const isSelected = Number.isFinite(id) && selectedLeadIds.has(id)
+    // Conformité de l'email au patterne de la société (regex) : true / false / null (non évaluable)
+    const leadPatterne = societesMap.get(societeExactKey(lead?.societe))?.patterne || ""
+    const emailMatch = emailMatchesPatterne(lead?.email, leadPatterne, lead?.prenom, lead?.nom)
 
     return (
       <div
@@ -676,11 +751,15 @@ export default function LeadList({ leads }: { leads: string }) {
                 className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-lg"
                 style={{
                   border:
-                    isSteagingApplique && societesSet.has(societeExactKey(lead?.societe))
+                    emailMatch === true ? "1px solid rgba(34,197,94,0.55)"
+                    : emailMatch === false ? "1px solid rgba(244,63,94,0.55)"
+                    : isSteagingApplique && societesSet.has(societeExactKey(lead?.societe))
                       ? "1px solid rgba(34,197,94,0.55)"
                       : "1px solid rgba(255,255,255,0.08)",
                   background:
-                    isSteagingApplique && societesSet.has(societeExactKey(lead?.societe))
+                    emailMatch === true ? "rgba(34,197,94,0.10)"
+                    : emailMatch === false ? "rgba(244,63,94,0.10)"
+                    : isSteagingApplique && societesSet.has(societeExactKey(lead?.societe))
                       ? "rgba(34,197,94,0.10)"
                       : "transparent",
                 }}
@@ -693,6 +772,17 @@ export default function LeadList({ leads }: { leads: string }) {
                 ) : (
                   <span className="text-xs truncate flex-1 min-w-0" style={{ color: "rgba(255,255,255,0.45)" }}>
                     {isSteagingApplique && societesSet.has(societeExactKey(lead?.societe)) ? "Email générable" : "Email manquant"}
+                  </span>
+                )}
+                {emailMatch !== null && (
+                  <span
+                    className="text-[10px] font-semibold whitespace-nowrap px-1.5 py-0.5 rounded"
+                    title={emailMatch ? "Email conforme au patterne de la société" : `Non conforme au patterne (${leadPatterne})`}
+                    style={emailMatch
+                      ? { color: "#86efac", background: "rgba(34,197,94,0.12)" }
+                      : { color: "#fda4af", background: "rgba(244,63,94,0.12)" }}
+                  >
+                    {emailMatch ? "✓ patterne" : "≠ patterne"}
                   </span>
                 )}
               </div>
