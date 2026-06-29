@@ -240,7 +240,7 @@ export default function LeadList({ leads }: { leads: string }) {
   // Détection mobile
   const [isMobile, setIsMobile] = useState(false)
   const isSilverView = leads === "silver"
-  const isVerifiableView = leads === "silver" || leads === "gold"
+  const isVerifiableView = leads === "silver" || leads === "gold" || leads === "steaging-applique"
   const shouldUseDataTable = !isMobile
   const cardsPerPage = 20
   
@@ -1110,7 +1110,7 @@ export default function LeadList({ leads }: { leads: string }) {
                       {sendingToSilver ? "Envoi..." : "Envoyer à Silver"}
                     </button>
                   )}
-                  {(leads === "silver" || leads === "gold") && (
+                  {isVerifiableView && (
                     <button
                       onClick={handleBulkVerifyEmails}
                       disabled={selectedLeadIds.size === 0 || sendingBulkVerify}
