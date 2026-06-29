@@ -371,6 +371,9 @@ export default function Company() {
                   onChange={(e) => setPatterne(e.target.value)}
                   className="w-full text-sm px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-emerald-200 font-mono outline-none focus:border-indigo-500/50 transition-all"
                 />
+                <p className="text-[10px] text-white/30 ml-1">
+                  Tokens : <span className="font-mono text-indigo-300">{"{prenom}"}</span> <span className="font-mono text-indigo-300">{"{nom}"}</span> <span className="font-mono text-indigo-300">{"{p}"}</span> (init. prénom) <span className="font-mono text-indigo-300">{"{n}"}</span> (init. nom)
+                </p>
               </div>
               
               <button
