@@ -5,13 +5,15 @@ interface Societe {
   id:string
   nom: string;
   patterne: string;
+  regex: string;
 }
 
 export default function changeEtat(){
      const [societe, setsociete] = useState<Societe>({
     id:"",
     nom: "",
-    patterne: ""
+    patterne: "",
+    regex: ""
   });
     return {societe,setsociete}
 }

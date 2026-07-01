@@ -103,7 +103,7 @@ export default function SilverPage() {
   // Détection mobile
   const [isMobile, setIsMobile] = useState(false)
   const isSilverView = true
-  const isVerifiableView = true
+  const isVerifiableView = false
   const shouldUseDataTable = !isMobile
   const cardsPerPage = 20
 
@@ -613,14 +613,16 @@ export default function SilverPage() {
                   >
                     {selectedLeadIds.size === (data?.length || 0) ? "Tout désélectionner" : "Tout sélectionner"}
                   </button>
-                  <button
-                    onClick={handleBulkVerifyEmails}
-                    disabled={selectedLeadIds.size === 0 || sendingBulkVerify}
-                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
-                    style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}
-                  >
-                    {sendingBulkVerify ? "Vérification..." : "Vérifier emails"}
-                  </button>
+                  {isVerifiableView && (
+                    <button
+                      onClick={handleBulkVerifyEmails}
+                      disabled={selectedLeadIds.size === 0 || sendingBulkVerify}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
+                      style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}
+                    >
+                      {sendingBulkVerify ? "Vérification..." : "Vérifier emails"}
+                    </button>
+                  )}
                 </>
               )}
               <button onClick={handleReformulerLocalisation} disabled={reformulatingLocation} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}><MapPin size={13} />{reformulatingLocation ? "Reformulation..." : "Reformuler localisation"}</button>

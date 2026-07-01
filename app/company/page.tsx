@@ -30,6 +30,8 @@ export default function Company() {
 
   // Saisie du patterne dans le formulaire (ex: {prenom}.{nom}@soprat.fr)
   const [patterne, setPatterne] = useState("")
+  // Regex de vérification du patterne (ex: ^[a-z]+\.[a-z]+@soprat\.fr$)
+  const [regex, setRegex] = useState("")
 
   // Search per column
   const [colSearch, setColSearch] = useState<Record<string, string>>({})
@@ -95,16 +97,18 @@ export default function Company() {
   const resetForm = () => {
     setShowForm(false)
     setisedit(false)
-    setsociete({ id: "", nom: "", patterne: "" })
+    setsociete({ id: "", nom: "", patterne: "", regex: "" })
     setPatterne("")
+    setRegex("")
     seterror("")
     setsucee("")
   }
 
   const openAdd = () => {
     setisedit(false)
-    setsociete({ id: "", nom: "", patterne: "" })
+    setsociete({ id: "", nom: "", patterne: "", regex: "" })
     setPatterne("")
+    setRegex("")
     seterror("")
     setsucee("")
     setShowForm(true)
@@ -114,6 +118,7 @@ export default function Company() {
     setisedit(true)
     setsociete(d)
     setPatterne(String(d?.patterne ?? ""))
+    setRegex(String(d?.regex ?? ""))
     seterror("")
     setsucee("")
     setShowForm(true)
@@ -123,7 +128,7 @@ export default function Company() {
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/societe/${societe.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nom: societe.nom, patterne }),
+      body: JSON.stringify({ nom: societe.nom, patterne, regex }),
     })
     if (!res.ok) { seterror((await res.json()).detail); return }
     seterror(null)
@@ -136,14 +141,15 @@ export default function Company() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/societe`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nom: societe.nom, patterne }),
+        body: JSON.stringify({ nom: societe.nom, patterne, regex }),
       })
       if (!res.ok) { seterror((await res.json()).detail); return }
       seterror(null)
       setRefresh((p) => p + 1)
       setsucee((await res.json()).message)
-      setsociete({ id: "", nom: "", patterne: "" })
+      setsociete({ id: "", nom: "", patterne: "", regex: "" })
       setPatterne("")
+      setRegex("")
     } catch (error) {
       seterror(error)
     }
@@ -221,6 +227,11 @@ export default function Company() {
                     <span className="mt-1 inline-block font-mono text-[11px] text-emerald-300/80 bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10">
                       {emailPattern(d)}
                     </span>
+                    {d.regex && (
+                      <span className="mt-1 block font-mono text-[10px] text-amber-300/70 break-all">
+                        {d.regex}
+                      </span>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -291,7 +302,10 @@ export default function Company() {
                 <tr key={d.id} className="border-b border-white/5 hover:bg-white/5 transition-colors group">
                   <td className="p-4 text-white/20 text-xs">{(safePage - 1) * pageSize + idx + 1}</td>
                   <td className="p-4 font-medium text-white">{d.nom}</td>
-                  <td className="p-4"><span className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-300 text-xs border border-emerald-500/20 font-mono">{emailPattern(d)}</span></td>
+                  <td className="p-4">
+                    <span className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-300 text-xs border border-emerald-500/20 font-mono">{emailPattern(d)}</span>
+                    {d.regex && <div className="mt-1 font-mono text-[10px] text-amber-300/70 break-all">{d.regex}</div>}
+                  </td>
                   <td className="p-4">
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
                       <button onClick={() => openEdit(d)} className="p-2 hover:text-indigo-400"><Pencil size={14}/></button>
@@ -375,7 +389,21 @@ export default function Company() {
                   Tokens : <span className="font-mono text-indigo-300">{"{prenom}"}</span> <span className="font-mono text-indigo-300">{"{nom}"}</span> <span className="font-mono text-indigo-300">{"{p}"}</span> (init. prénom) <span className="font-mono text-indigo-300">{"{n}"}</span> (init. nom)
                 </p>
               </div>
-              
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-bold text-white/20 ml-1">regex</label>
+                <input
+                  name="regex"
+                  placeholder="^[a-z]+([._-][a-z]+)*@soprat\.fr$"
+                  value={regex}
+                  onChange={(e) => setRegex(e.target.value)}
+                  className="w-full text-sm px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-amber-200 font-mono outline-none focus:border-indigo-500/50 transition-all"
+                />
+                <p className="text-[10px] text-white/30 ml-1">
+                  Regex de vérification des emails de cette société (optionnel).
+                </p>
+              </div>
+
               <button
                 onClick={isEdit ? handleUpdate : handleClick}
                 className={`w-full py-4 rounded-xl font-bold text-sm mt-4 transition-all shadow-lg ${

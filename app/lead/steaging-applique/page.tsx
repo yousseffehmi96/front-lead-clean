@@ -26,6 +26,9 @@ export default function SteagingAppliquePage() {
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<number>>(() => new Set())
   const [emailPattern, setEmailPattern] = useState<string>("{prenom}.{nom}@{domaine}.{extension}")
   const [sendingToSilver, setSendingToSilver] = useState(false)
+  const [sendingBulkVerify, setSendingBulkVerify] = useState(false)
+  const [verifyingEmailId, setVerifyingEmailId] = useState<number | null>(null)
+  const [emailVerifyResults, setEmailVerifyResults] = useState<Record<number, { status: "valid" | "invalid" | "error"; message: string }>>({})
   const userId = useSelector((state:any) => state.user.userId)
   const email = useSelector((state:any) => state.user.email)
   const { user, isLoaded } = useUser()
@@ -141,7 +144,7 @@ export default function SteagingAppliquePage() {
   // Détection mobile
   const [isMobile, setIsMobile] = useState(false)
   const isSilverView = false
-  const isVerifiableView = false
+  const isVerifiableView = true
   const shouldUseDataTable = !isMobile
   const cardsPerPage = 20
 
@@ -222,8 +225,17 @@ export default function SteagingAppliquePage() {
 
   const sendSelectedToSilver = async () => {
     if (!isSteagingApplique) return
-    const ids = Array.from(selectedLeadIds)
-    if (ids.length === 0) return
+    const isUnavailable = (d: any) => String(d?.statu ?? "").trim().toLowerCase() === "non disponible"
+    const selected = (data as any[]).filter((d: any) => selectedLeadIds.has(Number(d.id)))
+    const blockedCount = selected.filter(isUnavailable).length
+    // On exclut les emails vérifiés "non disponible"
+    const ids = selected.filter((d: any) => !isUnavailable(d)).map((d: any) => Number(d.id))
+    if (ids.length === 0) {
+      setError(blockedCount > 0
+        ? "Envoi impossible : tous les leads sélectionnés ont un email non disponible."
+        : "Aucun lead sélectionné.")
+      return
+    }
     setSendingToSilver(true)
     setError(null)
     try {
@@ -234,13 +246,60 @@ export default function SteagingAppliquePage() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json?.detail || `Erreur serveur : ${res.status}`)
-      setCleanResult({ message: `✅ Envoyé vers Silver: ${json?.moved_to_silver ?? 0} | déjà en Silver supprimés: ${json?.deleted_already_in_silver ?? 0} | doublons supprimés: ${json?.deleted_duplicates ?? 0} | ignorés: ${json?.skipped ?? 0}` })
+      setCleanResult({ message: `✅ Envoyé vers Silver: ${json?.moved_to_silver ?? 0} | déjà en Silver supprimés: ${json?.deleted_already_in_silver ?? 0} | doublons supprimés: ${json?.deleted_duplicates ?? 0} | ignorés: ${json?.skipped ?? 0}${blockedCount > 0 ? ` | non disponibles exclus: ${blockedCount}` : ""}` })
       clearSelection()
       setRefresh((p) => p + 1)
     } catch (e: any) {
       setError(e?.message || "Erreur lors de l'envoi vers Silver")
     } finally {
       setSendingToSilver(false)
+    }
+  }
+
+  // Vérification par lead (regex -> sinon email généré depuis patterne -> test SMTP)
+  const handleVerifyEmail = async (leadId: number) => {
+    setVerifyingEmailId(leadId)
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/steaging-applique/verify/${leadId}`, { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || `Erreur serveur : ${res.status}`)
+      const isValid = data.statu === "disponible"
+      const note = data.regenerated && data.email ? ` (email généré : ${data.email})` : ""
+      setEmailVerifyResults((prev) => ({
+        ...prev,
+        [leadId]: { status: isValid ? "valid" : "invalid", message: (isValid ? "✅ Disponible" : "❌ Non disponible") + note },
+      }))
+      setRefresh((p) => p + 1)
+    } catch (e: any) {
+      setEmailVerifyResults((prev) => ({ ...prev, [leadId]: { status: "error", message: e.message || "Erreur de vérification" } }))
+    } finally {
+      setVerifyingEmailId(null)
+    }
+  }
+
+  // Vérification groupée des leads sélectionnés (même logique regex/patterne)
+  const handleBulkVerifyEmails = async () => {
+    const ids = Array.from(selectedLeadIds)
+    if (ids.length === 0) return
+    setSendingBulkVerify(true)
+    setError(null)
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/steaging-applique/verify-bulk`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.detail || `Erreur serveur : ${res.status}`)
+      const results = json?.results || []
+      const dispo = results.filter((r: any) => r.statu === "disponible").length
+      const nondispo = results.filter((r: any) => r.statu === "non disponible").length
+      setCleanResult({ message: `✅ Vérification : ${dispo} disponible(s), ${nondispo} non disponible(s) sur ${results.length}` })
+      setRefresh((p) => p + 1)
+    } catch (e: any) {
+      setError(e?.message || "Erreur lors de la vérification en masse")
+    } finally {
+      setSendingBulkVerify(false)
     }
   }
 
@@ -264,15 +323,24 @@ export default function SteagingAppliquePage() {
       const socRaw = decodeURIComponent(el.dataset.soc || "")
       const soc = societeExactKey(socRaw)
       const companyExists = soc && societesSet.has(soc)
-      el.style.border = companyExists ? "1px solid rgba(34,197,94,0.55)" : "1px solid rgba(255,255,255,0.08)"
-      el.style.background = companyExists ? "rgba(34,197,94,0.10)" : "transparent"
-      el.style.color = companyExists ? "#86efac" : "#e2e8f0"
-
       const txt = (el.textContent || "").trim()
-      if (companyExists) {
-        if (txt === "Email manquant") el.textContent = "Email générable"
+      const hasEmail = txt !== "" && txt !== "Email manquant" && txt !== "Email générable"
+
+      // 3 états : email présent -> neutre ; manquant mais générable -> vert ; manquant non générable -> rouge
+      if (hasEmail) {
+        el.style.border = "1px solid rgba(255,255,255,0.08)"
+        el.style.background = "transparent"
+        el.style.color = "#e2e8f0"
+      } else if (companyExists) {
+        el.style.border = "1px solid rgba(34,197,94,0.55)"
+        el.style.background = "rgba(34,197,94,0.10)"
+        el.style.color = "#86efac"
+        el.textContent = "Email générable"
       } else {
-        if (txt === "Email générable") el.textContent = "Email manquant"
+        el.style.border = "1px solid rgba(244,63,94,0.55)"
+        el.style.background = "rgba(244,63,94,0.10)"
+        el.style.color = "#fda4af"
+        el.textContent = "Email manquant"
       }
     })
   }, [societesSet, shouldUseDataTable, isSteagingApplique])
@@ -377,14 +445,17 @@ export default function SteagingAppliquePage() {
               <div
                 className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-lg"
                 style={{
-                  border:
-                    isSteagingApplique && societesSet.has(societeExactKey(lead?.societe))
+                  // 3 états : email présent -> neutre ; manquant mais générable -> vert ; manquant -> rouge
+                  border: lead.email
+                    ? "1px solid rgba(255,255,255,0.08)"
+                    : societesSet.has(societeExactKey(lead?.societe))
                       ? "1px solid rgba(34,197,94,0.55)"
-                      : "1px solid rgba(255,255,255,0.08)",
-                  background:
-                    isSteagingApplique && societesSet.has(societeExactKey(lead?.societe))
+                      : "1px solid rgba(244,63,94,0.55)",
+                  background: lead.email
+                    ? "transparent"
+                    : societesSet.has(societeExactKey(lead?.societe))
                       ? "rgba(34,197,94,0.10)"
-                      : "transparent",
+                      : "rgba(244,63,94,0.10)",
                 }}
               >
                 <Mail size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
@@ -396,6 +467,23 @@ export default function SteagingAppliquePage() {
                   <span className="text-xs truncate flex-1 min-w-0" style={{ color: "rgba(255,255,255,0.45)" }}>
                     {isSteagingApplique && societesSet.has(societeExactKey(lead?.societe)) ? "Email générable" : "Email manquant"}
                   </span>
+                )}
+              </div>
+            )}
+            {isVerifiableView && lead.email && (
+              <div>
+                <button
+                  onClick={() => handleVerifyEmail(Number(lead.id))}
+                  disabled={verifyingEmailId === Number(lead.id)}
+                  className="w-full text-xs font-semibold px-2 py-1.5 rounded-lg disabled:opacity-40"
+                  style={{ background: "rgba(129,140,248,0.12)", border: "1px solid rgba(129,140,248,0.25)", color: "#a5b4fc" }}
+                >
+                  {verifyingEmailId === Number(lead.id) ? "Vérification..." : "Vérifier email"}
+                </button>
+                {emailVerifyResults[Number(lead.id)] && (
+                  <p className="text-xs mt-1 px-1" style={{ color: emailVerifyResults[Number(lead.id)].status === "valid" ? "#86efac" : "#fda4af" }}>
+                    {emailVerifyResults[Number(lead.id)].message}
+                  </p>
                 )}
               </div>
             )}
@@ -454,16 +542,19 @@ export default function SteagingAppliquePage() {
         const socRaw = String(row?.societe ?? "")
         const soc = societeExactKey(socRaw)
         const companyExists = isSteagingApplique && soc && societesSet.has(soc)
-        const border = companyExists ? "1px solid rgba(34,197,94,0.55)" : "1px solid rgba(255,255,255,0.08)"
-        const bg = companyExists ? "rgba(34,197,94,0.10)" : "transparent"
-        const color = companyExists ? "#86efac" : "#e2e8f0"
         const value = val ? String(val) : ""
-        const text =
-          value
-            ? value
-            : isSteagingApplique
-              ? (companyExists ? "Email générable" : "Email manquant")
-              : ""
+        const hasEmail = !!value
+        // 3 états : email présent -> neutre ; manquant mais générable -> vert ; manquant non générable -> rouge
+        const border = hasEmail
+          ? "1px solid rgba(255,255,255,0.08)"
+          : companyExists ? "1px solid rgba(34,197,94,0.55)" : "1px solid rgba(244,63,94,0.55)"
+        const bg = hasEmail
+          ? "transparent"
+          : companyExists ? "rgba(34,197,94,0.10)" : "rgba(244,63,94,0.10)"
+        const color = hasEmail
+          ? "#e2e8f0"
+          : companyExists ? "#86efac" : "#fda4af"
+        const text = value ? value : (companyExists ? "Email générable" : "Email manquant")
         const opacity = value ? 1 : 0.55
         const pill = `<span class="dt-email-pill" data-soc="${encodeURIComponent(socRaw)}" data-id="${id}" style="display:block;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;border-radius:8px;border:${border};background:${bg};color:${color};opacity:${opacity};">${text || ""}</span>`
         const verifyBtn = isVerifiableView && value
@@ -619,6 +710,16 @@ export default function SteagingAppliquePage() {
                       style={{ background: "rgba(148,163,184,0.12)", border: "1px solid rgba(148,163,184,0.28)", color: "#e2e8f0" }}
                     >
                       {sendingToSilver ? "Envoi..." : "Envoyer à Silver"}
+                    </button>
+                  )}
+                  {isVerifiableView && (
+                    <button
+                      onClick={handleBulkVerifyEmails}
+                      disabled={selectedLeadIds.size === 0 || sendingBulkVerify}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
+                      style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}
+                    >
+                      {sendingBulkVerify ? "Vérification..." : "Vérifier emails"}
                     </button>
                   )}
                 </>
@@ -808,20 +909,39 @@ export default function SteagingAppliquePage() {
                         btn.addEventListener("click", async (e) => {
                           e.stopPropagation()
                           const leadId = Number(btn.dataset.id)
-                          const emailAddr = decodeURIComponent(btn.dataset.email || "")
-                          if (!emailAddr) return
+                          if (!Number.isFinite(leadId)) return
                           btn.textContent = "Vérification..."
                           btn.style.opacity = "0.6"
                           btn.setAttribute("disabled", "true")
                           try {
-                            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/send/${encodeURIComponent(emailAddr)}`)
+                            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/steaging-applique/verify/${leadId}`, { method: "POST" })
                             const data = await res.json()
-                            const isValid = Number(data.code) === 250
+                            const isValid = data.statu === "disponible"
                             const color = isValid ? "#86efac" : "#fda4af"
-                            btn.textContent = isValid ? "✅ Vérifié" : "❌ Introuvable"
+                            btn.textContent = isValid ? "✅ Disponible" : "❌ Non disponible"
                             btn.style.borderColor = isValid ? "rgba(34,197,94,0.4)" : "rgba(244,63,94,0.4)"
                             btn.style.color = color
                             btn.style.background = isValid ? "rgba(34,197,94,0.1)" : "rgba(244,63,94,0.1)"
+                            if (data.regenerated && data.email) btn.title = `Email généré : ${data.email}`
+                            // Met à jour la colonne Statut de la même ligne (sans recharger la table)
+                            const tr = btn.closest("tr")
+                            // Si l'email a changé (régénéré + livré), refléter le nouvel email
+                            if (data.email) {
+                              const pill = tr?.querySelector(".dt-email-pill") as HTMLElement | null
+                              if (pill && pill.textContent !== data.email) pill.textContent = data.email
+                            }
+                            const table = tr?.closest("table")
+                            let statuIdx = -1
+                            table?.querySelectorAll("thead th").forEach((th, i) => {
+                              if ((th.textContent || "").trim().toLowerCase().startsWith("statut")) statuIdx = i
+                            })
+                            const cell = statuIdx >= 0 ? (tr?.children[statuIdx] as HTMLElement | undefined) : undefined
+                            if (cell) {
+                              const v = isValid ? "disponible" : "non disponible"
+                              const bgc = isValid ? "rgba(34,197,94,0.1)" : "rgba(244,63,94,0.1)"
+                              const bd = isValid ? "rgba(34,197,94,0.3)" : "rgba(244,63,94,0.3)"
+                              cell.innerHTML = `<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;color:${color};background:${bgc};border:1px solid ${bd};white-space:nowrap;">${v}</span>`
+                            }
                           } catch (err: any) {
                             btn.textContent = "❌ Erreur"
                             btn.style.color = "#fda4af"
