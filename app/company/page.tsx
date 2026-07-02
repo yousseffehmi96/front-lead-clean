@@ -224,12 +224,14 @@ export default function Company() {
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-widest text-indigo-400/60">Société</span>
                     <h3 className="text-white font-semibold text-lg leading-tight">{d.nom}</h3>
-                    <span className="mt-1 inline-block font-mono text-[11px] text-emerald-300/80 bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10">
-                      {emailPattern(d)}
-                    </span>
+                    <div className="mt-1 flex flex-col gap-0.5 items-start">
+                      {String(d.patterne ?? "").split("\n").filter(Boolean).map((p: string, i: number) => (
+                        <span key={i} className="font-mono text-[11px] text-emerald-300/80 bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10">{p}</span>
+                      ))}
+                    </div>
                     {d.regex && (
                       <span className="mt-1 block font-mono text-[10px] text-amber-300/70 break-all">
-                        {d.regex}
+                        {String(d.regex).split("\n").filter(Boolean).join("   •   ")}
                       </span>
                     )}
                   </div>
@@ -303,8 +305,16 @@ export default function Company() {
                   <td className="p-4 text-white/20 text-xs">{(safePage - 1) * pageSize + idx + 1}</td>
                   <td className="p-4 font-medium text-white">{d.nom}</td>
                   <td className="p-4">
-                    <span className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-300 text-xs border border-emerald-500/20 font-mono">{emailPattern(d)}</span>
-                    {d.regex && <div className="mt-1 font-mono text-[10px] text-amber-300/70 break-all">{d.regex}</div>}
+                    <div className="flex flex-col gap-1 items-start">
+                      {String(d.patterne ?? "").split("\n").filter(Boolean).map((p: string, i: number) => (
+                        <span key={i} className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-300 text-xs border border-emerald-500/20 font-mono">{p}</span>
+                      ))}
+                    </div>
+                    {d.regex && (
+                      <div className="mt-1 font-mono text-[10px] text-amber-300/70 break-all">
+                        {String(d.regex).split("\n").filter(Boolean).map((r: string, i: number) => (<div key={i}>{r}</div>))}
+                      </div>
+                    )}
                   </td>
                   <td className="p-4">
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
@@ -377,30 +387,32 @@ export default function Company() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] uppercase font-bold text-white/20 ml-1">patterne</label>
-                <input
+                <label className="text-[10px] uppercase font-bold text-white/20 ml-1">patterne(s)</label>
+                <textarea
                   name="patterne"
-                  placeholder="{prenom}.{nom}@soprat.fr"
+                  rows={2}
+                  placeholder={"{prenom}.{nom}@soprat.fr\n{p}.{nom}@soprat.fr"}
                   value={patterne}
                   onChange={(e) => setPatterne(e.target.value)}
-                  className="w-full text-sm px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-emerald-200 font-mono outline-none focus:border-indigo-500/50 transition-all"
+                  className="w-full text-sm px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-emerald-200 font-mono outline-none focus:border-indigo-500/50 transition-all resize-y"
                 />
                 <p className="text-[10px] text-white/30 ml-1">
-                  Tokens : <span className="font-mono text-indigo-300">{"{prenom}"}</span> <span className="font-mono text-indigo-300">{"{nom}"}</span> <span className="font-mono text-indigo-300">{"{p}"}</span> (init. prénom) <span className="font-mono text-indigo-300">{"{n}"}</span> (init. nom)
+                  Un patterne par ligne. Tokens : <span className="font-mono text-indigo-300">{"{prenom}"}</span> <span className="font-mono text-indigo-300">{"{nom}"}</span> <span className="font-mono text-indigo-300">{"{p}"}</span> (init. prénom) <span className="font-mono text-indigo-300">{"{n}"}</span> (init. nom)
                 </p>
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-[10px] uppercase font-bold text-white/20 ml-1">regex</label>
-                <input
+                <textarea
                   name="regex"
-                  placeholder="^[a-z]+([._-][a-z]+)*@soprat\.fr$"
+                  rows={2}
+                  placeholder={"^[a-z]+([._-][a-z]+)*@soprat\\.fr$"}
                   value={regex}
                   onChange={(e) => setRegex(e.target.value)}
-                  className="w-full text-sm px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-amber-200 font-mono outline-none focus:border-indigo-500/50 transition-all"
+                  className="w-full text-sm px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-amber-200 font-mono outline-none focus:border-indigo-500/50 transition-all resize-y"
                 />
                 <p className="text-[10px] text-white/30 ml-1">
-                  Regex de vérification des emails de cette société (optionnel).
+                  Un regex par ligne (optionnel, rempli automatiquement à la vérification).
                 </p>
               </div>
 
