@@ -1,5 +1,6 @@
 "use client"
 import { useState, useEffect } from "react"
+import { openApi } from "@/lib/api"
 import { Plus, Trash2, Edit, X, Mail, ShieldCheck, Calendar, AlertTriangle, Clipboard } from "lucide-react"
 import { deleteUser, getAllUsers } from "@/api/user-actions" 
 import SignUpForm from "../sign-up/page"
@@ -334,7 +335,7 @@ const copyToken = (token: string) => {
 
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 max-w-3xl">
             <button
-              onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_URL}/export/database-zip?is_manager=true`)}
+              onClick={() => openApi(`${process.env.NEXT_PUBLIC_API_URL}/export/database-zip?is_manager=true`)}
               className="px-5 py-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/25 transition text-sm font-semibold"
             >
               Exporter toute la base (.zip)

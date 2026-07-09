@@ -1,5 +1,6 @@
 "use client"
 import Usefetch from "@/hooks/SocieteFetch"
+import { openApi } from "@/lib/api"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Upload, Sparkles, RefreshCw, Download, Trash2, Menu, X, ChevronDown, ChevronUp, Filter, Eye, Phone, Mail, Building, User, Briefcase, Linkedin, Calendar, MapPin } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
@@ -398,12 +399,12 @@ export default function StagingPage() {
 
   const downloadLastImportCSV = () => {
     if (!userId) return
-    window.open(`${process.env.NEXT_PUBLIC_API_URL}/import/download-last-import-csv?userid=${encodeURIComponent(String(userId))}`)
+    openApi(`${process.env.NEXT_PUBLIC_API_URL}/import/download-last-import-csv?userid=${encodeURIComponent(String(userId))}`)
     setMobileMenuOpen(false)
   }
   const downloadLastImportXlsx = () => {
     if (!userId) return
-    window.open(`${process.env.NEXT_PUBLIC_API_URL}/import/download-last-import-xlsx?userid=${encodeURIComponent(String(userId))}`)
+    openApi(`${process.env.NEXT_PUBLIC_API_URL}/import/download-last-import-xlsx?userid=${encodeURIComponent(String(userId))}`)
     setMobileMenuOpen(false)
   }
 

@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation"; // Import pour détecter la page
 import { Provider } from "react-redux"
 import { store } from "../store/store"
 import AuthSync from "@/componets/AuthSync"
+import ApiAuth from "@/componets/ApiAuth"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,6 +39,8 @@ export default function RootLayout({
         <ClerkProvider
 
         >
+          {/* Injecte le token Clerk dans tous les appels API */}
+          <ApiAuth />
           {/* Affiche la Navbar UNIQUEMENT si ce n'est pas une page d'auth */}
           {!isAuthPage && <Navbar />}
 

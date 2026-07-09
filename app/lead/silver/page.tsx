@@ -1,5 +1,6 @@
 "use client"
 import Usefetch from "@/hooks/SocieteFetch"
+import { openApi } from "@/lib/api"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Upload, Sparkles, RefreshCw, Download, Trash2, Menu, X, ChevronDown, ChevronUp, Filter, Eye, Phone, Mail, Building, User, Briefcase, Linkedin, Calendar, MapPin } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
@@ -24,9 +25,6 @@ export default function SilverPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [mobilePage, setMobilePage] = useState(1)
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<number>>(() => new Set())
-  const [emailPattern, setEmailPattern] = useState<string>("{prenom}.{nom}@{domaine}.{extension}")
-  const [applyingEmailPattern, setApplyingEmailPattern] = useState(false)
-  const [savingEmailPattern, setSavingEmailPattern] = useState(false)
   const [reformulatingLocation, setReformulatingLocation] = useState(false)
   const [verifyingEmailId, setVerifyingEmailId] = useState<number | null>(null)
   const [sendingBulkVerify, setSendingBulkVerify] = useState(false)
@@ -86,19 +84,6 @@ export default function SilverPage() {
     setSelectedLeadIds(new Set())
   }, [leads, refresh])
 
-  useEffect(() => {
-    const fetchPattern = async () => {
-      if (leads !== "silver") return
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/settings/email-pattern`)
-        const data = await res.json()
-        if (res.ok && data?.pattern) setEmailPattern(String(data.pattern))
-      } catch {
-        // ignore
-      }
-    }
-    fetchPattern()
-  }, [leads])
 
   // Détection mobile
   const [isMobile, setIsMobile] = useState(false)
@@ -185,47 +170,6 @@ export default function SilverPage() {
       el.checked = Number.isFinite(id) && selectedLeadIds.has(id)
     })
   }, [selectedLeadIds, shouldUseDataTable, isSelectableList])
-
-  const handleApplyEmailPatternSilver = async () => {
-    setApplyingEmailPattern(true)
-    setError(null)
-    setCleanResult(null)
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/silver/complete-email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pattern: emailPattern, overwrite: true }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || `Erreur serveur : ${res.status}`)
-      setCleanResult({ message: `Emails complétés: ${data.emails_completed ?? 0}` })
-      setRefresh((p) => p + 1)
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setApplyingEmailPattern(false)
-    }
-  }
-
-  const handleSaveEmailPattern = async () => {
-    if (!isManager) return
-    setSavingEmailPattern(true)
-    setError(null)
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/settings/email-pattern`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pattern: emailPattern, is_manager: true }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || `Erreur serveur : ${res.status}`)
-      setCleanResult({ message: "✅ Pattern enregistré" })
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setSavingEmailPattern(false)
-    }
-  }
 
   const handleToGold = async (leadId: number) => {
     setError(null)
@@ -317,11 +261,11 @@ export default function SilverPage() {
   }
 
   const downloadCSV = () => {
-    window.open(`${process.env.NEXT_PUBLIC_API_URL}/download-leads-csv/${leads}`)
+    openApi(`${process.env.NEXT_PUBLIC_API_URL}/download-leads-csv/${leads}`)
     setMobileMenuOpen(false)
   }
   const downloadXlsx = () => {
-    window.open(`${process.env.NEXT_PUBLIC_API_URL}/download-leads-xlsx/${leads}`)
+    openApi(`${process.env.NEXT_PUBLIC_API_URL}/download-leads-xlsx/${leads}`)
     setMobileMenuOpen(false)
   }
 
@@ -762,44 +706,6 @@ export default function SilverPage() {
       `}</style>
 
       <div className="px-2 sm:px-3 pb-4 pt-2 overflow-y-auto flex-1 overflow-x-hidden">
-        {leads === "silver" && (
-          <div
-            className="mb-3 rounded-xl px-3 py-2 sm:px-4 sm:py-3 flex flex-col sm:flex-row sm:items-center gap-2"
-            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}
-          >
-            <div className="text-xs sm:text-sm font-semibold" style={{ color: "rgba(255,255,255,0.6)" }}>
-              Pattern email
-            </div>
-            <div className="flex-1 flex flex-col sm:flex-row gap-2">
-              <input
-                value={emailPattern}
-                onChange={(e) => setEmailPattern(e.target.value)}
-                disabled={!isManager}
-                className="px-3 py-2 rounded-lg text-xs sm:text-sm w-full"
-                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "#e2e8f0", outline: "none", opacity: !isManager ? 0.75 : 1 }}
-                placeholder="{prenom}.{nom}@{domaine}.{extension}"
-              />
-              <button
-                onClick={handleApplyEmailPatternSilver}
-                disabled={applyingEmailPattern}
-                className="px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold disabled:opacity-40 whitespace-nowrap"
-                style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.25)", color: "#86efac" }}
-              >
-                {applyingEmailPattern ? "Application..." : "Appliquer pattern email"}
-              </button>
-              {isManager && (
-                <button
-                  onClick={handleSaveEmailPattern}
-                  disabled={savingEmailPattern}
-                  className="px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold disabled:opacity-40 whitespace-nowrap"
-                  style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}
-                >
-                  {savingEmailPattern ? "Enregistrement..." : "Enregistrer"}
-                </button>
-              )}
-            </div>
-          </div>
-        )}
         {!DTableComponent && shouldUseDataTable ? (
           <div className="text-center py-16" style={{ color: "rgba(255,255,255,0.2)" }}><div className="text-4xl mb-3">⚡</div><p className="text-sm">Chargement...</p></div>
         ) : data.length === 0 ? (
