@@ -14,6 +14,7 @@ import {
   X,
   User,
   ChevronDown,
+  History,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useClerk, useUser } from "@clerk/nextjs";
@@ -46,6 +47,7 @@ export default function Navbar() {
   const flow2Links = [
     { id: "Clean", href: "/lead/clean", text: "Clean", icon: <Sparkles size={16} />, badge: "✦", badgeColor: "#6ee7b7", desc: "À corriger" },
     { id: "Blacklist", href: "/lead/black", text: "Blacklist", icon: <Shield size={16} />, badge: "⛔", badgeColor: "#f43f5e", desc: "Bannis" },
+    { id: "Historique", href: "/lead/history", text: "Historique", icon: <History size={16} />, badge: "", badgeColor: "#818cf8", desc: "Imports" },
   ];
 
   return (

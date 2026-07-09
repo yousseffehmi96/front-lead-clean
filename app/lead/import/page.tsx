@@ -264,7 +264,10 @@ export default function StagingPage() {
         title: String(h ?? "").trim() || `Colonne ${idx + 1}`,
       }))
 
-      const bodyRows = aoa.slice(1)
+      // On ignore les lignes ENTIÈREMENT vides (toutes les cellules vides/espaces)
+      const bodyRows = aoa.slice(1).filter((arr) =>
+        (arr as any[]).some((v) => String(v ?? "").trim() !== "")
+      )
       const rows = bodyRows.map((arr, i) => {
         const obj: Record<string, any> = { id: i + 1 }
         cols.forEach((c, idx) => {
@@ -936,78 +939,6 @@ export default function StagingPage() {
           </>
         )}
 
-        {leads === "import" && (
-          <div
-            className="mt-6 rounded-xl p-3 sm:p-4"
-            style={{
-              background: "rgba(255,255,255,0.02)",
-              border: "1px solid rgba(255,255,255,0.08)",
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setHistoryOpen((v) => !v)}
-              className="w-full flex items-center justify-between mb-3"
-            >
-              <h3 className="text-sm sm:text-base font-semibold text-white">
-                Historique des imports
-              </h3>
-              <span className="flex items-center gap-2 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
-
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-md" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  {historyOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                </span>
-              </span>
-            </button>
-
-            {historyOpen && (loadingHistory ? (
-              <p className="text-xs sm:text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
-                Chargement de l'historique...
-              </p>
-            ) : stagingHistory.length === 0 ? (
-              <p className="text-xs sm:text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>
-                Aucun lead importe precedemment.
-              </p>
-            ) : (
-              <div className="w-full overflow-x-auto history-dt-wrapper">
-                {DTableComponent && (
-                  <DTableComponent
-                    key={`history-${stagingHistory.length}`}
-                    data={stagingHistory}
-                    columns={historyColumns}
-                    className="display w-full"
-                    options={{
-                      order: [[0, "desc"]],
-                      pageLength: isMobile ? 5 : 10,
-                      responsive: true,
-                      scrollX: isMobile,
-                      initComplete: function (this: any) {
-                        const api = (this as any).api()
-                        if (!isMobile) injectSearchIcons(api, historyColumns, historySearchableCols, "imported_at")
-                      },
-                      language: {
-                        processing: "Traitement en cours...",
-                        search: "Rechercher :",
-                        lengthMenu: "Afficher _MENU_",
-                        info: "_START_ à _END_ sur _TOTAL_",
-                        infoEmpty: "0 à 0 sur 0",
-                        infoFiltered: "(filtré de _MAX_)",
-                        loadingRecords: "Chargement...",
-                        zeroRecords: "Aucun élément",
-                        emptyTable: "Aucune donnée",
-                        paginate: { first: "«", previous: "‹", next: "›", last: "»" },
-                      },
-                    }}
-                  >
-                    <thead>
-                      <tr>{historyColumns.map((col, i) => <th key={i}>{col.title}</th>)}</tr>
-                    </thead>
-                  </DTableComponent>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   )
