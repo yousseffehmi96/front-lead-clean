@@ -43,7 +43,6 @@ const DATASETS = [
   { label: "Doublons", color: "#f43f5e", key: "duplicates_deleted" },
   { label: "Emails complétés", color: "#6ee7b7", key: "emails_completed" },
   { label: "Sociétés complétées", color: "#22d3ee", key: "societe_completed" },
-  { label: "Sociétés ajoutées", color: "#a78bfa", key: "added_societes" },
   { label: "Blacklistés", color: "#fcd34d", key: "blacklisted_removed" },
   { label: "Vers gold", color: "#f59e0b", key: "moved_to_gold" },
   { label: "Vers silver", color: "#94a3b8", key: "moved_to_silver" },
@@ -168,7 +167,6 @@ function StatRow({ d, idx }: { d: Stat; idx: number }) {
   const details = [
     { label: "Emails complétés", val: d.emails_completed ?? 0, i: 2 },
     { label: "Sociétés complétées", val: d.societe_completed ?? 0, i: 3 },
-    { label: "Sociétés ajoutées", val: d.added_societes ?? 0, i: 4 },
     { label: "Blacklistés retirés", val: d.blacklisted_removed ?? 0, i: 5 },
     { label: "🥇 Gold", val: d.moved_to_gold ?? 0, i: 6 },
     { label: "🥈 Silver", val: d.moved_to_silver ?? 0, i: 7 },

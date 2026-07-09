@@ -18,6 +18,22 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 // Patterne email de la société (ex: {prenom}.{nom}@soprat.fr)
 const emailPattern = (d: any) => String(d?.patterne ?? "")
 
+// Génère le regex depuis le(s) patterne(s) : verrouille seulement le domaine.
+// Ex: "{prenom}.{nom}@soprat.fr" -> "^[a-z]+([._-][a-z]+)*@soprat\.fr$"
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+const patterneToRegex = (patterneMultiline: string): string =>
+  String(patterneMultiline || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((pat) => {
+      const at = pat.indexOf("@")
+      const domain = at === -1 ? "" : pat.slice(at + 1).trim()
+      return domain ? `^[a-z]+([._-][a-z]+)*@${escapeRegex(domain)}$` : ""
+    })
+    .filter(Boolean)
+    .join("\n")
+
 export default function Company() {
   const { societe, setsociete } = changeEtat()
   const [sucee, setsucee] = useState<any>(null)
@@ -393,7 +409,7 @@ export default function Company() {
                   rows={2}
                   placeholder={"{prenom}.{nom}@soprat.fr\n{p}.{nom}@soprat.fr"}
                   value={patterne}
-                  onChange={(e) => setPatterne(e.target.value)}
+                  onChange={(e) => { setPatterne(e.target.value); setRegex(patterneToRegex(e.target.value)) }}
                   className="w-full text-sm px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-emerald-200 font-mono outline-none focus:border-indigo-500/50 transition-all resize-y"
                 />
                 <p className="text-[10px] text-white/30 ml-1">
@@ -412,7 +428,7 @@ export default function Company() {
                   className="w-full text-sm px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-amber-200 font-mono outline-none focus:border-indigo-500/50 transition-all resize-y"
                 />
                 <p className="text-[10px] text-white/30 ml-1">
-                  Un regex par ligne (optionnel, rempli automatiquement à la vérification).
+                  Généré automatiquement depuis le patterne (modifiable si besoin).
                 </p>
               </div>
 
