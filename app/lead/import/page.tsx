@@ -224,6 +224,17 @@ export default function StagingPage() {
       if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`)
       const result = await res.json()
 
+      // Fichier déjà traité -> on ANNULE le mapping et on affiche juste un message.
+      if (result?.duplicate_file_processed) {
+        setImportedRows(null)
+        setImportedColumns(null)
+        setColumnMapping({})
+        setUploadedFilename("")
+        setUploadedRows(0)
+        setError("⚠️ Ce fichier a déjà été traité — mapping annulé, rien n'a été importé.")
+        return
+      }
+
       // Fin de l'aperçu local : on affiche désormais les données du backend.
       setImportedRows(null)
       setImportedColumns(null)
