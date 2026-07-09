@@ -15,7 +15,7 @@ export default function LoginPage() {
       }}
     >
       <SignIn 
-        forceRedirectUrl="/lead/staging" 
+        forceRedirectUrl="/lead/import" 
         appearance={{
           layout: {
             hideByline: true,

@@ -167,11 +167,11 @@ export default function CleanPage() {
   }
 
   const badgeConfig: Record<string, { label: string; color: string; bg: string }> = {
-    staging: { label: "RAW", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+    import: { label: "RAW", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
     gold: { label: "★ GOLD", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
     silver: { label: "◆ SILVER", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
     clean: { label: "✦ CLEAN", color: "#6ee7b7", bg: "rgba(110,231,183,0.1)" },
-    "steaging-applique": { label: "🧩 APPLIQUE", color: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
+    "staging": { label: "🧩 APPLIQUE", color: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
     black: { label: "⛔ BLACK", color: "#f43f5e", bg: "rgba(244,63,94,0.1)" },
   }
   const badge = badgeConfig[leads as string] ?? { label: leads, color: "#818cf8", bg: "rgba(129,140,248,0.1)" }
@@ -277,7 +277,7 @@ export default function CleanPage() {
           {lead.created_at && (
             <div className="mt-3 pt-2 text-xs" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.3)" }}>
               <Calendar size={10} className="inline mr-1" />
-              {new Date(lead.created_at).toLocaleDateString("fr-FR")}
+              {new Date(lead.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
             </div>
           )}
 
@@ -341,7 +341,7 @@ export default function CleanPage() {
       return `<input type="checkbox" class="dt-select-row" data-id="${id}" ${checked ? "checked" : ""} style="width:14px;height:14px;accent-color:#818cf8;cursor:pointer;" />`
     },
   }
-  const dateColumn = { data: "created_at", title: "Date", render: (val: string) => new Date(val).toLocaleDateString("fr-FR") }
+  const dateColumn = { data: "created_at", title: "Date", render: (val: string, type: string) => (type === "sort" || type === "type") ? (val ? new Date(val).getTime() : 0) : (val ? new Date(val).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "") }
   const columns = [selectColumn, ...baseColumns, dateColumn]
 
   const injectSearchIcons = (api: any, activeColumns: any[], activeSearchableCols: Set<string>, dateField: string) => {

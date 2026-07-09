@@ -4,91 +4,169 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Upload, Sparkles, RefreshCw, Download, Trash2, Menu, X, ChevronDown, ChevronUp, Filter, Eye, Phone, Mail, Building, User, Briefcase, Linkedin, Calendar, MapPin } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
 import { useSelector } from "react-redux"
-import * as XLSX from "xlsx"
 
-export default function StagingPage() {
+export default function SteagingAppliquePage() {
   const leads = "staging"
   const [DTableComponent, setDTableComponent] = useState<any>(null)
   const [openMenu, setOpenMenu] = useState<number | null>(null)
   const [stat, setstat] = useState<string | null>(null)
   const [err, setError] = useState<string | null>(null)
   const [refresh, setRefresh] = useState<number>(0)
+  // Refresh dédié à la liste des sociétés (ne remonte pas le tableau des leads)
+  const [societeRefresh, setSocieteRefresh] = useState<number>(0)
   const [uploading, setUploading] = useState(false)
   const [cleaning, setCleaning] = useState(false)
-  const [applyingMapping, setApplyingMapping] = useState(false)
   const [removingDuplicates, setRemovingDuplicates] = useState(false)
   const [cleanResult, setCleanResult] = useState<any>(null)
   const [uploadedFilename, setUploadedFilename] = useState<string>("")
   const [uploadedRows, setUploadedRows] = useState<number>(0)
-  const [importedRows, setImportedRows] = useState<any[] | null>(null)
-  // Colonnes d'origine du fichier importé (affichage brut, sans transformation)
-  const [importedColumns, setImportedColumns] = useState<{ key: string; title: string }[] | null>(null)
-  // Mapping manuel : clé de colonne du fichier (c0, c1…) -> champ lead ("" = ignorer)
-  const [columnMapping, setColumnMapping] = useState<Record<string, string>>({})
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [expandedCard, setExpandedCard] = useState<number | null>(null)
   const [mobileView, setMobileView] = useState<"table" | "cards">("cards")
   const [searchTerm, setSearchTerm] = useState("")
   const [mobilePage, setMobilePage] = useState(1)
-  const [stagingHistory, setStagingHistory] = useState<any[]>([])
-  const [loadingHistory, setLoadingHistory] = useState(false)
-  const [historyOpen, setHistoryOpen] = useState(false)
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<number>>(() => new Set())
+  // Ref toujours à jour : évite que les redraw DataTable décochent les cases (closure figée)
+  const selectedLeadIdsRef = useRef<Set<number>>(selectedLeadIds)
+  selectedLeadIdsRef.current = selectedLeadIds
   const [emailPattern, setEmailPattern] = useState<string>("{prenom}.{nom}@{domaine}.{extension}")
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [sendingToSilver, setSendingToSilver] = useState(false)
+  const [sendingBulkVerify, setSendingBulkVerify] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; disponible: number; non_disponible: number } | null>(null)
+  const [verifyingEmailId, setVerifyingEmailId] = useState<number | null>(null)
+  const [emailVerifyResults, setEmailVerifyResults] = useState<Record<number, { status: "valid" | "invalid" | "error"; message: string }>>({})
+  // Emails générés en place (sans recharger la page)
+  const [generatedEmails, setGeneratedEmails] = useState<Record<number, string>>({})
   const userId = useSelector((state:any) => state.user.userId)
   const email = useSelector((state:any) => state.user.email)
   const { user, isLoaded } = useUser()
   const userRole = ((user?.publicMetadata?.role as string) || "agent").toLowerCase()
   const isManager = userRole === "manager"
-  const isStaging = true
-  const isSelectableList = false
-  const isSteagingApplique = false
+  const isStaging = false
+  const isSelectableList = true
+  const isSteagingApplique = true
 
   const rawData = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/${leads}?refresh=${refresh}`).data || []
-  // Si un fichier a été importé localement (parsing front), on affiche son contenu
-  // au lieu des données backend. Rien n'est enregistré.
-  const data = importedRows ?? rawData
+  // Refetch la liste sociétés sur `refresh` (actions leads) ET `societeRefresh` (focus fenêtre)
+  const societes = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/societe?refresh=${refresh}&s=${societeRefresh}`).data || []
 
-  useEffect(() => {
-    const fetchStagingHistory = async () => {
-      if (leads !== "staging") return
-      if (!historyOpen) return
-      // Evite de vider la table pendant l'hydratation user/redux.
-      if (!isLoaded) return
-      if (!isManager && !userId) {
-        return
-      }
-      setLoadingHistory(true)
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 10000)
-      try {
-        const query = isManager
-          ? `?is_manager=true`
-          : `?userid=${encodeURIComponent(String(userId))}`
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging-import-history${query}`, {
-          signal: controller.signal,
-        })
-        const hist = await res.json()
-        if (!Array.isArray(hist)) {
-          setStagingHistory([])
-          return
-        }
-        setStagingHistory(hist)
-      } catch {
-        // Ne pas ecraser la table existante en cas de transition momentanée.
-      } finally {
-        clearTimeout(timeout)
-        setLoadingHistory(false)
-      }
+  const normalizeTextKey = (v: any) =>
+    String(v ?? "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "")
+
+  const data = useMemo(() => {
+    if (!isSteagingApplique) return rawData
+    const bestByKey = new Map<string, any>()
+
+    const getKey = (lead: any) => {
+      const email = String(lead?.email ?? "").trim().toLowerCase()
+      if (email && email !== "nan" && email !== "none" && email !== "null") return `e:${email}`
+      const nom = normalizeTextKey(lead?.nom)
+      const prenom = normalizeTextKey(lead?.prenom)
+      const societe = normalizeTextKey(lead?.societe)
+      return `nps:${nom}|${prenom}|${societe}`
     }
 
-    fetchStagingHistory()
-  }, [leads, refresh, userId, isManager, isLoaded, historyOpen])
+    const toTime = (v: any) => {
+      const t = Date.parse(String(v ?? ""))
+      return Number.isFinite(t) ? t : -1
+    }
+
+    for (const lead of rawData as any[]) {
+      const key = getKey(lead)
+      const existing = bestByKey.get(key)
+      if (!existing) {
+        bestByKey.set(key, lead)
+        continue
+      }
+      // garder le plus récent (created_at), sinon plus grand id
+      const a = toTime(existing?.created_at)
+      const b = toTime(lead?.created_at)
+      if (b > a) bestByKey.set(key, lead)
+      else if (b === a) {
+        const ida = Number(existing?.id)
+        const idb = Number(lead?.id)
+        if (Number.isFinite(idb) && (!Number.isFinite(ida) || idb > ida)) bestByKey.set(key, lead)
+      }
+    }
+    return Array.from(bestByKey.values())
+  }, [rawData, isSteagingApplique])
+
+  // Règle "cadre vert": égalité stricte (trim + lower) entre societe_leads.nom et lead.societe
+  const societeExactKey = (s: any) =>
+    String(s ?? "")
+      // retire les caractères invisibles fréquents (zero‑width, BOM)
+      .replace(/[​-‍﻿]/g, "")
+      // normalise les espaces unicode en espace simple
+      .replace(/[   ]/g, " ")
+      .trim()
+      .toLowerCase()
+  // Normalisation forte (utilisée pour dédup et noms/prénoms)
+  const normalizeSociete = (s: any) =>
+    String(s ?? "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "")
+  const societesSet = useMemo(() => {
+    const set = new Set<string>()
+    for (const s of societes as any[]) {
+      // backend retourne généralement { nom, domaine, extension }
+      if (s?.nom) set.add(societeExactKey(s.nom))
+    }
+    return set
+  }, [societes])
+
+  const societesMap = useMemo(() => {
+    const map = new Map<string, { domaine: string; extension: string }>()
+    for (const s of societes as any[]) {
+      const key = s?.nom ? societeExactKey(s.nom) : ""
+      if (!key) continue
+      map.set(key, {
+        domaine: String(s?.domaine ?? "").trim().toLowerCase(),
+        extension: String(s?.extension ?? "").trim().toLowerCase(),
+      })
+    }
+    return map
+  }, [societes])
+
+  const normalizeToken = (v: any) =>
+    String(v ?? "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "")
+
+  // L'email est généré côté backend lors de "Envoyer à Silver"
+
+  useEffect(() => {
+    setSelectedLeadIds(new Set())
+  }, [leads, refresh])
+
+  // Re-synchronise la liste des sociétés quand l'onglet reprend le focus
+  // (ex. après avoir ajouté une société dans l'onglet Company) — sans recharger la page.
+  useEffect(() => {
+    const refetchSocietes = () => {
+      if (document.visibilityState === "visible") setSocieteRefresh((p) => p + 1)
+    }
+    window.addEventListener("focus", refetchSocietes)
+    document.addEventListener("visibilitychange", refetchSocietes)
+    return () => {
+      window.removeEventListener("focus", refetchSocietes)
+      document.removeEventListener("visibilitychange", refetchSocietes)
+    }
+  }, [])
 
   // Détection mobile
   const [isMobile, setIsMobile] = useState(false)
   const isSilverView = false
-  const isVerifiableView = false
+  const isVerifiableView = true
   const shouldUseDataTable = !isMobile
   const cardsPerPage = 20
 
@@ -132,12 +210,6 @@ export default function StagingPage() {
   const filteredData = data.filter((item: any) => {
     if (!searchTerm) return true
     const searchLower = searchTerm.toLowerCase()
-    // Pour un fichier importé brut, on recherche dans toutes les valeurs.
-    if (importedColumns) {
-      return Object.values(item).some((v: any) =>
-        String(v ?? "").toLowerCase().includes(searchLower)
-      )
-    }
     return (
       item.nom?.toLowerCase().includes(searchLower) ||
       item.prenom?.toLowerCase().includes(searchLower) ||
@@ -151,179 +223,285 @@ export default function StagingPage() {
   const startIndex = (mobilePage - 1) * cardsPerPage
   const paginatedData = filteredData.slice(startIndex, startIndex + cardsPerPage)
 
-  // Champs lead disponibles pour le mapping manuel des colonnes du fichier.
-  const TARGET_FIELDS: { key: string; label: string }[] = [
-    { key: "nom", label: "Nom" },
-    { key: "prenom", label: "Prénom" },
-    { key: "email", label: "Email" },
-    { key: "fonction", label: "Fonction" },
-    { key: "societe", label: "Société" },
-    { key: "telephone", label: "Téléphone" },
-    { key: "linkedin", label: "LinkedIn" },
-    { key: "location", label: "Location" },
-  ]
-
-  // Normalise un en-tête (minuscule, sans accents) pour la détection auto.
-  const normalizeHeader = (h: any) =>
-    String(h ?? "")
-      .trim()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim()
-
-  // Devine le champ lead correspondant à un en-tête de fichier (proposition initiale).
-  const FIELD_ALIASES: Record<string, string> = {
-    nom: "nom", "nom de famille": "nom", lastname: "nom", "last name": "nom",
-    prenom: "prenom", firstname: "prenom", "first name": "prenom",
-    email: "email", mail: "email", "e mail": "email", courriel: "email",
-    fonction: "fonction", poste: "fonction", titre: "fonction", title: "fonction", "job title": "fonction",
-    societe: "societe", entreprise: "societe", company: "societe", organisation: "societe", organization: "societe",
-    telephone: "telephone", tel: "telephone", phone: "telephone", mobile: "telephone", numero: "telephone",
-    linkedin: "linkedin", "linkedin url": "linkedin", profil: "linkedin",
-    location: "location", localisation: "location", ville: "location", city: "location", pays: "location", region: "location", adresse: "location",
+  const toggleLeadSelected = (leadId: number, value?: boolean) => {
+    setSelectedLeadIds((prev) => {
+      const next = new Set(prev)
+      const shouldSelect = value ?? !next.has(leadId)
+      if (shouldSelect) next.add(leadId)
+      else next.delete(leadId)
+      return next
+    })
   }
-  const guessField = (title: string) => FIELD_ALIASES[normalizeHeader(title)] || ""
 
-  // Applique le mapping manuel : transforme les colonnes brutes du fichier en
-  // champs lead standard et ENVOIE les lignes au backend (staging_leads), pour
-  // qu'elles soient enregistrées et nettoyables via « Nettoyer ».
-  const handleApplyMapping = async () => {
-    if (!importedColumns || !importedRows) return
-    if (!Object.values(columnMapping).some((v) => v)) {
-      setError("Associez au moins une colonne à un champ lead avant d'appliquer.")
+  const clearSelection = () => setSelectedLeadIds(new Set())
+  const selectAllLeads = () =>
+    setSelectedLeadIds(new Set((data ?? []).map((d: any) => Number(d.id)).filter((n: number) => Number.isFinite(n))))
+
+  // Sélectionne uniquement les leads dont l'email est vérifié "disponible"
+  const selectAllGreenLeads = () => {
+    const ids = (data ?? [])
+      .filter((d: any) => String(d?.statu ?? "").trim().toLowerCase() === "disponible")
+      .map((d: any) => Number(d.id))
+      .filter((n: number) => Number.isFinite(n))
+    setSelectedLeadIds(new Set(ids))
+  }
+
+  const sendSelectedToSilver = async () => {
+    if (!isSteagingApplique) return
+    const isUnavailable = (d: any) => String(d?.statu ?? "").trim().toLowerCase() === "non disponible"
+    const selected = (data as any[]).filter((d: any) => selectedLeadIds.has(Number(d.id)))
+    const blockedCount = selected.filter(isUnavailable).length
+    // On exclut les emails vérifiés "non disponible"
+    const ids = selected.filter((d: any) => !isUnavailable(d)).map((d: any) => Number(d.id))
+    if (ids.length === 0) {
+      setError(blockedCount > 0
+        ? "Envoi impossible : tous les leads sélectionnés ont un email non disponible."
+        : "Aucun lead sélectionné.")
       return
     }
-    setApplyingMapping(true)
+    setSendingToSilver(true)
     setError(null)
-    setCleanResult(null)
     try {
-      const mapped = importedRows.map((row) => {
-        const obj: Record<string, any> = {
-          nom: "", prenom: "", email: "", fonction: "", societe: "",
-          telephone: "", linkedin: "", location: "",
-        }
-        importedColumns.forEach((c) => {
-          const field = columnMapping[c.key]
-          if (field) obj[field] = String(row[c.key] ?? "").trim()
-        })
-        return obj
-      })
-
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload-mapped`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging/to-silver`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rows: mapped,
-          userid: userId || "",
-          username: String(user?.firstName || ""),
-          filename: uploadedFilename || "import-mappe",
-        }),
+        body: JSON.stringify({ ids, pattern: emailPattern }),
       })
-      if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`)
-      const result = await res.json()
-
-      // Fin de l'aperçu local : on affiche désormais les données du backend.
-      setImportedRows(null)
-      setImportedColumns(null)
-      setColumnMapping({})
-      setUploadedRows(Number(result?.inserted_rows || mapped.length))
-      setCleanResult(result?.message ? result : { message: `✅ ${result?.inserted_rows ?? mapped.length} ligne(s) enregistrée(s) en staging.` })
-      setRefresh((prev) => prev + 1)
-    } catch (err: any) {
-      setError(err?.message || "Échec de l'enregistrement des données mappées")
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.detail || `Erreur serveur : ${res.status}`)
+      // Non envoyés = exclus côté front (non disponibles) + ignorés côté backend → restés dans Applique
+      const notSent = (Number(json?.skipped) || 0) + blockedCount
+      setCleanResult({ message: `✅ Envoyé vers Silver: ${json?.moved_to_silver ?? 0} | déjà en Silver supprimés: ${json?.deleted_already_in_silver ?? 0} | doublons supprimés: ${json?.deleted_duplicates ?? 0} | non envoyés (restés dans Applique): ${notSent}` })
+      clearSelection()
+      setRefresh((p) => p + 1)
+    } catch (e: any) {
+      setError(e?.message || "Erreur lors de l'envoi vers Silver")
     } finally {
-      setApplyingMapping(false)
+      setSendingToSilver(false)
     }
   }
 
-  // Importation 100% front : on parse le CSV/Excel dans le navigateur et on affiche
-  // le contenu EXACT du fichier (colonnes d'origine, aucune transformation).
-  // Rien n'est envoyé ni enregistré au backend.
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setUploading(true)
-    setError(null)
-    setCleanResult(null)
-    setMobileMenuOpen(false)
+  // Vérification par lead (regex -> sinon email généré depuis patterne -> test SMTP)
+  const handleVerifyEmail = async (leadId: number) => {
+    setVerifyingEmailId(leadId)
     try {
-      const buffer = await file.arrayBuffer()
-      const workbook = XLSX.read(buffer, { type: "array" })
-      const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
-      if (!firstSheet) throw new Error("Fichier vide ou illisible")
-      // Lecture brute en tableau de tableaux pour conserver l'ordre et les
-      // en-têtes exacts du fichier (aucun remapping de colonnes).
-      const aoa = XLSX.utils.sheet_to_json<any[]>(firstSheet, { header: 1, defval: "" })
-      if (!aoa.length) throw new Error("Fichier vide")
-
-      const headerRow = (aoa[0] as any[]) || []
-      const cols = headerRow.map((h, idx) => ({
-        key: `c${idx}`,
-        title: String(h ?? "").trim() || `Colonne ${idx + 1}`,
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging/verify/${leadId}`, { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || `Erreur serveur : ${res.status}`)
+      const isValid = data.statu === "disponible"
+      const note = data.regenerated && data.email ? ` (email généré : ${data.email})` : ""
+      setEmailVerifyResults((prev) => ({
+        ...prev,
+        [leadId]: { status: isValid ? "valid" : "invalid", message: (isValid ? "✅ Disponible" : "❌ Non disponible") + note },
       }))
-
-      const bodyRows = aoa.slice(1)
-      const rows = bodyRows.map((arr, i) => {
-        const obj: Record<string, any> = { id: i + 1 }
-        cols.forEach((c, idx) => {
-          obj[c.key] = String((arr as any[])[idx] ?? "")
-        })
-        return obj
-      })
-
-      // Détection automatique des correspondances (modifiable manuellement).
-      const autoMapping: Record<string, string> = {}
-      cols.forEach((c) => {
-        const guess = guessField(c.title)
-        if (guess) autoMapping[c.key] = guess
-      })
-
-      setImportedColumns(cols)
-      setColumnMapping(autoMapping)
-      setImportedRows(rows)
-      setUploadedFilename(file.name)
-      setUploadedRows(rows.length)
-      setCleanResult({ message: `📄 ${rows.length} ligne(s) importée(s) depuis « ${file.name} » — aperçu local du fichier, non enregistré.` })
-      setRefresh((prev) => prev + 1)
-    } catch (err: any) {
-      setError(err?.message || "Impossible de lire le fichier")
+      setRefresh((p) => p + 1)
+    } catch (e: any) {
+      setEmailVerifyResults((prev) => ({ ...prev, [leadId]: { status: "error", message: e.message || "Erreur de vérification" } }))
     } finally {
-      setUploading(false)
-      if (fileInputRef.current) fileInputRef.current.value = ""
+      setVerifyingEmailId(null)
     }
   }
 
-  const handleClean = async () => {
-    let db = ""
-    setCleaning(true)
+  // Génère l'email d'un lead depuis le patterne de sa société (sans vérif, sans envoi Silver)
+  // Affichage EN PLACE : pas de rechargement de page.
+  // Logique de vérif d'un bouton "Vérifier email" desktop (réutilisée par le drawCallback et après génération)
+  const runDesktopVerify = async (btn: HTMLElement) => {
+    const leadId = Number(btn.dataset.id)
+    if (!Number.isFinite(leadId)) return
+    btn.textContent = "Vérification..."
+    btn.style.opacity = "0.6"
+    btn.setAttribute("disabled", "true")
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging/verify/${leadId}`, { method: "POST" })
+      const data = await res.json()
+      const isValid = data.statu === "disponible"
+      const color = isValid ? "#86efac" : "#fda4af"
+      btn.textContent = isValid ? "✅ Disponible" : "❌ Non disponible"
+      btn.style.borderColor = isValid ? "rgba(34,197,94,0.4)" : "rgba(244,63,94,0.4)"
+      btn.style.color = color
+      btn.style.background = isValid ? "rgba(34,197,94,0.1)" : "rgba(244,63,94,0.1)"
+      if (data.regenerated && data.email) btn.title = `Email généré : ${data.email}`
+      const tr = btn.closest("tr")
+      if (data.email) {
+        const pill = tr?.querySelector(".dt-email-pill") as HTMLElement | null
+        if (pill && pill.textContent !== data.email) pill.textContent = data.email
+      }
+      const table = tr?.closest("table")
+      let statuIdx = -1
+      table?.querySelectorAll("thead th").forEach((th, i) => {
+        if ((th.textContent || "").trim().toLowerCase().startsWith("statut")) statuIdx = i
+      })
+      const cell = statuIdx >= 0 ? (tr?.children[statuIdx] as HTMLElement | undefined) : undefined
+      if (cell) {
+        const v = isValid ? "disponible" : "non disponible"
+        const bgc = isValid ? "rgba(34,197,94,0.1)" : "rgba(244,63,94,0.1)"
+        const bd = isValid ? "rgba(34,197,94,0.3)" : "rgba(244,63,94,0.3)"
+        cell.innerHTML = `<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;color:${color};background:${bgc};border:1px solid ${bd};white-space:nowrap;">${v}</span>`
+      }
+    } catch {
+      btn.textContent = "❌ Erreur"
+      btn.style.color = "#fda4af"
+    } finally {
+      btn.style.opacity = "1"
+      btn.removeAttribute("disabled")
+    }
+  }
+
+  // Crée le bouton "Vérifier email" (desktop) prêt à l'emploi
+  const makeVerifyBtn = (leadId: number): HTMLButtonElement => {
+    const b = document.createElement("button")
+    b.className = "dt-verify-email-btn"
+    b.dataset.id = String(leadId)
+    b.dataset.vl = "1"
+    b.textContent = "Vérifier email"
+    b.setAttribute("style", "display:block;margin-top:4px;padding:2px 8px;border-radius:5px;border:1px solid rgba(129,140,248,0.3);color:#a5b4fc;background:rgba(129,140,248,0.1);cursor:pointer;font-size:10px;font-weight:600;width:100%;text-align:center;")
+    b.addEventListener("click", (e) => { e.stopPropagation(); runDesktopVerify(b) })
+    return b
+  }
+
+  const handleGenerateEmail = async (leadId: number) => {
+    setError(null)
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging/generate/${leadId}`, { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || `Erreur serveur : ${res.status}`)
+      if (data.error) {
+        setError(data.error === "societe_inconnue"
+          ? "Société inconnue : impossible de générer l'email."
+          : "Génération impossible (prénom/nom manquant ou patterne invalide).")
+        return
+      }
+      const email = String(data.email || "")
+      // Vue mobile (React) : override local
+      setGeneratedEmails((prev) => ({ ...prev, [leadId]: email }))
+      // Vue desktop (DataTable) : maj DOM en place de la pastille
+      const pill = document.querySelector(`.dt-email-pill[data-id="${leadId}"]`) as HTMLElement | null
+      if (pill) {
+        pill.textContent = email
+        pill.style.border = "1px solid rgba(255,255,255,0.08)"
+        pill.style.background = "transparent"
+        pill.style.color = "#e2e8f0"
+        pill.style.opacity = "1"
+        pill.style.cursor = ""
+        pill.classList.remove("dt-generate-email")
+        pill.removeAttribute("title")
+        // Injecter le bouton "Vérifier email" (comme si la cellule avait été rendue avec un email)
+        const cellDiv = pill.parentElement
+        if (email && isVerifiableView && cellDiv && !cellDiv.querySelector(".dt-verify-email-btn")) {
+          cellDiv.appendChild(makeVerifyBtn(leadId))
+        }
+      }
+    } catch (e: any) {
+      setError(e?.message || "Erreur lors de la génération de l'email")
+    }
+  }
+
+  // Vérification groupée : lance un job en arrière-plan et suit la progression.
+  const handleBulkVerifyEmails = async () => {
+    const ids = Array.from(selectedLeadIds)
+    console.log(ids);
+    
+    if (ids.length === 0) return
+    setSendingBulkVerify(true)
     setError(null)
     setCleanResult(null)
-    setMobileMenuOpen(false)
+    setBulkProgress({ done: 0, total: ids.length, disponible: 0, non_disponible: 0 })
     try {
-      db = "staging_leads"
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging-dispatch/${db}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging/verify-bulk`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filename: uploadedFilename || "",
-          userid: userId || "",
-          inserted_rows: uploadedRows || 0,
-          // Optionnel: permet au backend de compléter email selon pattern
-          email_pattern: emailPattern || "",
-        }),
+        body: JSON.stringify({ ids }),
       })
-      if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`)
-      const result = await res.json()
-      setCleanResult(result)
-      setRefresh((prev) => prev + 1)
-    } catch (err: any) {
-      setError(err.message)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.detail || `Erreur serveur : ${res.status}`)
+      const jobId = json?.job_id
+      const total = Number(json?.total ?? ids.length)
+      if (!jobId) throw new Error("Job non démarré")
+
+      // Poll de progression toutes les 1,5 s
+      const final = await new Promise<any>((resolve) => {
+        const iv = setInterval(async () => {
+          try {
+            const r = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging/verify-status/${jobId}`)
+            const s = await r.json()
+            setBulkProgress({
+              done: Number(s?.done ?? 0),
+              total: Number(s?.total ?? total),
+              disponible: Number(s?.disponible ?? 0),
+              non_disponible: Number(s?.non_disponible ?? 0),
+            })
+            if (s?.status === "done" || s?.status === "unknown") {
+              clearInterval(iv)
+              resolve(s)
+            }
+          } catch {
+            // on retente au prochain tick
+          }
+        }, 1500)
+      })
+
+      setCleanResult({ message: `✅ Vérification terminée : ${final?.disponible ?? 0} disponible(s), ${final?.non_disponible ?? 0} non disponible(s) sur ${final?.total ?? total}` })
+      setRefresh((p) => p + 1)
+      clearSelection()
+    } catch (e: any) {
+      setError(e?.message || "Erreur lors de la vérification en masse")
     } finally {
-      setCleaning(false)
+      setSendingBulkVerify(false)
+      setBulkProgress(null)
     }
   }
+
+  // DataTables ne re-render pas automatiquement les cellules "render" sur changement d'état React.
+  // On synchronise donc les checkbox visibles avec selectedLeadIds.
+  useEffect(() => {
+    if (!shouldUseDataTable) return
+    if (!isSelectableList) return
+    const nodes = document.querySelectorAll<HTMLInputElement>(".dt-select-row")
+    nodes.forEach((el) => {
+      const id = Number(el.dataset.id)
+      el.checked = Number.isFinite(id) && selectedLeadIds.has(id)
+    })
+  }, [selectedLeadIds, shouldUseDataTable, isSelectableList])
+
+  useEffect(() => {
+    if (!shouldUseDataTable) return
+    if (!isSteagingApplique) return
+    const nodes = document.querySelectorAll<HTMLElement>(".dt-email-pill")
+    nodes.forEach((el) => {
+      const socRaw = decodeURIComponent(el.dataset.soc || "")
+      const soc = societeExactKey(socRaw)
+      const companyExists = soc && societesSet.has(soc)
+      const txt = (el.textContent || "").trim()
+      const hasEmail = txt !== "" && txt !== "Email manquant" && txt !== "Email générable"
+
+      // 3 états : email présent -> neutre ; manquant mais générable -> vert ; manquant non générable -> rouge
+      if (hasEmail) {
+        el.style.border = "1px solid rgba(255,255,255,0.08)"
+        el.style.background = "transparent"
+        el.style.color = "#e2e8f0"
+        el.classList.remove("dt-generate-email")
+        el.style.cursor = ""
+        el.removeAttribute("title")
+      } else if (companyExists) {
+        el.style.border = "1px solid rgba(34,197,94,0.55)"
+        el.style.background = "rgba(34,197,94,0.10)"
+        el.style.color = "#86efac"
+        el.textContent = "Email générable"
+        // rendre la pastille cliquable pour générer l'email
+        el.classList.add("dt-generate-email")
+        el.style.cursor = "pointer"
+        el.title = "Cliquer pour générer l'email depuis le patterne"
+      } else {
+        el.style.border = "1px solid rgba(244,63,94,0.55)"
+        el.style.background = "rgba(244,63,94,0.10)"
+        el.style.color = "#fda4af"
+        el.textContent = "Email manquant"
+        el.classList.remove("dt-generate-email")
+        el.style.cursor = ""
+        el.removeAttribute("title")
+      }
+    })
+  }, [societesSet, shouldUseDataTable, isSteagingApplique])
 
   const handleRemoveDuplicates = async () => {
     setRemovingDuplicates(true)
@@ -346,24 +524,6 @@ export default function StagingPage() {
     }
   }
 
-  const handleToGold = async (leadId: number) => {
-    setError(null)
-    setCleanResult(null)
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/togold/${leadId}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || `Erreur serveur : ${res.status}`)
-      setCleanResult({ message: data.message || "Lead promu en GOLD avec succès !" })
-      setRefresh((prev) => prev + 1)
-    } catch (err: any) {
-      let message = err.message.substring(err.message.lastIndexOf(":") + 1)
-      setError(message)
-    }
-  }
-
   const handelclick = async (type: string, leadId: number) => {
     setstat(type)
     setError(null)
@@ -382,23 +542,12 @@ export default function StagingPage() {
     }
   }
 
-  const downloadLastImportCSV = () => {
-    if (!userId) return
-    window.open(`${process.env.NEXT_PUBLIC_API_URL}/staging/download-last-import-csv?userid=${encodeURIComponent(String(userId))}`)
-    setMobileMenuOpen(false)
-  }
-  const downloadLastImportXlsx = () => {
-    if (!userId) return
-    window.open(`${process.env.NEXT_PUBLIC_API_URL}/staging/download-last-import-xlsx?userid=${encodeURIComponent(String(userId))}`)
-    setMobileMenuOpen(false)
-  }
-
   const badgeConfig: Record<string, { label: string; color: string; bg: string }> = {
-    staging: { label: "RAW", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+    import: { label: "RAW", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
     gold: { label: "★ GOLD", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
     silver: { label: "◆ SILVER", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
     clean: { label: "✦ CLEAN", color: "#6ee7b7", bg: "rgba(110,231,183,0.1)" },
-    "steaging-applique": { label: "🧩 APPLIQUE", color: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
+    "staging": { label: "🧩 APPLIQUE", color: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
     black: { label: "⛔ BLACK", color: "#f43f5e", bg: "rgba(244,63,94,0.1)" },
   }
   const badge = badgeConfig[leads as string] ?? { label: leads, color: "#818cf8", bg: "rgba(129,140,248,0.1)" }
@@ -406,7 +555,10 @@ export default function StagingPage() {
   // Composant Carte mobile
   const MobileCard = ({ lead, index }: { lead: any; index: number }) => {
     const isExpanded = expandedCard === index
-    const hasActionButtons = false
+    const id = Number(lead?.id)
+    const isSelected = Number.isFinite(id) && selectedLeadIds.has(id)
+    // email affiché = email généré en place s'il existe, sinon celui du lead
+    const displayEmail = generatedEmails[id] ?? lead.email
 
     return (
       <div
@@ -430,6 +582,14 @@ export default function StagingPage() {
               )}
             </div>
             <div className="flex items-center gap-2">
+              {isSelectableList && Number.isFinite(id) && (
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={(e) => toggleLeadSelected(id, e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: "#818cf8" }}
+                />
+              )}
               <button
                 onClick={() => setExpandedCard(isExpanded ? null : index)}
                 className="p-1 rounded-lg transition-colors"
@@ -441,23 +601,58 @@ export default function StagingPage() {
           </div>
 
           <div className="space-y-2">
-            {lead.email && (
+            {(displayEmail || isSteagingApplique) && (
               <div
                 className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-lg"
                 style={{
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  background: "transparent",
+                  // 3 états : email présent -> neutre ; manquant mais générable -> vert ; manquant -> rouge
+                  border: displayEmail
+                    ? "1px solid rgba(255,255,255,0.08)"
+                    : societesSet.has(societeExactKey(lead?.societe))
+                      ? "1px solid rgba(34,197,94,0.55)"
+                      : "1px solid rgba(244,63,94,0.55)",
+                  background: displayEmail
+                    ? "transparent"
+                    : societesSet.has(societeExactKey(lead?.societe))
+                      ? "rgba(34,197,94,0.10)"
+                      : "rgba(244,63,94,0.10)",
                 }}
               >
                 <Mail size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
-                {lead.email ? (
-                  <a href={`mailto:${lead.email}`} className="text-blue-400 text-xs truncate flex-1 min-w-0">
-                    {lead.email}
+                {displayEmail ? (
+                  <a href={`mailto:${displayEmail}`} className="text-blue-400 text-xs truncate flex-1 min-w-0">
+                    {displayEmail}
                   </a>
+                ) : isSteagingApplique && societesSet.has(societeExactKey(lead?.societe)) ? (
+                  <button
+                    onClick={() => handleGenerateEmail(Number(lead.id))}
+                    title="Générer l'email depuis le patterne"
+                    className="text-xs truncate flex-1 min-w-0 text-left underline decoration-dotted"
+                    style={{ color: "#86efac" }}
+                  >
+                    Email générable
+                  </button>
                 ) : (
                   <span className="text-xs truncate flex-1 min-w-0" style={{ color: "rgba(255,255,255,0.45)" }}>
                     Email manquant
                   </span>
+                )}
+              </div>
+            )}
+            {isVerifiableView && displayEmail && (
+              <div>
+                <button
+                  onClick={() => handleVerifyEmail(Number(lead.id))}
+                  disabled={verifyingEmailId === Number(lead.id)}
+                  className="w-full text-xs font-semibold px-2 py-1.5 rounded-lg disabled:opacity-40"
+                  style={{ background: "rgba(129,140,248,0.12)", border: "1px solid rgba(129,140,248,0.25)", color: "#a5b4fc" }}
+                >
+                  {verifyingEmailId === Number(lead.id) ? "Vérification..." : "Vérifier email"}
+                </button>
+                {emailVerifyResults[Number(lead.id)] && (
+                  <p className="text-xs mt-1 px-1" style={{ color: emailVerifyResults[Number(lead.id)].status === "valid" ? "#86efac" : "#fda4af" }}>
+                    {emailVerifyResults[Number(lead.id)].message}
+                  </p>
                 )}
               </div>
             )}
@@ -494,38 +689,16 @@ export default function StagingPage() {
           {lead.created_at && (
             <div className="mt-3 pt-2 text-xs" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.3)" }}>
               <Calendar size={10} className="inline mr-1" />
-              {new Date(lead.created_at).toLocaleDateString("fr-FR")}
+              {new Date(lead.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
             </div>
           )}
-
         </div>
       </div>
     )
   }
 
-  // Carte mobile générique : affiche toutes les colonnes du fichier importé, brut.
-  const RawMobileCard = ({ row }: { row: any }) => (
-    <div
-      className="rounded-xl mb-3 p-4"
-      style={{
-        background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)",
-        border: "1px solid rgba(255,255,255,0.06)",
-      }}
-    >
-      <div className="space-y-1.5">
-        {(importedColumns || []).map((c) => (
-          <div key={c.key} className="flex gap-2 text-xs">
-            <span className="font-semibold whitespace-nowrap" style={{ color: "rgba(255,255,255,0.4)" }}>{c.title}:</span>
-            <span className="break-words" style={{ color: "rgba(255,255,255,0.75)" }}>{String(row[c.key] ?? "")}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-
   // Configuration DataTable (inchangée)
   const searchableCols = new Set(["nom", "prenom", "email", "fonction", "societe", "telephone", "linkedin", "location", "statu", "eliminer", "created_at"])
-  const historySearchableCols = new Set(["imported_at", "filename", "nom", "prenom", "email", "fonction", "societe", "telephone", "linkedin", "location", "destination"])
   const baseColumns = [
     { data: "nom", title: "Nom", defaultContent: "" },
     { data: "prenom", title: "Prénom", defaultContent: "" },
@@ -536,15 +709,32 @@ export default function StagingPage() {
       render: (val: string, _t: any, row: any) => {
         const id = Number(row?.id)
         const socRaw = String(row?.societe ?? "")
-        const companyExists = false
-        const border = companyExists ? "1px solid rgba(34,197,94,0.55)" : "1px solid rgba(255,255,255,0.08)"
-        const bg = companyExists ? "rgba(34,197,94,0.10)" : "transparent"
-        const color = companyExists ? "#86efac" : "#e2e8f0"
+        const soc = societeExactKey(socRaw)
+        const companyExists = isSteagingApplique && soc && societesSet.has(soc)
         const value = val ? String(val) : ""
-        const text = value ? value : ""
+        const hasEmail = !!value
+        // 3 états : email présent -> neutre ; manquant mais générable -> vert ; manquant non générable -> rouge
+        const border = hasEmail
+          ? "1px solid rgba(255,255,255,0.08)"
+          : companyExists ? "1px solid rgba(34,197,94,0.55)" : "1px solid rgba(244,63,94,0.55)"
+        const bg = hasEmail
+          ? "transparent"
+          : companyExists ? "rgba(34,197,94,0.10)" : "rgba(244,63,94,0.10)"
+        const color = hasEmail
+          ? "#e2e8f0"
+          : companyExists ? "#86efac" : "#fda4af"
+        const text = value ? value : (companyExists ? "Email générable" : "Email manquant")
         const opacity = value ? 1 : 0.55
-        const pill = `<span class="dt-email-pill" data-soc="${encodeURIComponent(socRaw)}" data-id="${id}" style="display:block;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;border-radius:8px;border:${border};background:${bg};color:${color};opacity:${opacity};">${text || ""}</span>`
-        return `<div>${pill}</div>`
+        // "Email générable" -> pastille cliquable qui génère l'email depuis le patterne
+        const generable = !value && companyExists
+        const genCls = generable ? " dt-generate-email" : ""
+        const genStyle = generable ? "cursor:pointer;" : ""
+        const genTitle = generable ? ' title="Cliquer pour générer l\'email depuis le patterne"' : ""
+        const pill = `<span class="dt-email-pill${genCls}" data-soc="${encodeURIComponent(socRaw)}" data-id="${id}"${genTitle} style="display:block;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;border-radius:8px;border:${border};background:${bg};color:${color};opacity:${opacity};${genStyle}">${text || ""}</span>`
+        const verifyBtn = isVerifiableView && value
+          ? `<button data-id="${id}" data-type="verify-email" data-email="${encodeURIComponent(value)}" class="dt-verify-email-btn" style="display:block;margin-top:4px;padding:2px 8px;border-radius:5px;border:1px solid rgba(129,140,248,0.3);color:#a5b4fc;background:rgba(129,140,248,0.1);cursor:pointer;font-size:10px;font-weight:600;width:100%;text-align:center;">Vérifier email</button>`
+          : ""
+        return `<div>${pill}${verifyBtn}</div>`
       },
     },
     { data: "fonction", title: "Fonction", defaultContent: "" },
@@ -567,60 +757,23 @@ export default function StagingPage() {
       },
     },
   ]
-  const dateColumn = { data: "created_at", title: "Date", render: (val: string) => new Date(val).toLocaleDateString("fr-FR") }
+  const selectColumn = {
+    data: "__select__",
+    title: "",
+    orderable: false,
+    searchable: false,
+    width: "34px",
+    render: (_: any, _t: any, row: any) => {
+      const id = Number(row?.id)
+      const checked = Number.isFinite(id) && selectedLeadIdsRef.current.has(id)
+      return `<input type="checkbox" class="dt-select-row" data-id="${id}" ${checked ? "checked" : ""} style="width:14px;height:14px;accent-color:#818cf8;cursor:pointer;" />`
+    },
+  }
+  const dateColumn = { data: "created_at", title: "Date", render: (val: string, type: string) => (type === "sort" || type === "type") ? (val ? new Date(val).getTime() : 0) : (val ? new Date(val).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "") }
   const columns = [
+    selectColumn,
     ...baseColumns,
     dateColumn,
-  ]
-  // Colonnes affichées : si un fichier a été importé, on affiche EXACTEMENT ses
-  // colonnes d'origine (titres du fichier), sinon les colonnes leads par défaut.
-  const activeColumns = importedColumns
-    ? importedColumns.map((c) => ({ data: c.key, title: c.title, defaultContent: "" }))
-    : columns
-  const activeSearchableCols = importedColumns
-    ? new Set(importedColumns.map((c) => c.key))
-    : searchableCols
-  const activeDateField = importedColumns ? "__none__" : "created_at"
-  const historyColumns = [
-    {
-      data: "imported_at",
-      title: "Date import",
-      defaultContent: "",
-      render: (val: string) => (val ? new Date(val).toLocaleString("fr-FR") : ""),
-    },
-    { data: "filename", title: "Fichier", defaultContent: "" },
-    { data: "nom", title: "Nom", defaultContent: "" },
-    { data: "prenom", title: "Prénom", defaultContent: "" },
-    { data: "email", title: "Email", defaultContent: "" },
-    { data: "fonction", title: "Fonction", defaultContent: "" },
-    { data: "societe", title: "Société", defaultContent: "" },
-    { data: "telephone", title: "Téléphone", defaultContent: "" },
-    {
-      data: "linkedin",
-      title: "LinkedIn",
-      defaultContent: "",
-      render: (val: string) =>
-        val
-          ? `<a href="${val}" target="_blank" rel="noopener noreferrer" style="color:#818cf8;text-decoration:underline;">LinkedIn</a>`
-          : "",
-    },
-    { data: "location", title: "Location", defaultContent: "" },
-    {
-      data: "destination",
-      title: "Destination",
-      defaultContent: "staging",
-      render: (val: string) => {
-        const v = (val || "staging").toLowerCase()
-        const ui: Record<string, { label: string; color: string; bg: string; border: string }> = {
-          gold: { label: "Gold", color: "#fcd34d", bg: "rgba(245,158,11,0.15)", border: "rgba(245,158,11,0.35)" },
-          silver: { label: "Silver", color: "#cbd5e1", bg: "rgba(148,163,184,0.15)", border: "rgba(148,163,184,0.35)" },
-          clean: { label: "Clean", color: "#6ee7b7", bg: "rgba(110,231,183,0.15)", border: "rgba(110,231,183,0.35)" },
-          staging: { label: "Staging", color: "#a5b4fc", bg: "rgba(129,140,248,0.15)", border: "rgba(129,140,248,0.35)" },
-        }
-        const item = ui[v] || ui.staging
-        return `<span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:${item.color};background:${item.bg};border:1px solid ${item.border};">${item.label}</span>`
-      },
-    },
   ]
 
   const injectSearchIcons = (api: any, activeColumns: any[], activeSearchableCols: Set<string>, dateField: string) => {
@@ -663,12 +816,25 @@ export default function StagingPage() {
   }
 
   const handleTableClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const selectRow = (e.target as HTMLElement).closest(".dt-select-row") as HTMLInputElement | null
+    if (selectRow) {
+      const id = Number(selectRow.dataset.id)
+      if (Number.isFinite(id)) {
+        toggleLeadSelected(id, selectRow.checked)
+      }
+      return
+    }
+    const genPill = (e.target as HTMLElement).closest(".dt-generate-email") as HTMLElement | null
+    if (genPill) {
+      const id = Number(genPill.dataset.id)
+      if (Number.isFinite(id)) handleGenerateEmail(id)
+      return
+    }
     const btn = (e.target as HTMLElement).closest(".dt-action-btn") as HTMLElement | null
     if (!btn) return
     const id = Number(btn.dataset.id)
     const type = btn.dataset.type!
-    if (type === "to-gold") handleToGold(id)
-    else handelclick(type, id)
+    handelclick(type, id)
   }
 
   return (
@@ -691,10 +857,53 @@ export default function StagingPage() {
               {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
             <div className="hidden md:flex gap-2">
-              <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileUpload} />
-              {leads === "staging" && <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", color: "#a5b4fc" }}><Upload size={13} />{uploading ? "Chargement..." : "Importer"}</button>}
-              {leads === "staging" && !isManager && <><button onClick={downloadLastImportCSV} disabled={!userId} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={13} />Dernier CSV</button><button onClick={downloadLastImportXlsx} disabled={!userId} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={13} />Dernier XLSX</button></>}
-              {leads === "staging" && <button onClick={handleClean} disabled={cleaning || data.length === 0} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}><Sparkles size={13} />{cleaning ? "Nettoyage..." : "Nettoyer"}</button>}
+              {isSelectableList && (
+                <>
+                  <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <span className="text-[11px] font-semibold" style={{ color: "rgba(255,255,255,0.55)" }}>
+                      Sélection: <span className="text-white">{selectedLeadIds.size}</span>
+                    </span>
+                  </div>
+                  {isSteagingApplique && (
+                    <button
+                      onClick={selectAllGreenLeads}
+                      disabled={(data?.length || 0) === 0}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
+                      style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.30)", color: "#86efac" }}
+                    >
+                      Sélectionner verts
+                    </button>
+                  )}
+                  <button
+                    onClick={() => (selectedLeadIds.size === (data?.length || 0) ? clearSelection() : selectAllLeads())}
+                    disabled={(data?.length || 0) === 0}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
+                    style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}
+                  >
+                    {selectedLeadIds.size === (data?.length || 0) ? "Tout désélectionner" : "Tout sélectionner"}
+                  </button>
+                  {isSteagingApplique && (
+                    <button
+                      onClick={sendSelectedToSilver}
+                      disabled={selectedLeadIds.size === 0 || sendingToSilver}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
+                      style={{ background: "rgba(148,163,184,0.12)", border: "1px solid rgba(148,163,184,0.28)", color: "#e2e8f0" }}
+                    >
+                      {sendingToSilver ? "Envoi..." : "Envoyer à Silver"}
+                    </button>
+                  )}
+                  {isVerifiableView && (
+                    <button
+                      onClick={handleBulkVerifyEmails}
+                      disabled={selectedLeadIds.size === 0 || sendingBulkVerify}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
+                      style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}
+                    >
+                      {sendingBulkVerify ? "Vérification..." : "Vérifier emails"}
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -712,16 +921,23 @@ export default function StagingPage() {
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
         <div className="md:hidden px-3 py-2 flex flex-col gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.2)" }}>
-          <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileUpload} />
-          {leads === "staging" && <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40 w-full" style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", color: "#a5b4fc" }}><Upload size={14} />{uploading ? "Chargement..." : "Importer"}</button>}
-          {leads === "staging" && !isManager && <><button onClick={downloadLastImportCSV} disabled={!userId} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40 w-full" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={14} />Exporter dernier CSV</button><button onClick={downloadLastImportXlsx} disabled={!userId} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40 w-full" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={14} />Exporter dernier XLSX</button></>}
-          {leads === "staging" && <button onClick={handleClean} disabled={cleaning || data.length === 0} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40 w-full" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}><Sparkles size={14} />{cleaning ? "Nettoyage..." : "Nettoyer"}</button>}
           <button onClick={() => { setRefresh((p) => p + 1); setMobileMenuOpen(false); }} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}><RefreshCw size={14} />Actualiser</button>
         </div>
       )}
 
       {/* Messages d'erreur / succès (inchangés) */}
       {err && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#fda4af" }}>❌ {err}</div>}
+      {bulkProgress && (
+        <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(129,140,248,0.08)", border: "1px solid rgba(129,140,248,0.25)", color: "#a5b4fc" }}>
+          <div className="flex items-center justify-between mb-1.5">
+            <span>Vérification des emails… {bulkProgress.done}/{bulkProgress.total}</span>
+            <span className="text-white/50">✅ {bulkProgress.disponible} · ❌ {bulkProgress.non_disponible}</span>
+          </div>
+          <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+            <div className="h-full transition-all duration-300" style={{ width: `${bulkProgress.total ? Math.round((bulkProgress.done / bulkProgress.total) * 100) : 0}%`, background: "#818cf8" }} />
+          </div>
+        </div>
+      )}
       {cleanResult && cleanResult.message && !cleanResult.moved_to_gold && !cleanResult.total_deleted && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>✅ {cleanResult.message}</div>}
       {cleanResult && cleanResult.total_deleted !== undefined && (<div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)", color: "#fda4af" }}><p className="font-semibold mb-2">🗑️ Suppression des doublons terminée</p><div className="grid grid-cols-2 sm:grid-cols-5 gap-2">{[
         { label: "Total", val: cleanResult.total_deleted, icon: "🔢" },
@@ -822,57 +1038,10 @@ export default function StagingPage() {
       `}</style>
 
       <div className="px-2 sm:px-3 pb-4 pt-2 overflow-y-auto flex-1 overflow-x-hidden">
-        {importedColumns && importedColumns.length > 0 && (
-          <div
-            className="mb-4 rounded-xl p-3 sm:p-4"
-            style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.25)" }}
-          >
-            <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-              <div>
-                <h3 className="text-sm sm:text-base font-semibold text-white">Mapping des colonnes</h3>
-                <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  Associez chaque colonne du fichier à un champ lead, puis appliquez.
-                </p>
-              </div>
-              <button
-                onClick={handleApplyMapping}
-                disabled={applyingMapping}
-                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
-                style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}
-              >
-                <Sparkles size={13} /> {applyingMapping ? "Enregistrement..." : "Appliquer le mapping"}
-              </button>
-            </div>
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {importedColumns.map((c) => (
-                <div key={c.key} className="flex flex-col gap-1.5" style={{ minWidth: 160 }}>
-                  <span
-                    title={c.title}
-                    className="text-xs font-semibold truncate px-1"
-                    style={{ color: "rgba(255,255,255,0.7)", maxWidth: 160 }}
-                  >
-                    {c.title}
-                  </span>
-                  <select
-                    value={columnMapping[c.key] || ""}
-                    onChange={(e) => setColumnMapping((m) => ({ ...m, [c.key]: e.target.value }))}
-                    className="text-xs rounded-lg px-2 py-1.5 outline-none"
-                    style={{ background: "rgba(15,23,42,0.8)", border: "1px solid rgba(255,255,255,0.15)", color: "#e2e8f0" }}
-                  >
-                    <option value="">— Ignorer —</option>
-                    {TARGET_FIELDS.map((f) => (
-                      <option key={f.key} value={f.key}>{f.label}</option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
         {!DTableComponent && shouldUseDataTable ? (
           <div className="text-center py-16" style={{ color: "rgba(255,255,255,0.2)" }}><div className="text-4xl mb-3">⚡</div><p className="text-sm">Chargement...</p></div>
         ) : data.length === 0 ? (
-          <div className="text-center py-20" style={{ color: "rgba(255,255,255,0.2)" }}><div className="text-5xl mb-4">📭</div><p className="text-base font-medium" style={{ color: "rgba(255,255,255,0.35)" }}>Aucune donnée disponible</p>{leads === "staging" && <p className="text-xs mt-2" style={{ color: "rgba(255,255,255,0.2)" }}>Importez un fichier CSV ou Excel pour commencer</p>}</div>
+          <div className="text-center py-20" style={{ color: "rgba(255,255,255,0.2)" }}><div className="text-5xl mb-4">📭</div><p className="text-base font-medium" style={{ color: "rgba(255,255,255,0.35)" }}>Aucune donnée disponible</p></div>
         ) : (
           <>
             {isMobile && mobileView === "cards" ? (
@@ -881,9 +1050,7 @@ export default function StagingPage() {
                   <div className="text-center py-12" style={{ color: "rgba(255,255,255,0.3)" }}><p className="text-sm">Aucun résultat trouvé</p></div>
                 ) : (
                   <>
-                    {paginatedData.map((lead: any, index: number) => importedColumns
-                      ? <RawMobileCard key={lead.id || index} row={lead} />
-                      : <MobileCard key={lead.id || index} lead={lead} index={index} />)}
+                    {paginatedData.map((lead: any, index: number) => <MobileCard key={lead.id || index} lead={lead} index={index} />)}
                     {totalMobilePages > 1 && (
                       <div className="mt-3 flex items-center justify-center gap-2">
                         <button
@@ -915,98 +1082,32 @@ export default function StagingPage() {
                 <DTableComponent
                   key={`${String(leads)}-${refresh}`}
                   data={data}
-                  columns={activeColumns}
+                  columns={columns}
                   className="display w-full"
                   options={{
-                    order: importedColumns ? [] : [[activeColumns.length - 1, "desc"]],
+                    order: [[columns.length - 1, "desc"]],
                     pageLength: isMobile ? 5 : 10,
                     responsive: true,
                     scrollX: isMobile,
                     initComplete: function (this: any) {
                       const api = (this as any).api()
-                      if (!isMobile) injectSearchIcons(api, activeColumns, activeSearchableCols, activeDateField)
+                      if (!isMobile) injectSearchIcons(api, columns, searchableCols, "created_at")
+                    },
+                    drawCallback: function () {
+                      // Attacher les listeners sur les boutons vérifier (logique partagée)
+                      document.querySelectorAll<HTMLElement>(".dt-verify-email-btn:not([data-vl])").forEach((btn) => {
+                        btn.dataset.vl = "1"
+                        btn.addEventListener("click", (e) => { e.stopPropagation(); runDesktopVerify(btn) })
+                      })
                     },
                     language: { processing: "Traitement en cours...", search: "Rechercher :", lengthMenu: "Afficher _MENU_", info: "_START_ à _END_ sur _TOTAL_", infoEmpty: "0 à 0 sur 0", infoFiltered: "(filtré de _MAX_)", loadingRecords: "Chargement...", zeroRecords: "Aucun élément", emptyTable: "Aucune donnée", paginate: { first: "«", previous: "‹", next: "›", last: "»" } }
                   }}
                 >
-                  <thead><tr>{activeColumns.map((col, i) => <th key={i}>{col.title}</th>)}</tr></thead>
+                  <thead><tr>{columns.map((col, i) => <th key={i}>{col.title}</th>)}</tr></thead>
                 </DTableComponent>
               </div>
             )}
           </>
-        )}
-
-        {leads === "staging" && (
-          <div
-            className="mt-6 rounded-xl p-3 sm:p-4"
-            style={{
-              background: "rgba(255,255,255,0.02)",
-              border: "1px solid rgba(255,255,255,0.08)",
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setHistoryOpen((v) => !v)}
-              className="w-full flex items-center justify-between mb-3"
-            >
-              <h3 className="text-sm sm:text-base font-semibold text-white">
-                Historique des imports
-              </h3>
-              <span className="flex items-center gap-2 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
-
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-md" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  {historyOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                </span>
-              </span>
-            </button>
-
-            {historyOpen && (loadingHistory ? (
-              <p className="text-xs sm:text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
-                Chargement de l'historique...
-              </p>
-            ) : stagingHistory.length === 0 ? (
-              <p className="text-xs sm:text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>
-                Aucun lead importe precedemment.
-              </p>
-            ) : (
-              <div className="w-full overflow-x-auto history-dt-wrapper">
-                {DTableComponent && (
-                  <DTableComponent
-                    key={`history-${stagingHistory.length}`}
-                    data={stagingHistory}
-                    columns={historyColumns}
-                    className="display w-full"
-                    options={{
-                      order: [[0, "desc"]],
-                      pageLength: isMobile ? 5 : 10,
-                      responsive: true,
-                      scrollX: isMobile,
-                      initComplete: function (this: any) {
-                        const api = (this as any).api()
-                        if (!isMobile) injectSearchIcons(api, historyColumns, historySearchableCols, "imported_at")
-                      },
-                      language: {
-                        processing: "Traitement en cours...",
-                        search: "Rechercher :",
-                        lengthMenu: "Afficher _MENU_",
-                        info: "_START_ à _END_ sur _TOTAL_",
-                        infoEmpty: "0 à 0 sur 0",
-                        infoFiltered: "(filtré de _MAX_)",
-                        loadingRecords: "Chargement...",
-                        zeroRecords: "Aucun élément",
-                        emptyTable: "Aucune donnée",
-                        paginate: { first: "«", previous: "‹", next: "›", last: "»" },
-                      },
-                    }}
-                  >
-                    <thead>
-                      <tr>{historyColumns.map((col, i) => <th key={i}>{col.title}</th>)}</tr>
-                    </thead>
-                  </DTableComponent>
-                )}
-              </div>
-            ))}
-          </div>
         )}
       </div>
     </div>

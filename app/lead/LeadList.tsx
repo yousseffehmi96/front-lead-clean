@@ -82,8 +82,8 @@ export default function LeadList({ leads }: { leads: string }) {
   const userRole = ((user?.publicMetadata?.role as string) || "agent").toLowerCase()
   const isManager = userRole === "manager"
   const isStaging = leads === "staging"
-  const isSelectableList = leads === "steaging-applique" || leads === "clean" || leads === "silver" || leads === "gold"
-  const isSteagingApplique = leads === "steaging-applique"
+  const isSelectableList = leads === "staging" || leads === "clean" || leads === "silver" || leads === "gold"
+  const isSteagingApplique = leads === "staging"
 
   const rawData = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/${leads}?refresh=${refresh}`).data || []
   // Ajout refresh pour éviter cache/stale data côté mobile/DT
@@ -240,7 +240,7 @@ export default function LeadList({ leads }: { leads: string }) {
   // Détection mobile
   const [isMobile, setIsMobile] = useState(false)
   const isSilverView = leads === "silver"
-  const isVerifiableView = leads === "silver" || leads === "gold" || leads === "steaging-applique"
+  const isVerifiableView = leads === "silver" || leads === "gold" || leads === "staging"
   const shouldUseDataTable = !isMobile
   const cardsPerPage = 20
   
@@ -326,7 +326,7 @@ export default function LeadList({ leads }: { leads: string }) {
     setSendingToSilver(true)
     setError(null)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/steaging-applique/to-silver`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging/to-silver`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids, pattern: emailPattern }),
@@ -473,7 +473,7 @@ export default function LeadList({ leads }: { leads: string }) {
       if (leads === "clean") {
         db = "cleaning_leads"
       } else {
-        db = "staging_leads"
+        db = "import_leads"
       }
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging-dispatch/${db}`, {
         method: "POST",
@@ -676,21 +676,21 @@ export default function LeadList({ leads }: { leads: string }) {
   }
   const downloadLastImportCSV = () => {
     if (!userId) return
-    window.open(`${process.env.NEXT_PUBLIC_API_URL}/staging/download-last-import-csv?userid=${encodeURIComponent(String(userId))}`)
+    window.open(`${process.env.NEXT_PUBLIC_API_URL}/import/download-last-import-csv?userid=${encodeURIComponent(String(userId))}`)
     setMobileMenuOpen(false)
   }
   const downloadLastImportXlsx = () => {
     if (!userId) return
-    window.open(`${process.env.NEXT_PUBLIC_API_URL}/staging/download-last-import-xlsx?userid=${encodeURIComponent(String(userId))}`)
+    window.open(`${process.env.NEXT_PUBLIC_API_URL}/import/download-last-import-xlsx?userid=${encodeURIComponent(String(userId))}`)
     setMobileMenuOpen(false)
   }
 
   const badgeConfig: Record<string, { label: string; color: string; bg: string }> = {
-    staging: { label: "RAW", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+    import: { label: "RAW", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
     gold: { label: "★ GOLD", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
     silver: { label: "◆ SILVER", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
     clean: { label: "✦ CLEAN", color: "#6ee7b7", bg: "rgba(110,231,183,0.1)" },
-    "steaging-applique": { label: "🧩 APPLIQUE", color: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
+    "staging": { label: "🧩 APPLIQUE", color: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
     black: { label: "⛔ BLACK", color: "#f43f5e", bg: "rgba(244,63,94,0.1)" },
   }
   const badge = badgeConfig[leads as string] ?? { label: leads, color: "#818cf8", bg: "rgba(129,140,248,0.1)" }
@@ -837,7 +837,7 @@ export default function LeadList({ leads }: { leads: string }) {
           {lead.created_at && (
             <div className="mt-3 pt-2 text-xs" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.3)" }}>
               <Calendar size={10} className="inline mr-1" />
-              {new Date(lead.created_at).toLocaleDateString("fr-FR")}
+              {new Date(lead.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
             </div>
           )}
 
@@ -945,7 +945,7 @@ export default function LeadList({ leads }: { leads: string }) {
   const blackColumn = { data: "eliminer", title: "Eliminer", defaultContent: "" }
   const prodColumn = { data: "id", title: "Action", orderable: false, render: (id: number) => `<div style="display:flex;gap:6px;flex-wrap:wrap;"><button data-id="${id}" data-type="Unsubscribe" class="dt-action-btn" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(244,63,94,0.4);color:#f43f5e;background:rgba(244,63,94,0.08);cursor:pointer;font-size:11px;font-weight:600;">Désabonner</button><button data-id="${id}" data-type="archive" class="dt-action-btn" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(148,163,184,0.3);color:#94a3b8;background:rgba(148,163,184,0.08);cursor:pointer;font-size:11px;font-weight:600;">Archiver</button></div>` }
   const silverColumn = { data: "id", title: "Action", orderable: false, render: (id: number) => `<button data-id="${id}" data-type="to-gold" class="dt-action-btn" style="padding:4px 12px;border-radius:6px;border:1px solid rgba(245,158,11,0.4);color:#fcd34d;background:rgba(245,158,11,0.08);cursor:pointer;font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px;">★ → Gold</button>` }
-  const dateColumn = { data: "created_at", title: "Date", render: (val: string) => new Date(val).toLocaleDateString("fr-FR") }
+  const dateColumn = { data: "created_at", title: "Date", render: (val: string, type: string) => (type === "sort" || type === "type") ? (val ? new Date(val).getTime() : 0) : (val ? new Date(val).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "") }
   const columns = [
     ...(isSelectableList ? [selectColumn] : []),
     ...baseColumns,

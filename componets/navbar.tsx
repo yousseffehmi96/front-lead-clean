@@ -37,8 +37,8 @@ export default function Navbar() {
   // --- CONFIGURATION DES LIENS ---
 
   const flow1Links = [
-    { id: "Import", href: "/lead/staging", text: "Import", icon: <Zap size={16} />, badge: "1", badgeColor: "#f59e0b", desc: "Import & brut" },
-    { id: "Staging", href: "/lead/steaging-applique", text: "Staging", icon: <Database size={16} />, badge: "🧩", badgeColor: "#fbbf24", desc: "Aucune règle" },
+    { id: "Import", href: "/lead/import", text: "Import", icon: <Zap size={16} />, badge: "1", badgeColor: "#f59e0b", desc: "Import & brut" },
+    { id: "Staging", href: "/lead/staging", text: "Staging", icon: <Database size={16} />, badge: "🧩", badgeColor: "#fbbf24", desc: "Aucune règle" },
     { id: "Silver", href: "/lead/silver", text: "Silver", icon: <Database size={16} />, badge: "2", badgeColor: "#94a3b8", desc: "Incomplets" },
     { id: "Gold", href: "/lead/gold", text: "Gold", icon: <Sparkles size={16} />, badge: "3", badgeColor: "#f59e0b", desc: "Complets" },
   ];
