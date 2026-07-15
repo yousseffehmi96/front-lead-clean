@@ -5,15 +5,19 @@ import { Upload, Sparkles, RefreshCw, Download, Trash2, Menu, X, ChevronDown, Ch
 import { useUser } from "@clerk/nextjs"
 import { useSelector } from "react-redux"
 
-export default function SteagingAppliquePage() {
-  const leads = "staging"
+// Les 8 champs qui comptent dans la complétion (12,5% chacun).
+const COMPLETION_FIELDS = [
+  "nom", "prenom", "email", "societe",
+  "fonction", "telephone", "linkedin", "location",
+] as const
+
+export default function LeadsPage() {
+  const leads = "leads"
   const [DTableComponent, setDTableComponent] = useState<any>(null)
   const [openMenu, setOpenMenu] = useState<number | null>(null)
   const [stat, setstat] = useState<string | null>(null)
   const [err, setError] = useState<string | null>(null)
   const [refresh, setRefresh] = useState<number>(0)
-  // Refresh dédié à la liste des sociétés (ne remonte pas le tableau des leads)
-  const [societeRefresh, setSocieteRefresh] = useState<number>(0)
   const [uploading, setUploading] = useState(false)
   const [cleaning, setCleaning] = useState(false)
   const [removingDuplicates, setRemovingDuplicates] = useState(false)
@@ -26,17 +30,12 @@ export default function SteagingAppliquePage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [mobilePage, setMobilePage] = useState(1)
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<number>>(() => new Set())
-  // Ref toujours à jour : évite que les redraw DataTable décochent les cases (closure figée)
-  const selectedLeadIdsRef = useRef<Set<number>>(selectedLeadIds)
-  selectedLeadIdsRef.current = selectedLeadIds
-  const [emailPattern, setEmailPattern] = useState<string>("{prenom}.{nom}@{domaine}.{extension}")
-  const [sendingToSilver, setSendingToSilver] = useState(false)
-  const [sendingBulkVerify, setSendingBulkVerify] = useState(false)
-  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; disponible: number; non_disponible: number } | null>(null)
+  const [reformulatingLocation, setReformulatingLocation] = useState(false)
   const [verifyingEmailId, setVerifyingEmailId] = useState<number | null>(null)
+  const [sendingBulkVerify, setSendingBulkVerify] = useState(false)
   const [emailVerifyResults, setEmailVerifyResults] = useState<Record<number, { status: "valid" | "invalid" | "error"; message: string }>>({})
-  // Emails générés en place (sans recharger la page)
-  const [generatedEmails, setGeneratedEmails] = useState<Record<number, string>>({})
+  const emailVerifyResultsRef = useRef<Record<number, { status: "valid" | "invalid" | "error"; message: string }>>({})
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const userId = useSelector((state:any) => state.user.userId)
   const email = useSelector((state:any) => state.user.email)
   const { user, isLoaded } = useUser()
@@ -44,25 +43,50 @@ export default function SteagingAppliquePage() {
   const isManager = userRole === "manager"
   const isStaging = false
   const isSelectableList = true
-  const isSteagingApplique = true
+  const isSteagingApplique = false
 
   const { data: fetchedLeads, loading: loadingLeads } = Usefetch(
     `${process.env.NEXT_PUBLIC_API_URL}/${leads}?refresh=${refresh}`
   )
   const rawData = fetchedLeads || []
-  // Refetch la liste sociétés sur `refresh` (actions leads) ET `societeRefresh` (focus fenêtre)
-  const societes = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/societe?refresh=${refresh}&s=${societeRefresh}`).data || []
+  // Éditions inline déjà enregistrées côté serveur : on les fusionne aux données
+  // chargées pour recalculer le pourcentage sans recharger la page.
+  const [edits, setEdits] = useState<Record<number, any>>({})
+  const [savingCell, setSavingCell] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
-  // Les messages (erreur / résultat) s'effacent tout seuls au bout de 10 s.
-  // Le timer repart à zéro à chaque nouveau message.
-  useEffect(() => {
-    if (!err && !cleanResult) return
-    const timer = setTimeout(() => {
-      setError(null)
-      setCleanResult(null)
-    }, 10000)
-    return () => clearTimeout(timer)
-  }, [err, cleanResult])
+  // La complétion n'est pas stockée en base : on la calcule ici, à partir des
+  // 8 champs du lead (12,5% par champ rempli). 100% => Gold.
+  const isFilled = (v: any) => {
+    const s = String(v ?? "").trim().toLowerCase()
+    return s !== "" && s !== "nan" && s !== "none" && s !== "null"
+  }
+  const computeCompletion = (lead: any) =>
+    Math.round(
+      (COMPLETION_FIELDS.filter((f) => isFilled(lead?.[f])).length * 100) /
+        COMPLETION_FIELDS.length
+    )
+
+  const mergedData = useMemo(
+    () =>
+      rawData.map((l: any) => {
+        const merged = edits[l.id] ? { ...l, ...edits[l.id] } : l
+        return { ...merged, completion: computeCompletion(merged) }
+      }),
+    [rawData, edits]
+  )
+
+  // Filtre "Gold uniquement" : Silver et Gold sont désormais la même table,
+  // le niveau se lit sur la complétion (100% = Gold).
+  const [goldOnly, setGoldOnly] = useState(false)
+  const goldCount = useMemo(
+    () => mergedData.filter((l: any) => l.completion === 100).length,
+    [mergedData]
+  )
+  const data = useMemo(
+    () => (goldOnly ? mergedData.filter((l: any) => l.completion === 100) : mergedData),
+    [mergedData, goldOnly]
+  )
 
   const normalizeTextKey = (v: any) =>
     String(v ?? "")
@@ -71,44 +95,6 @@ export default function SteagingAppliquePage() {
       .normalize("NFD")
       .replace(/[̀-ͯ]/g, "")
       .replace(/[^a-z0-9]+/g, "")
-
-  const data = useMemo(() => {
-    if (!isSteagingApplique) return rawData
-    const bestByKey = new Map<string, any>()
-
-    const getKey = (lead: any) => {
-      const email = String(lead?.email ?? "").trim().toLowerCase()
-      if (email && email !== "nan" && email !== "none" && email !== "null") return `e:${email}`
-      const nom = normalizeTextKey(lead?.nom)
-      const prenom = normalizeTextKey(lead?.prenom)
-      const societe = normalizeTextKey(lead?.societe)
-      return `nps:${nom}|${prenom}|${societe}`
-    }
-
-    const toTime = (v: any) => {
-      const t = Date.parse(String(v ?? ""))
-      return Number.isFinite(t) ? t : -1
-    }
-
-    for (const lead of rawData as any[]) {
-      const key = getKey(lead)
-      const existing = bestByKey.get(key)
-      if (!existing) {
-        bestByKey.set(key, lead)
-        continue
-      }
-      // garder le plus récent (created_at), sinon plus grand id
-      const a = toTime(existing?.created_at)
-      const b = toTime(lead?.created_at)
-      if (b > a) bestByKey.set(key, lead)
-      else if (b === a) {
-        const ida = Number(existing?.id)
-        const idb = Number(lead?.id)
-        if (Number.isFinite(idb) && (!Number.isFinite(ida) || idb > ida)) bestByKey.set(key, lead)
-      }
-    }
-    return Array.from(bestByKey.values())
-  }, [rawData, isSteagingApplique])
 
   // Règle "cadre vert": égalité stricte (trim + lower) entre societe_leads.nom et lead.societe
   const societeExactKey = (s: any) =>
@@ -127,27 +113,6 @@ export default function SteagingAppliquePage() {
       .normalize("NFD")
       .replace(/[̀-ͯ]/g, "")
       .replace(/[^a-z0-9]+/g, "")
-  const societesSet = useMemo(() => {
-    const set = new Set<string>()
-    for (const s of societes as any[]) {
-      // backend retourne généralement { nom, domaine, extension }
-      if (s?.nom) set.add(societeExactKey(s.nom))
-    }
-    return set
-  }, [societes])
-
-  const societesMap = useMemo(() => {
-    const map = new Map<string, { domaine: string; extension: string }>()
-    for (const s of societes as any[]) {
-      const key = s?.nom ? societeExactKey(s.nom) : ""
-      if (!key) continue
-      map.set(key, {
-        domaine: String(s?.domaine ?? "").trim().toLowerCase(),
-        extension: String(s?.extension ?? "").trim().toLowerCase(),
-      })
-    }
-    return map
-  }, [societes])
 
   const normalizeToken = (v: any) =>
     String(v ?? "")
@@ -163,24 +128,11 @@ export default function SteagingAppliquePage() {
     setSelectedLeadIds(new Set())
   }, [leads, refresh])
 
-  // Re-synchronise la liste des sociétés quand l'onglet reprend le focus
-  // (ex. après avoir ajouté une société dans l'onglet Company) — sans recharger la page.
-  useEffect(() => {
-    const refetchSocietes = () => {
-      if (document.visibilityState === "visible") setSocieteRefresh((p) => p + 1)
-    }
-    window.addEventListener("focus", refetchSocietes)
-    document.addEventListener("visibilitychange", refetchSocietes)
-    return () => {
-      window.removeEventListener("focus", refetchSocietes)
-      document.removeEventListener("visibilitychange", refetchSocietes)
-    }
-  }, [])
 
   // Détection mobile
   const [isMobile, setIsMobile] = useState(false)
-  const isSilverView = false
-  const isVerifiableView = true
+  const isSilverView = true
+  const isVerifiableView = false
   const shouldUseDataTable = !isMobile
   const cardsPerPage = 20
 
@@ -251,222 +203,6 @@ export default function SteagingAppliquePage() {
   const selectAllLeads = () =>
     setSelectedLeadIds(new Set((data ?? []).map((d: any) => Number(d.id)).filter((n: number) => Number.isFinite(n))))
 
-  // Sélectionne uniquement les leads dont l'email est vérifié "disponible"
-  const selectAllGreenLeads = () => {
-    const ids = (data ?? [])
-      .filter((d: any) => String(d?.statu ?? "").trim().toLowerCase() === "disponible")
-      .map((d: any) => Number(d.id))
-      .filter((n: number) => Number.isFinite(n))
-    setSelectedLeadIds(new Set(ids))
-  }
-
-  const sendSelectedToSilver = async () => {
-    if (!isSteagingApplique) return
-    const isUnavailable = (d: any) => String(d?.statu ?? "").trim().toLowerCase() === "non disponible"
-    const selected = (data as any[]).filter((d: any) => selectedLeadIds.has(Number(d.id)))
-    const blockedCount = selected.filter(isUnavailable).length
-    // On exclut les emails vérifiés "non disponible"
-    const ids = selected.filter((d: any) => !isUnavailable(d)).map((d: any) => Number(d.id))
-    if (ids.length === 0) {
-      setError(blockedCount > 0
-        ? "Envoi impossible : tous les leads sélectionnés ont un email non disponible."
-        : "Aucun lead sélectionné.")
-      return
-    }
-    setSendingToSilver(true)
-    setError(null)
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging/to-silver`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids, pattern: emailPattern }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json?.detail || `Erreur serveur : ${res.status}`)
-      // Non envoyés = exclus côté front (non disponibles) + ignorés côté backend → restés dans Applique
-      const notSent = (Number(json?.skipped) || 0) + blockedCount
-      setCleanResult({ message: `✅ Envoyé vers Silver: ${json?.moved_to_silver ?? 0} | déjà en Silver supprimés: ${json?.deleted_already_in_silver ?? 0} | doublons supprimés: ${json?.deleted_duplicates ?? 0} | non envoyés (restés dans Applique): ${notSent}` })
-      clearSelection()
-      setRefresh((p) => p + 1)
-    } catch (e: any) {
-      setError(e?.message || "Erreur lors de l'envoi vers Silver")
-    } finally {
-      setSendingToSilver(false)
-    }
-  }
-
-  // Vérification par lead (regex -> sinon email généré depuis patterne -> test SMTP)
-  const handleVerifyEmail = async (leadId: number) => {
-    setVerifyingEmailId(leadId)
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging/verify/${leadId}`, { method: "POST" })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || `Erreur serveur : ${res.status}`)
-      const isValid = data.statu === "disponible"
-      const note = data.regenerated && data.email ? ` (email généré : ${data.email})` : ""
-      setEmailVerifyResults((prev) => ({
-        ...prev,
-        [leadId]: { status: isValid ? "valid" : "invalid", message: (isValid ? "✅ Disponible" : "❌ Non disponible") + note },
-      }))
-      setRefresh((p) => p + 1)
-    } catch (e: any) {
-      setEmailVerifyResults((prev) => ({ ...prev, [leadId]: { status: "error", message: e.message || "Erreur de vérification" } }))
-    } finally {
-      setVerifyingEmailId(null)
-    }
-  }
-
-  // Génère l'email d'un lead depuis le patterne de sa société (sans vérif, sans envoi Silver)
-  // Affichage EN PLACE : pas de rechargement de page.
-  // Logique de vérif d'un bouton "Vérifier email" desktop (réutilisée par le drawCallback et après génération)
-  const runDesktopVerify = async (btn: HTMLElement) => {
-    const leadId = Number(btn.dataset.id)
-    if (!Number.isFinite(leadId)) return
-    btn.textContent = "Vérification..."
-    btn.style.opacity = "0.6"
-    btn.setAttribute("disabled", "true")
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging/verify/${leadId}`, { method: "POST" })
-      const data = await res.json()
-      const isValid = data.statu === "disponible"
-      const color = isValid ? "#86efac" : "#fda4af"
-      btn.textContent = isValid ? "✅ Disponible" : "❌ Non disponible"
-      btn.style.borderColor = isValid ? "rgba(34,197,94,0.4)" : "rgba(244,63,94,0.4)"
-      btn.style.color = color
-      btn.style.background = isValid ? "rgba(34,197,94,0.1)" : "rgba(244,63,94,0.1)"
-      if (data.regenerated && data.email) btn.title = `Email généré : ${data.email}`
-      const tr = btn.closest("tr")
-      if (data.email) {
-        const pill = tr?.querySelector(".dt-email-pill") as HTMLElement | null
-        if (pill && pill.textContent !== data.email) pill.textContent = data.email
-      }
-      const table = tr?.closest("table")
-      let statuIdx = -1
-      table?.querySelectorAll("thead th").forEach((th, i) => {
-        if ((th.textContent || "").trim().toLowerCase().startsWith("statut")) statuIdx = i
-      })
-      const cell = statuIdx >= 0 ? (tr?.children[statuIdx] as HTMLElement | undefined) : undefined
-      if (cell) {
-        const v = isValid ? "disponible" : "non disponible"
-        const bgc = isValid ? "rgba(34,197,94,0.1)" : "rgba(244,63,94,0.1)"
-        const bd = isValid ? "rgba(34,197,94,0.3)" : "rgba(244,63,94,0.3)"
-        cell.innerHTML = `<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;color:${color};background:${bgc};border:1px solid ${bd};white-space:nowrap;">${v}</span>`
-      }
-    } catch {
-      btn.textContent = "❌ Erreur"
-      btn.style.color = "#fda4af"
-    } finally {
-      btn.style.opacity = "1"
-      btn.removeAttribute("disabled")
-    }
-  }
-
-  // Crée le bouton "Vérifier email" (desktop) prêt à l'emploi
-  const makeVerifyBtn = (leadId: number): HTMLButtonElement => {
-    const b = document.createElement("button")
-    b.className = "dt-verify-email-btn"
-    b.dataset.id = String(leadId)
-    b.dataset.vl = "1"
-    b.textContent = "Vérifier email"
-    b.setAttribute("style", "display:block;margin-top:4px;padding:2px 8px;border-radius:5px;border:1px solid rgba(129,140,248,0.3);color:#a5b4fc;background:rgba(129,140,248,0.1);cursor:pointer;font-size:10px;font-weight:600;width:100%;text-align:center;")
-    b.addEventListener("click", (e) => { e.stopPropagation(); runDesktopVerify(b) })
-    return b
-  }
-
-  const handleGenerateEmail = async (leadId: number) => {
-    setError(null)
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging/generate/${leadId}`, { method: "POST" })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || `Erreur serveur : ${res.status}`)
-      if (data.error) {
-        setError(data.error === "societe_inconnue"
-          ? "Société inconnue : impossible de générer l'email."
-          : "Génération impossible (prénom/nom manquant ou patterne invalide).")
-        return
-      }
-      const email = String(data.email || "")
-      // Vue mobile (React) : override local
-      setGeneratedEmails((prev) => ({ ...prev, [leadId]: email }))
-      // Vue desktop (DataTable) : maj DOM en place de la pastille
-      const pill = document.querySelector(`.dt-email-pill[data-id="${leadId}"]`) as HTMLElement | null
-      if (pill) {
-        pill.textContent = email
-        // L'email existe désormais -> texte simple, plus de pastille encadrée
-        pill.style.border = "none"
-        pill.style.background = "transparent"
-        pill.style.padding = "0"
-        pill.style.color = "#e2e8f0"
-        pill.style.opacity = "1"
-        pill.style.cursor = ""
-        pill.classList.remove("dt-generate-email")
-        pill.removeAttribute("title")
-        // Injecter le bouton "Vérifier email" (comme si la cellule avait été rendue avec un email)
-        const cellDiv = pill.parentElement
-        if (email && isVerifiableView && cellDiv && !cellDiv.querySelector(".dt-verify-email-btn")) {
-          cellDiv.appendChild(makeVerifyBtn(leadId))
-        }
-      }
-    } catch (e: any) {
-      setError(e?.message || "Erreur lors de la génération de l'email")
-    }
-  }
-
-  // Vérification groupée : lance un job en arrière-plan et suit la progression.
-  const handleBulkVerifyEmails = async () => {
-    const ids = Array.from(selectedLeadIds)
-    console.log(ids);
-    
-    if (ids.length === 0) return
-    setSendingBulkVerify(true)
-    setError(null)
-    setCleanResult(null)
-    setBulkProgress({ done: 0, total: ids.length, disponible: 0, non_disponible: 0 })
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging/verify-bulk`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json?.detail || `Erreur serveur : ${res.status}`)
-      const jobId = json?.job_id
-      const total = Number(json?.total ?? ids.length)
-      if (!jobId) throw new Error("Job non démarré")
-
-      // Poll de progression toutes les 1,5 s
-      const final = await new Promise<any>((resolve) => {
-        const iv = setInterval(async () => {
-          try {
-            const r = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging/verify-status/${jobId}`)
-            const s = await r.json()
-            setBulkProgress({
-              done: Number(s?.done ?? 0),
-              total: Number(s?.total ?? total),
-              disponible: Number(s?.disponible ?? 0),
-              non_disponible: Number(s?.non_disponible ?? 0),
-            })
-            if (s?.status === "done" || s?.status === "unknown") {
-              clearInterval(iv)
-              resolve(s)
-            }
-          } catch {
-            // on retente au prochain tick
-          }
-        }, 1500)
-      })
-
-      setCleanResult({ message: `✅ Vérification terminée : ${final?.disponible ?? 0} disponible(s), ${final?.non_disponible ?? 0} non disponible(s) sur ${final?.total ?? total}` })
-      setRefresh((p) => p + 1)
-      clearSelection()
-    } catch (e: any) {
-      setError(e?.message || "Erreur lors de la vérification en masse")
-    } finally {
-      setSendingBulkVerify(false)
-      setBulkProgress(null)
-    }
-  }
-
   // DataTables ne re-render pas automatiquement les cellules "render" sur changement d'état React.
   // On synchronise donc les checkbox visibles avec selectedLeadIds.
   useEffect(() => {
@@ -479,88 +215,133 @@ export default function SteagingAppliquePage() {
     })
   }, [selectedLeadIds, shouldUseDataTable, isSelectableList])
 
-  useEffect(() => {
-    if (!shouldUseDataTable) return
-    if (!isSteagingApplique) return
-    const nodes = document.querySelectorAll<HTMLElement>(".dt-email-pill")
-    nodes.forEach((el) => {
-      const socRaw = decodeURIComponent(el.dataset.soc || "")
-      const soc = societeExactKey(socRaw)
-      const companyExists = soc && societesSet.has(soc)
-      const txt = (el.textContent || "").trim()
-      const hasEmail = txt !== "" && txt !== "Email manquant" && txt !== "Email générable"
-
-      // 3 états : email présent -> texte simple ; manquant mais générable -> pastille
-      // verte cliquable ; manquant non générable -> pastille rouge.
-      if (hasEmail) {
-        el.style.border = "none"
-        el.style.background = "transparent"
-        el.style.padding = "0"
-        el.style.color = "#e2e8f0"
-        el.classList.remove("dt-generate-email")
-        el.style.cursor = ""
-        el.removeAttribute("title")
-      } else if (companyExists) {
-        el.style.border = "1px solid rgba(34,197,94,0.55)"
-        el.style.background = "rgba(34,197,94,0.10)"
-        el.style.padding = "4px 8px"
-        el.style.color = "#86efac"
-        el.textContent = "Email générable"
-        // rendre la pastille cliquable pour générer l'email
-        el.classList.add("dt-generate-email")
-        el.style.cursor = "pointer"
-        el.title = "Cliquer pour générer l'email depuis le patterne"
-      } else {
-        el.style.border = "1px solid rgba(244,63,94,0.55)"
-        el.style.background = "rgba(244,63,94,0.10)"
-        el.style.padding = "4px 8px"
-        el.style.color = "#fda4af"
-        el.textContent = "Email manquant"
-        el.classList.remove("dt-generate-email")
-        el.style.cursor = ""
-        el.removeAttribute("title")
-      }
-    })
-  }, [societesSet, shouldUseDataTable, isSteagingApplique])
-
-  const handleRemoveDuplicates = async () => {
-    setRemovingDuplicates(true)
+  const handleToGold = async (leadId: number) => {
     setError(null)
     setCleanResult(null)
-    setMobileMenuOpen(false)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/supprimer-doublons`, {
-        method: "POST",
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/togold/${leadId}`, {
+        method: "GET",
         headers: { "Content-Type": "application/json" },
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || `Erreur serveur : ${res.status}`)
-      setCleanResult(data)
+      setCleanResult({ message: data.message || "Lead promu en GOLD avec succès !" })
+      setRefresh((prev) => prev + 1)
+    } catch (err: any) {
+      let message = err.message.substring(err.message.lastIndexOf(":") + 1)
+      setError(message)
+    }
+  }
+
+  const handleBulkVerifyEmails = async () => {
+    const ids = Array.from(selectedLeadIds)
+    if (ids.length === 0) return
+   const emails = (data as any[])
+  .filter((d: any) => ids.includes(Number(d.id)) && d.email && (d.statu === "" || !d.statu))
+  .map((d: any) => String(d.email))
+
+    if (emails.length === 0) return
+    setSendingBulkVerify(true)
+    setError(null)
+    try {
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/send/bulk`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(emails),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.detail || `Erreur serveur : ${res.status}`)
+      setCleanResult({ message: json?.message || `✅ ${emails.length} emails vérifiés` })
+      setRefresh((p) => p + 1)
+    } catch (e: any) {
+      setError(e?.message || "Erreur lors de la vérification en masse")
+    } finally {
+      setSendingBulkVerify(false)
+    }
+  }
+
+  const handleVerifyEmail = async (leadId: number, emailAddr: string) => {
+    if (!emailAddr) return
+    setVerifyingEmailId(leadId)
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/send/${encodeURIComponent(emailAddr)}`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || `Erreur serveur : ${res.status}`)
+      const isValid = Number(data.code) === 250
+      setEmailVerifyResults((prev) => ({
+        ...prev,
+        [leadId]: { status: isValid ? "valid" : "invalid", message: data.status || (isValid ? "✅ Email livré" : "❌ Email introuvable") },
+      }))
+    } catch (e: any) {
+      setEmailVerifyResults((prev) => ({ ...prev, [leadId]: { status: "error", message: e.message || "Erreur de vérification" } }))
+    } finally {
+      setVerifyingEmailId(null)
+    }
+  }
+
+  const handleVerifyEmailRef = useRef(handleVerifyEmail)
+  useEffect(() => { handleVerifyEmailRef.current = handleVerifyEmail })
+  useEffect(() => { emailVerifyResultsRef.current = emailVerifyResults }, [emailVerifyResults])
+
+  const handleReformulerLocalisation = async () => {
+    setReformulatingLocation(true)
+    setError(null)
+    setCleanResult(null)
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/location/${leads}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || `Erreur serveur : ${res.status}`)
+      setCleanResult({ message: data.message || "Localisation reformulée avec succès !" })
       setRefresh((prev) => prev + 1)
     } catch (err: any) {
       setError(err.message)
     } finally {
-      setRemovingDuplicates(false)
+      setReformulatingLocation(false)
     }
   }
 
-  const handelclick = async (type: string, leadId: number) => {
-    setstat(type)
+  // Export : uniquement les leads à 100%. La complétion étant calculée ici,
+  // c'est le front qui envoie la sélection au backend.
+  const exportLeads = async (format: "csv" | "xlsx") => {
+    setMobileMenuOpen(false)
     setError(null)
+    const ids = mergedData.filter((l: any) => l.completion === 100).map((l: any) => l.id)
+    if (ids.length === 0) {
+      setError("Aucun lead complété à 100% à exporter.")
+      return
+    }
+    setExporting(true)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/toblack/${leadId}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/leads/export-${format}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(type),
+        body: JSON.stringify({ ids }),
       })
-      if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`)
-      setOpenMenu(null)
-      setRefresh((prev) => prev + 1)
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null)
+        throw new Error(payload?.detail || `Erreur serveur : ${res.status}`)
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `leads-100-pourcent.${format}`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
     } catch (err: any) {
       setError(err.message)
-      setstat(null)
+    } finally {
+      setExporting(false)
     }
   }
+  const downloadCSV = () => exportLeads("csv")
+  const downloadXlsx = () => exportLeads("xlsx")
 
   const badgeConfig: Record<string, { label: string; color: string; bg: string }> = {
     import: { label: "RAW", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
@@ -575,10 +356,9 @@ export default function SteagingAppliquePage() {
   // Composant Carte mobile
   const MobileCard = ({ lead, index }: { lead: any; index: number }) => {
     const isExpanded = expandedCard === index
+    // (plus de boutons d'action par lead : le passage en Gold est automatique)
     const id = Number(lead?.id)
     const isSelected = Number.isFinite(id) && selectedLeadIds.has(id)
-    // email affiché = email généré en place s'il existe, sinon celui du lead
-    const displayEmail = generatedEmails[id] ?? lead.email
 
     return (
       <div
@@ -621,48 +401,24 @@ export default function SteagingAppliquePage() {
           </div>
 
           <div className="space-y-2">
-            {(displayEmail || isSteagingApplique) && (
+            {lead.email && (
               <div
-                className={`flex items-center gap-2 text-sm rounded-lg ${displayEmail ? "" : "px-2 py-1.5"}`}
+                className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-lg"
                 style={{
-                  // 3 états : email présent -> texte simple ; manquant mais générable -> vert ; manquant -> rouge
-                  border: displayEmail
-                    ? "none"
-                    : societesSet.has(societeExactKey(lead?.societe))
-                      ? "1px solid rgba(34,197,94,0.55)"
-                      : "1px solid rgba(244,63,94,0.55)",
-                  background: displayEmail
-                    ? "transparent"
-                    : societesSet.has(societeExactKey(lead?.societe))
-                      ? "rgba(34,197,94,0.10)"
-                      : "rgba(244,63,94,0.10)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "transparent",
                 }}
               >
                 <Mail size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
-                {displayEmail ? (
-                  <a href={`mailto:${displayEmail}`} className="text-blue-400 text-xs truncate flex-1 min-w-0">
-                    {displayEmail}
-                  </a>
-                ) : isSteagingApplique && societesSet.has(societeExactKey(lead?.societe)) ? (
-                  <button
-                    onClick={() => handleGenerateEmail(Number(lead.id))}
-                    title="Générer l'email depuis le patterne"
-                    className="text-xs truncate flex-1 min-w-0 text-left underline decoration-dotted"
-                    style={{ color: "#86efac" }}
-                  >
-                    Email générable
-                  </button>
-                ) : (
-                  <span className="text-xs truncate flex-1 min-w-0" style={{ color: "rgba(255,255,255,0.45)" }}>
-                    Email manquant
-                  </span>
-                )}
+                <a href={`mailto:${lead.email}`} className="text-blue-400 text-xs truncate flex-1 min-w-0">
+                  {lead.email}
+                </a>
               </div>
             )}
-            {isVerifiableView && displayEmail && (
+            {isVerifiableView && lead.email && (
               <div>
                 <button
-                  onClick={() => handleVerifyEmail(Number(lead.id))}
+                  onClick={() => handleVerifyEmail(Number(lead.id), lead.email)}
                   disabled={verifyingEmailId === Number(lead.id)}
                   className="w-full text-xs font-semibold px-2 py-1.5 rounded-lg disabled:opacity-40"
                   style={{ background: "rgba(129,140,248,0.12)", border: "1px solid rgba(129,140,248,0.25)", color: "#a5b4fc" }}
@@ -712,6 +468,8 @@ export default function SteagingAppliquePage() {
               {new Date(lead.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
             </div>
           )}
+
+          {/* Plus de promotion manuelle vers Gold : le niveau se déduit de la complétion (100% = Gold). */}
         </div>
       </div>
     )
@@ -719,9 +477,25 @@ export default function SteagingAppliquePage() {
 
   // Configuration DataTable (inchangée)
   const searchableCols = new Set(["nom", "prenom", "email", "fonction", "societe", "telephone", "linkedin", "location", "statu", "eliminer", "created_at"])
+  const escapeHtml = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+
+  // Cellule éditable : remplir un champ fait monter la complétion, le vider la fait baisser.
+  const editableCell = (field: string, title: string) => ({
+    data: field,
+    title,
+    defaultContent: "",
+    render: (val: any, type: string, row: any) => {
+      if (type === "sort" || type === "type" || type === "filter") return val ?? ""
+      const id = Number(row?.id)
+      const value = val == null ? "" : String(val)
+      return `<span class="dt-edit" contenteditable="true" spellcheck="false" data-id="${id}" data-field="${field}" data-original="${encodeURIComponent(value)}" style="display:block;min-width:80px;min-height:20px;outline:none;color:#e2e8f0;">${escapeHtml(value)}</span>`
+    },
+  })
+
   const baseColumns = [
-    { data: "nom", title: "Nom", defaultContent: "" },
-    { data: "prenom", title: "Prénom", defaultContent: "" },
+    editableCell("nom", "Nom"),
+    editableCell("prenom", "Prénom"),
     {
       data: "email",
       title: "Email",
@@ -729,42 +503,25 @@ export default function SteagingAppliquePage() {
       render: (val: string, _t: any, row: any) => {
         const id = Number(row?.id)
         const socRaw = String(row?.societe ?? "")
-        const soc = societeExactKey(socRaw)
-        const companyExists = isSteagingApplique && soc && societesSet.has(soc)
+        const companyExists = false
+        const border = companyExists ? "1px solid rgba(34,197,94,0.55)" : "1px solid rgba(255,255,255,0.08)"
+        const bg = companyExists ? "rgba(34,197,94,0.10)" : "transparent"
+        const color = companyExists ? "#86efac" : "#e2e8f0"
         const value = val ? String(val) : ""
-        const hasEmail = !!value
-        // 3 états : email présent -> texte simple ; manquant mais générable -> pastille verte ;
-        // manquant non générable -> pastille rouge. Seuls les états "manquant" sont
-        // encadrés : ce sont des badges de statut (et le vert est cliquable).
-        const border = hasEmail
-          ? "none"
-          : companyExists ? "1px solid rgba(34,197,94,0.55)" : "1px solid rgba(244,63,94,0.55)"
-        const bg = hasEmail
-          ? "transparent"
-          : companyExists ? "rgba(34,197,94,0.10)" : "rgba(244,63,94,0.10)"
-        const color = hasEmail
-          ? "#e2e8f0"
-          : companyExists ? "#86efac" : "#fda4af"
-        const padding = hasEmail ? "0" : "4px 8px"
-        const text = value ? value : (companyExists ? "Email générable" : "Email manquant")
+        const text = value ? value : ""
         const opacity = value ? 1 : 0.55
-        // "Email générable" -> pastille cliquable qui génère l'email depuis le patterne
-        const generable = !value && companyExists
-        const genCls = generable ? " dt-generate-email" : ""
-        const genStyle = generable ? "cursor:pointer;" : ""
-        const genTitle = generable ? ' title="Cliquer pour générer l\'email depuis le patterne"' : ""
-        const pill = `<span class="dt-email-pill${genCls}" data-soc="${encodeURIComponent(socRaw)}" data-id="${id}"${genTitle} style="display:block;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:${padding};border-radius:8px;border:${border};background:${bg};color:${color};opacity:${opacity};${genStyle}">${text || ""}</span>`
+        const pill = `<span class="dt-email-pill dt-edit" contenteditable="true" spellcheck="false" data-soc="${encodeURIComponent(socRaw)}" data-id="${id}" data-field="email" data-original="${encodeURIComponent(value)}" style="display:block;min-width:120px;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;border-radius:8px;border:${border};background:${bg};color:${color};opacity:${opacity};outline:none;">${escapeHtml(text)}</span>`
         const verifyBtn = isVerifiableView && value
           ? `<button data-id="${id}" data-type="verify-email" data-email="${encodeURIComponent(value)}" class="dt-verify-email-btn" style="display:block;margin-top:4px;padding:2px 8px;border-radius:5px;border:1px solid rgba(129,140,248,0.3);color:#a5b4fc;background:rgba(129,140,248,0.1);cursor:pointer;font-size:10px;font-weight:600;width:100%;text-align:center;">Vérifier email</button>`
           : ""
         return `<div>${pill}${verifyBtn}</div>`
       },
     },
-    { data: "fonction", title: "Fonction", defaultContent: "" },
-    { data: "societe", title: "Société", defaultContent: "" },
-    { data: "telephone", title: "Téléphone", defaultContent: "" },
-    { data: "linkedin", title: "LinkedIn", defaultContent: "", render: (val: string) => val ? `<a href="${val}" target="_blank" rel="noopener noreferrer" style="color:#818cf8;text-decoration:underline;">LinkedIn</a>` : "" },
-    { data: "location", title: "Location", defaultContent: "" },
+    editableCell("fonction", "Fonction"),
+    editableCell("societe", "Société"),
+    editableCell("telephone", "Téléphone"),
+    editableCell("linkedin", "LinkedIn"),
+    editableCell("location", "Location"),
     {
       data: "statu",
       title: "Statut",
@@ -788,16 +545,29 @@ export default function SteagingAppliquePage() {
     width: "34px",
     render: (_: any, _t: any, row: any) => {
       const id = Number(row?.id)
-      const checked = Number.isFinite(id) && selectedLeadIdsRef.current.has(id)
+      const checked = Number.isFinite(id) && selectedLeadIds.has(id)
       return `<input type="checkbox" class="dt-select-row" data-id="${id}" ${checked ? "checked" : ""} style="width:14px;height:14px;accent-color:#818cf8;cursor:pointer;" />`
     },
   }
+  // Complétion : part des 8 champs renseignés. 100% => Gold.
+  const completionColumn = {
+    data: "completion",
+    title: "Complétion",
+    render: (val: any, type: string) => {
+      const pct = Math.max(0, Math.min(100, Number(val) || 0))
+      if (type === "sort" || type === "type") return pct
+      // Doré à 100%, sinon du rouge au vert selon la complétion
+      const color = pct === 100 ? "#fcd34d" : pct >= 75 ? "#86efac" : pct >= 50 ? "#fcd34d" : "#fda4af"
+      return `<div style="display:flex;align-items:center;gap:6px;min-width:110px;">
+        <div style="flex:1;height:6px;border-radius:99px;background:rgba(255,255,255,0.08);overflow:hidden;">
+          <div style="width:${pct}%;height:100%;background:${color};border-radius:99px;"></div>
+        </div>
+        <span style="font-size:11px;font-weight:600;color:${color};min-width:32px;text-align:right;">${pct}%</span>
+      </div>`
+    },
+  }
   const dateColumn = { data: "created_at", title: "Date", render: (val: string, type: string) => (type === "sort" || type === "type") ? (val ? new Date(val).getTime() : 0) : (val ? new Date(val).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "") }
-  const columns = [
-    selectColumn,
-    ...baseColumns,
-    dateColumn,
-  ]
+  const columns = [selectColumn, ...baseColumns, completionColumn, dateColumn]
 
   const injectSearchIcons = (api: any, activeColumns: any[], activeSearchableCols: Set<string>, dateField: string) => {
     api.columns().every(function (this: any, index: number) {
@@ -847,17 +617,51 @@ export default function SteagingAppliquePage() {
       }
       return
     }
-    const genPill = (e.target as HTMLElement).closest(".dt-generate-email") as HTMLElement | null
-    if (genPill) {
-      const id = Number(genPill.dataset.id)
-      if (Number.isFinite(id)) handleGenerateEmail(id)
-      return
-    }
     const btn = (e.target as HTMLElement).closest(".dt-action-btn") as HTMLElement | null
     if (!btn) return
     const id = Number(btn.dataset.id)
     const type = btn.dataset.type!
-    handelclick(type, id)
+    if (type === "to-gold") handleToGold(id)
+    else if (type === "verify-email") handleVerifyEmail(id, decodeURIComponent(btn.dataset.email || ""))
+  }
+
+  // Édition inline : à la sortie du champ, on enregistre et on récupère la
+  // nouvelle complétion (remplir => %, vider => %).
+  const handleTableBlur = async (e: React.FocusEvent<HTMLDivElement>) => {
+    const el = (e.target as HTMLElement).closest(".dt-edit") as HTMLElement | null
+    if (!el) return
+    const id = Number(el.dataset.id)
+    const field = el.dataset.field
+    if (!Number.isFinite(id) || !field) return
+
+    const original = decodeURIComponent(el.dataset.original || "")
+    const next = (el.textContent || "").trim()
+    if (next === original.trim()) return
+
+    setError(null)
+    setSavingCell(true)
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/leads/${id}/field`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ field, value: next }),
+      })
+      const payload = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(payload?.detail || `Erreur serveur : ${res.status}`)
+
+      el.dataset.original = encodeURIComponent(payload?.value ?? "")
+      // On ne garde que la valeur : le pourcentage est recalculé côté front.
+      setEdits((prev) => ({
+        ...prev,
+        [id]: { ...(prev[id] || {}), [field]: payload?.value ?? null },
+      }))
+    } catch (err: any) {
+      // Échec -> on restaure la valeur précédente pour ne pas mentir à l'écran
+      el.textContent = original
+      setError(err.message)
+    } finally {
+      setSavingCell(false)
+    }
   }
 
   return (
@@ -882,39 +686,8 @@ export default function SteagingAppliquePage() {
             <div className="hidden md:flex gap-2">
               {isSelectableList && (
                 <>
-                  <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                    <span className="text-[11px] font-semibold" style={{ color: "rgba(255,255,255,0.55)" }}>
-                      Sélection: <span className="text-white">{selectedLeadIds.size}</span>
-                    </span>
-                  </div>
-                  {isSteagingApplique && (
-                    <button
-                      onClick={selectAllGreenLeads}
-                      disabled={(data?.length || 0) === 0}
-                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
-                      style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.30)", color: "#86efac" }}
-                    >
-                      Sélectionner verts
-                    </button>
-                  )}
-                  <button
-                    onClick={() => (selectedLeadIds.size === (data?.length || 0) ? clearSelection() : selectAllLeads())}
-                    disabled={(data?.length || 0) === 0}
-                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
-                    style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}
-                  >
-                    {selectedLeadIds.size === (data?.length || 0) ? "Tout désélectionner" : "Tout sélectionner"}
-                  </button>
-                  {isSteagingApplique && (
-                    <button
-                      onClick={sendSelectedToSilver}
-                      disabled={selectedLeadIds.size === 0 || sendingToSilver}
-                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
-                      style={{ background: "rgba(148,163,184,0.12)", border: "1px solid rgba(148,163,184,0.28)", color: "#e2e8f0" }}
-                    >
-                      {sendingToSilver ? "Envoi..." : "Envoyer à Lead"}
-                    </button>
-                  )}
+                 
+                 
                   {isVerifiableView && (
                     <button
                       onClick={handleBulkVerifyEmails}
@@ -927,6 +700,21 @@ export default function SteagingAppliquePage() {
                   )}
                 </>
               )}
+              <button
+                onClick={() => setGoldOnly((v) => !v)}
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
+                style={
+                  goldOnly
+                    ? { background: "rgba(245,158,11,0.2)", border: "1px solid rgba(245,158,11,0.5)", color: "#fcd34d" }
+                    : { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.6)" }
+                }
+                title="N'afficher que les leads complétés à 100%"
+              >
+                ★ {goldOnly ? "Gold uniquement" : `Gold (${goldCount})`}
+              </button>
+              <button onClick={handleReformulerLocalisation} disabled={reformulatingLocation} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}><MapPin size={13} />{reformulatingLocation ? "Reformulation..." : "Reformuler localisation"}</button>
+              <button onClick={downloadCSV} disabled={exporting || goldCount === 0} title={`Exporte uniquement les ${goldCount} lead(s) à 100%`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={13} />CSV ({goldCount})</button>
+              <button onClick={downloadXlsx} disabled={exporting || goldCount === 0} title={`Exporte uniquement les ${goldCount} lead(s) à 100%`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={13} />XLSX ({goldCount})</button>
             </div>
           </div>
         </div>
@@ -944,23 +732,14 @@ export default function SteagingAppliquePage() {
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
         <div className="md:hidden px-3 py-2 flex flex-col gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.2)" }}>
+          <button onClick={downloadCSV} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={14} />Télécharger CSV</button>
+          <button onClick={downloadXlsx} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={14} />Télécharger XLSX</button>
           <button onClick={() => { setRefresh((p) => p + 1); setMobileMenuOpen(false); }} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}><RefreshCw size={14} />Actualiser</button>
         </div>
       )}
 
       {/* Messages d'erreur / succès (inchangés) */}
       {err && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#fda4af" }}>❌ {err}</div>}
-      {bulkProgress && (
-        <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(129,140,248,0.08)", border: "1px solid rgba(129,140,248,0.25)", color: "#a5b4fc" }}>
-          <div className="flex items-center justify-between mb-1.5">
-            <span>Vérification des emails… {bulkProgress.done}/{bulkProgress.total}</span>
-            <span className="text-white/50">✅ {bulkProgress.disponible} · ❌ {bulkProgress.non_disponible}</span>
-          </div>
-          <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
-            <div className="h-full transition-all duration-300" style={{ width: `${bulkProgress.total ? Math.round((bulkProgress.done / bulkProgress.total) * 100) : 0}%`, background: "#818cf8" }} />
-          </div>
-        </div>
-      )}
       {cleanResult && cleanResult.message && !cleanResult.moved_to_gold && !cleanResult.total_deleted && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>✅ {cleanResult.message}</div>}
       {cleanResult && cleanResult.total_deleted !== undefined && (<div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)", color: "#fda4af" }}><p className="font-semibold mb-2">🗑️ Suppression des doublons terminée</p><div className="grid grid-cols-2 sm:grid-cols-5 gap-2">{[
         { label: "Total", val: cleanResult.total_deleted, icon: "🔢" },
@@ -1035,7 +814,7 @@ export default function SteagingAppliquePage() {
                 )}
               </div>
             ) : (
-              <div onClick={handleTableClick} className="w-full overflow-x-auto">
+              <div onClick={handleTableClick} onBlur={handleTableBlur} className="w-full overflow-x-auto">
                 <DTableComponent
                   key={`${String(leads)}-${refresh}`}
                   data={data}
@@ -1051,10 +830,35 @@ export default function SteagingAppliquePage() {
                       if (!isMobile) injectSearchIcons(api, columns, searchableCols, "created_at")
                     },
                     drawCallback: function () {
-                      // Attacher les listeners sur les boutons vérifier (logique partagée)
+                      // Attacher les listeners sur les boutons vérifier
                       document.querySelectorAll<HTMLElement>(".dt-verify-email-btn:not([data-vl])").forEach((btn) => {
                         btn.dataset.vl = "1"
-                        btn.addEventListener("click", (e) => { e.stopPropagation(); runDesktopVerify(btn) })
+                        btn.addEventListener("click", async (e) => {
+                          e.stopPropagation()
+                          const leadId = Number(btn.dataset.id)
+                          const emailAddr = decodeURIComponent(btn.dataset.email || "")
+                          if (!emailAddr) return
+                          btn.textContent = "Vérification..."
+                          btn.style.opacity = "0.6"
+                          btn.setAttribute("disabled", "true")
+                          try {
+                            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/send/${encodeURIComponent(emailAddr)}`)
+                            const data = await res.json()
+                            const isValid = Number(data.code) === 250
+                            const color = isValid ? "#86efac" : "#fda4af"
+                            btn.textContent = isValid ? "✅ Vérifié" : "❌ Introuvable"
+                            btn.style.borderColor = isValid ? "rgba(34,197,94,0.4)" : "rgba(244,63,94,0.4)"
+                            btn.style.color = color
+                            btn.style.background = isValid ? "rgba(34,197,94,0.1)" : "rgba(244,63,94,0.1)"
+                            setEmailVerifyResults((prev) => ({ ...prev, [leadId]: { status: isValid ? "valid" : "invalid", message: data.status || "" } }))
+                          } catch (err: any) {
+                            btn.textContent = "❌ Erreur"
+                            btn.style.color = "#fda4af"
+                          } finally {
+                            btn.style.opacity = "1"
+                            btn.removeAttribute("disabled")
+                          }
+                        })
                       })
                     },
                     language: { processing: "Traitement en cours...", search: "Rechercher :", lengthMenu: "Afficher _MENU_", info: "_START_ à _END_ sur _TOTAL_", infoEmpty: "0 à 0 sur 0", infoFiltered: "(filtré de _MAX_)", loadingRecords: "Chargement...", zeroRecords: "Aucun élément", emptyTable: "Aucune donnée", paginate: { first: "«", previous: "‹", next: "›", last: "»" } }

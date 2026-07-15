@@ -1,26 +1,16 @@
 "use client"
 import { useState, useEffect } from "react"
 import { openApi } from "@/lib/api"
-import { Plus, Trash2, Edit, X, Mail, ShieldCheck, Calendar, AlertTriangle, Clipboard } from "lucide-react"
+import { Plus, Trash2, X, AlertTriangle, Clipboard } from "lucide-react"
 import { deleteUser, getAllUsers } from "@/api/user-actions" 
 import SignUpForm from "../sign-up/page"
 import { useUser } from "@clerk/nextjs"
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState("rules")
+  const [activeTab, setActiveTab] = useState("users")
   const { user, isLoaded } = useUser()
   const userRole = ((user?.publicMetadata?.role as string) || "agent").toLowerCase()
   const isManager = userRole === "manager"
-
-  // ---------------- STATE RULES ----------------
-  const [rules, setRules] = useState<any[]>([])
-  const [isAddRuleModalOpen, setIsAddRuleModalOpen] = useState(false)
-  const [newRuleForm, setNewRuleForm] = useState({ name: "", key: "", description: "" })
-  const [addRuleLoading, setAddRuleLoading] = useState(false)
-  const [addRuleError, setAddRuleError] = useState<string | null>(null)
-  const [editingRule, setEditingRule] = useState<number | null>(null)
-  const [editForm, setEditForm] = useState({ name: "", key: "", description: "" })
-  const [ruleToDelete, setRuleToDelete] = useState<number | null>(null)
 
   // ---------------- STATE USERS ----------------
   const [users, setUsers] = useState<any[]>([]) 
@@ -38,24 +28,7 @@ const [newTokenName, setNewTokenName] = useState("")
 const [token, setToken] = useState<string>("")
 const [tokenToDelete, setTokenToDelete] = useState<string | null>(null)
 
-  // ---------------- STATE EMAIL PATTERN ----------------
-  const [emailPattern, setEmailPattern] = useState<string>("{prenom}.{nom}@{domaine}.{extension}")
-  const [loadingEmailPattern, setLoadingEmailPattern] = useState(false)
-  const [savingEmailPattern, setSavingEmailPattern] = useState(false)
-  const [emailPatternError, setEmailPatternError] = useState<string | null>(null)
-  const [emailPatternSaved, setEmailPatternSaved] = useState<string | null>(null)
-
   // ---------------- FETCH DATA ----------------
-  const fetchRules = async () => {
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/validation-rules`)
-      const data = await res.json()
-      setRules(data)
-    } catch (err) {
-      console.error("Erreur fetch rules:", err)
-    }
-  }
-
   const fetchUsers = async () => {
     setLoadingUsers(true)
     const result = await getAllUsers()
@@ -66,126 +39,14 @@ const [tokenToDelete, setTokenToDelete] = useState<string | null>(null)
   }
 
   useEffect(() => {
-  if (activeTab === "rules") fetchRules()
   if (activeTab === "users") fetchUsers()
   if (activeTab === "tokens") fetchTokens()
-  if (activeTab === "email-pattern") fetchEmailPattern()
 }, [activeTab])
 
-  const fetchEmailPattern = async () => {
-    setLoadingEmailPattern(true)
-    setEmailPatternError(null)
-    setEmailPatternSaved(null)
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/settings/email-pattern`)
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || `Erreur serveur : ${res.status}`)
-      if (data?.pattern) setEmailPattern(String(data.pattern))
-    } catch (err: any) {
-      setEmailPatternError(err.message || "Erreur récupération pattern")
-    } finally {
-      setLoadingEmailPattern(false)
-    }
-  }
-
-  const saveEmailPattern = async () => {
-    if (!isManager) return
-    setSavingEmailPattern(true)
-    setEmailPatternError(null)
-    setEmailPatternSaved(null)
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/settings/email-pattern`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pattern: emailPattern, is_manager: true }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || `Erreur serveur : ${res.status}`)
-      setEmailPatternSaved("✅ Pattern enregistré")
-      if (data?.pattern) setEmailPattern(String(data.pattern))
-    } catch (err: any) {
-      setEmailPatternError(err.message || "Erreur enregistrement pattern")
-    } finally {
-      setSavingEmailPattern(false)
-    }
-  }
-
-  // ---------------- CRUD RULES ----------------
-  const addRule = async () => {
-    if (!newRuleForm.name.trim()) {
-      setAddRuleError("Le nom de la règle est obligatoire")
-      return
-    }
-    if (!newRuleForm.key.trim()) {
-      setAddRuleError("La clé est obligatoire")
-      return
-    }
-
-    setAddRuleLoading(true)
-    setAddRuleError(null)
-
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/validation-rules`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newRuleForm)
-      })
-
-      if (res.ok) {
-        await fetchRules()
-        setIsAddRuleModalOpen(false)
-        setNewRuleForm({ name: "", key: "", description: "" })
-      } else {
-        const error = await res.json()
-        setAddRuleError(error.message || "Erreur lors de l'ajout de la règle")
-      }
-    } catch (err) {
-      console.error("Erreur ajout règle:", err)
-      setAddRuleError("Erreur de connexion au serveur")
-    } finally {
-      setAddRuleLoading(false)
-    }
-  }
-
-  const startEdit = (rule: any) => {
-    setEditingRule(rule.id)
-    setEditForm({ name: rule.name, key: rule.key, description: rule.description || "" })
-  }
-
-  const updateRule = async (ruleId: number) => {
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/validation-rules/${ruleId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editForm)
-      })
-      
-      if (res.ok) {
-        setEditingRule(null)
-        await fetchRules()
-      }
-    } catch (err) {
-      console.error('Erreur mise à jour:', err)
-    }
-  }
-
-  const deleteRule = async (ruleId: number) => {
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/validation-rules/${ruleId}`, {
-        method: 'DELETE'
-      })
-      await fetchRules()
-    } catch (err) {
-      console.error('Erreur suppression:', err)
-    }
-    setRuleToDelete(null)
-  }
-
   const tabs = [
-    { id: "rules", label: "Règles de validation" },
     { id: "users", label: "Utilisateurs" },
     { id: "tokens", label: "Tokens" },
-    ...(isManager ? [{ id: "email-pattern", label: "Pattern email" }, { id: "export", label: "Export base" }] : []),
+    ...(isManager ? [{ id: "export", label: "Export base" }] : []),
   ]
 
 
@@ -264,65 +125,6 @@ const copyToken = (token: string) => {
         ))}
       </div>
 
-      {/* --- CONTENT : EMAIL PATTERN (MANAGER) --- */}
-      {activeTab === "email-pattern" && isManager && (
-        <div className="animate-in fade-in duration-500">
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h2 className="text-2xl font-bold text-white">Pattern email</h2>
-              <p className="text-sm text-white/40 mt-1">Définir le pattern global utilisé pour compléter les emails</p>
-            </div>
-            <button
-              onClick={fetchEmailPattern}
-              className="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 transition text-sm font-semibold"
-            >
-              Actualiser
-            </button>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 max-w-3xl">
-            <label className="block text-white/60 text-xs font-semibold mb-2 tracking-wider">
-              PATTERN (tokens requis: {"{prenom}"} {"{nom}"} {"{domaine}"} {"{extension}"})
-            </label>
-            <input
-              value={emailPattern}
-              onChange={(e) => setEmailPattern(e.target.value)}
-              disabled={loadingEmailPattern || savingEmailPattern}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:border-indigo-500/50 outline-none transition"
-              placeholder="{prenom}.{nom}@{domaine}.{extension}"
-            />
-
-            <div className="flex flex-col sm:flex-row gap-3 mt-4">
-              <button
-                onClick={saveEmailPattern}
-                disabled={savingEmailPattern || loadingEmailPattern}
-                className={`px-5 py-2.5 rounded-xl text-white font-semibold text-sm transition shadow-lg ${
-                  savingEmailPattern
-                    ? "bg-indigo-500/40 cursor-not-allowed shadow-none"
-                    : "bg-gradient-to-br from-indigo-500 to-indigo-400 shadow-indigo-500/30 hover:shadow-indigo-500/50"
-                }`}
-              >
-                {savingEmailPattern ? "Enregistrement..." : "Enregistrer"}
-              </button>
-              {loadingEmailPattern && (
-                <span className="text-xs text-white/40 flex items-center">Chargement...</span>
-              )}
-            </div>
-
-            {emailPatternError && (
-              <div className="mt-4 bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-xs">
-                {emailPatternError}
-              </div>
-            )}
-            {emailPatternSaved && (
-              <div className="mt-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-emerald-300 text-xs">
-                {emailPatternSaved}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* --- CONTENT : EXPORT BASE (MANAGER) --- */}
       {activeTab === "export" && isManager && (
         <div className="animate-in fade-in duration-500">
@@ -344,237 +146,6 @@ const copyToken = (token: string) => {
               Le fichier contient un CSV par table (séparateur ;).
             </p>
           </div>
-        </div>
-      )}
-
-      {/* --- CONTENT : RULES --- */}
-      {activeTab === "rules" && (
-        <div className="animate-in fade-in duration-500">
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h2 className="text-2xl font-bold text-white">Règles de validation</h2>
-              <p className="text-sm text-white/40 mt-1">Gérez vos règles de nettoyage</p>
-            </div>
-            <button 
-              onClick={() => setIsAddRuleModalOpen(true)} 
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/20"
-            >
-              <Plus size={16} /> Nouvelle règle
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {rules.map((rule) => (
-              <div key={rule.id} className="group p-5 rounded-xl border border-white/10 bg-white/5 transition hover:border-white/20">
-                {editingRule !== rule.id ? (
-                  <>
-                    {/* Contenu de la carte */}
-                    <div className="flex items-start gap-4 mb-4">
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-indigo-500/10 text-indigo-400">
-                        ⚙️
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-white font-semibold">{rule.name}</h3>
-                        <p className="text-xs text-indigo-300 opacity-60">{rule.key}</p>
-                        <p className="text-sm text-white/40 mt-2 line-clamp-2">
-                          {rule.description}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Boutons d'action */}
-<div className="flex justify-end gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-  <button 
-    onClick={() => startEdit(rule)} 
-    className="p-2 rounded-lg bg-white/5 text-indigo-400 hover:bg-indigo-500/20 hover:text-indigo-300 transition-all"
-  >
-    <Edit size={16} />
-  </button>
-  <button 
-    onClick={() => setRuleToDelete(rule.id)} 
-    className="p-2 rounded-lg bg-white/5 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all"
-  >
-    <Trash2 size={16} />
-  </button>
-</div>
-                  </>
-                ) : (
-                  /* Formulaire d'édition */
-                  <div className="space-y-3">
-                    <input
-                      type="text"
-                      value={editForm.name}
-                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:border-indigo-500/50 outline-none"
-                      placeholder="Nom de la règle"
-                    />
-                    <input
-                      type="text"
-                      value={editForm.key}
-                      onChange={(e) => setEditForm({ ...editForm, key: e.target.value })}
-                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:border-indigo-500/50 outline-none"
-                      placeholder="Clé (ex: email_valid)"
-                    />
-                    <textarea
-                      value={editForm.description}
-                      onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:border-indigo-500/50 outline-none resize-none"
-                      placeholder="Description"
-                      rows={3}
-                    />
-                    
-                    <div className="flex gap-2 justify-end">
-                      <button
-                        onClick={() => setEditingRule(null)}
-                        className="px-3 py-1.5 text-sm rounded-lg border border-white/10 text-white/70 hover:bg-white/5 transition"
-                      >
-                        Annuler
-                      </button>
-                      <button
-                        onClick={() => updateRule(rule.id)}
-                        className="px-3 py-1.5 text-sm rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 transition"
-                      >
-                        Enregistrer
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* MODAL AJOUT RÈGLE */}
-          {isAddRuleModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-              <div className="bg-gradient-to-br from-slate-900 to-indigo-950 border border-white/10 p-8 rounded-2xl w-full max-w-md shadow-2xl relative animate-in zoom-in duration-200">
-                <button 
-                  onClick={() => {
-                    setIsAddRuleModalOpen(false)
-                    setNewRuleForm({ name: "", key: "", description: "" })
-                    setAddRuleError(null)
-                  }} 
-                  className="absolute top-4 right-4 text-white/40 hover:text-white transition"
-                >
-                  <X size={20} />
-                </button>
-
-                <div className="text-center mb-6">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-400 flex items-center justify-center mx-auto mb-3 shadow-lg text-xl">
-                    ⚙️
-                  </div>
-                  <h3 className="text-xl font-bold text-white">Nouvelle règle</h3>
-                  <p className="text-sm text-white/50 mt-1">Créer une règle de validation</p>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-white/50 text-xs font-semibold mb-2 tracking-wider">
-                      NOM DE LA RÈGLE *
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Email valide"
-                      value={newRuleForm.name}
-                      onChange={(e) => setNewRuleForm({ ...newRuleForm, name: e.target.value })}
-                      className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:border-indigo-500/50 outline-none transition"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-white/50 text-xs font-semibold mb-2 tracking-wider">
-                      CLÉ UNIQUE *
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="email_valid"
-                      value={newRuleForm.key}
-                      onChange={(e) => setNewRuleForm({ ...newRuleForm, key: e.target.value })}
-                      className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:border-indigo-500/50 outline-none transition"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-white/50 text-xs font-semibold mb-2 tracking-wider">
-                      DESCRIPTION
-                    </label>
-                    <textarea
-                      placeholder="Vérifie que l'email est valide..."
-                      value={newRuleForm.description}
-                      onChange={(e) => setNewRuleForm({ ...newRuleForm, description: e.target.value })}
-                      className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:border-indigo-500/50 outline-none transition resize-none"
-                      rows={3}
-                    />
-                  </div>
-
-                  {addRuleError && (
-                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-2.5 text-red-400 text-xs">
-                      {addRuleError}
-                    </div>
-                  )}
-
-                  <div className="flex gap-3 mt-6">
-                    <button
-                      onClick={() => {
-                        setIsAddRuleModalOpen(false)
-                        setNewRuleForm({ name: "", key: "", description: "" })
-                        setAddRuleError(null)
-                      }}
-                      className="flex-1 px-4 py-2.5 rounded-lg border border-white/10 text-white/70 hover:bg-white/5 transition text-sm font-medium"
-                    >
-                      Annuler
-                    </button>
-                    <button
-                      onClick={addRule}
-                      disabled={addRuleLoading}
-                      className={`flex-1 px-4 py-2.5 rounded-lg text-white font-semibold text-sm shadow-lg transition ${
-                        addRuleLoading
-                          ? "bg-indigo-500/40 cursor-not-allowed shadow-none"
-                          : "bg-gradient-to-br from-indigo-500 to-indigo-400 shadow-indigo-500/30 hover:shadow-indigo-500/50"
-                      }`}
-                    >
-                      {addRuleLoading ? "Création..." : "Créer"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* MODAL CONFIRM DELETE RULE */}
-          {ruleToDelete && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-              <div className="bg-gradient-to-br from-slate-900 to-indigo-950 border border-white/10 p-8 rounded-2xl w-full max-w-md shadow-2xl relative animate-in zoom-in duration-200">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center">
-                    <AlertTriangle className="text-red-400" size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-white font-semibold text-lg">Confirmer la suppression</h3>
-                    <p className="text-white/50 text-sm">Cette action est irréversible</p>
-                  </div>
-                </div>
-                
-                <p className="text-white/70 text-sm mb-6">
-                  Êtes-vous sûr de vouloir supprimer cette règle de validation ?
-                </p>
-                
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setRuleToDelete(null)}
-                    className="flex-1 px-4 py-2.5 rounded-lg border border-white/10 text-white/70 hover:bg-white/5 transition-all text-sm font-medium"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    onClick={() => deleteRule(ruleToDelete)}
-                    className="flex-1 px-4 py-2.5 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-all text-sm font-medium shadow-lg shadow-red-500/30"
-                  >
-                    Supprimer
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
 

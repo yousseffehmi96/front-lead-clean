@@ -30,7 +30,10 @@ export default function CleanPage() {
   const isSelectableList = true
   const isSteagingApplique = false
 
-  const rawData = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/${leads}?refresh=${refresh}`).data || []
+  const { data: fetched, loading: loadingLeads } = Usefetch(
+    `${process.env.NEXT_PUBLIC_API_URL}/${leads}?refresh=${refresh}`
+  )
+  const rawData = fetched || []
 
   const data = rawData
 
@@ -486,91 +489,25 @@ export default function CleanPage() {
         { label: "👤 Noms complètè", val: cleanResult.nom_prenom_completed },
       ].map((item) => (<div key={item.label} className="px-2 sm:px-3 py-2 rounded-lg text-center" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.15)" }}><p className="text-xs opacity-70">{item.label}</p><p className="font-bold text-sm sm:text-base">{item.val ?? 0}</p></div>))}</div></div>)}
 
-      <style>{`
-        .dt-container { color: #cbd5e1; font-size: 13px; }
-        .dt-container .dt-search label, .dt-container .dt-length label { color: rgba(255,255,255,0.4); font-size: 12px; }
-        .dt-container .dt-search input, .dt-container .dt-length select {
-          background: rgba(255,255,255,0.05) !important;
-          border: 1px solid rgba(255,255,255,0.1) !important;
-          color: #e2e8f0 !important;
-          border-radius: 8px; padding: 5px 10px; outline: none;
-        }
-        .dt-container table.dataTable thead th {
-          background: rgba(255,255,255,0.04);
-          border-bottom: 1px solid rgba(255,255,255,0.06) !important;
-          padding: 10px 16px; vertical-align: top;
-          font-size: 11px;
-        }
-        .dt-container table.dataTable tbody tr {
-          background: transparent;
-          border-bottom: 1px solid rgba(255,255,255,0.04) !important;
-          transition: background 0.1s;
-        }
-        .dt-container table.dataTable tbody tr:hover { background: rgba(255,255,255,0.03) !important; }
-        .dt-container table.dataTable tbody td {
-          color: #cbd5e1;
-          border: none !important;
-          padding: 11px 8px;
-          font-size: 12px;
-          word-break: break-word;
-        }
-        .dt-container .dt-paging .dt-paging-button {
-          color: rgba(255,255,255,0.4) !important;
-          background: rgba(255,255,255,0.04) !important;
-          border: 1px solid rgba(255,255,255,0.08) !important;
-          border-radius: 6px !important; margin: 0 2px; font-size: 12px;
-          padding: 4px 8px !important;
-        }
-        .dt-container .dt-paging .dt-paging-button.current {
-          background: rgba(99,102,241,0.3) !important;
-          color: #a5b4fc !important;
-          border-color: rgba(99,102,241,0.4) !important;
-        }
-        .dt-container .dt-paging .dt-paging-button:hover:not(.current) {
-          background: rgba(255,255,255,0.08) !important; color: white !important;
-        }
-        .dt-container .dt-info { color: rgba(255,255,255,0.25); font-size: 11px; }
-        .dt-container .dt-search { display: none !important; }
-        .history-dt-wrapper .dt-search { display: none !important; }
-        .dt-container .dt-layout-row { padding: 8px 12px; }
-        table.dataTable { border-collapse: collapse !important; width: 100% !important; }
-        .search-icon-btn:hover { background: rgba(129,140,248,0.15) !important; border-color: rgba(129,140,248,0.3) !important; color: #818cf8 !important; }
-        .col-search-input::placeholder { color: rgba(255,255,255,0.2); }
-
-        @media (max-width: 768px) {
-          .dt-container .dt-layout-row {
-            display: flex;
-            flex-direction: column;
-            align-items: stretch;
-            gap: 8px;
-            padding: 8px;
-          }
-          .dt-container .dt-length,
-          .dt-container .dt-info,
-          .dt-container .dt-paging {
-            width: 100%;
-            text-align: center;
-          }
-          .dt-container table.dataTable thead th:nth-child(4),
-          .dt-container table.dataTable tbody td:nth-child(4),
-          .dt-container table.dataTable thead th:nth-child(6),
-          .dt-container table.dataTable tbody td:nth-child(6),
-          .dt-container table.dataTable thead th:nth-child(7),
-          .dt-container table.dataTable tbody td:nth-child(7) { display: none; }
-        }
-        @media (max-width: 640px) {
-          .dt-container table.dataTable thead th:nth-child(2),
-          .dt-container table.dataTable tbody td:nth-child(2) { display: none; }
-          .dt-action-btn { font-size: 10px !important; padding: 3px 6px !important; }
-        }
-        @media (max-width: 768px) {
-          .dt-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        }
-      `}</style>
 
       <div className="px-2 sm:px-3 pb-4 pt-2 overflow-y-auto flex-1 overflow-x-hidden">
-        {!DTableComponent && shouldUseDataTable ? (
-          <div className="text-center py-16" style={{ color: "rgba(255,255,255,0.2)" }}><div className="text-4xl mb-3">⚡</div><p className="text-sm">Chargement...</p></div>
+        {loadingLeads || (!DTableComponent && shouldUseDataTable) ? (
+          // Squelette aux dimensions du tableau : évite le saut de mise en page
+          // et le faux message "Aucune donnée" tant que le chargement est en cours.
+          <div className="animate-pulse rounded-2xl border border-white/10 bg-slate-900/40 overflow-hidden">
+            <div className="h-11 bg-slate-900/80 border-b border-white/10" />
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-4 px-4 h-12 border-b border-white/5"
+                style={{ background: i % 2 ? "rgba(255,255,255,0.025)" : "transparent" }}
+              >
+                {Array.from({ length: 5 }).map((__, j) => (
+                  <div key={j} className="h-3 rounded bg-white/10" style={{ flex: j === 0 ? 0.5 : 1 }} />
+                ))}
+              </div>
+            ))}
+          </div>
         ) : data.length === 0 ? (
           <div className="text-center py-20" style={{ color: "rgba(255,255,255,0.2)" }}><div className="text-5xl mb-4">📭</div><p className="text-base font-medium" style={{ color: "rgba(255,255,255,0.35)" }}>Aucune donnée disponible</p></div>
         ) : (

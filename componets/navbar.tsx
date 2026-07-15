@@ -12,10 +12,10 @@ import {
   LogOut,
   Menu,
   X,
-  User,
   ChevronDown,
   History,
 } from "lucide-react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useClerk, useUser } from "@clerk/nextjs";
 
@@ -40,8 +40,7 @@ export default function Navbar() {
   const flow1Links = [
     { id: "Import", href: "/lead/import", text: "Import", icon: <Zap size={16} />, badge: "1", badgeColor: "#f59e0b", desc: "Import & brut" },
     { id: "Staging", href: "/lead/staging", text: "Staging", icon: <Database size={16} />, badge: "🧩", badgeColor: "#fbbf24", desc: "Aucune règle" },
-    { id: "Silver", href: "/lead/silver", text: "Silver", icon: <Database size={16} />, badge: "2", badgeColor: "#94a3b8", desc: "Incomplets" },
-    { id: "Gold", href: "/lead/gold", text: "Gold", icon: <Sparkles size={16} />, badge: "3", badgeColor: "#f59e0b", desc: "Complets" },
+    { id: "Leads", href: "/lead/leads", text: "Leads", icon: <Sparkles size={16} />, badge: "2", badgeColor: "#f59e0b", desc: "Complétion & Gold" },
   ];
 
   const flow2Links = [
@@ -84,60 +83,9 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* User Profile Section */}
-        {user && (
-          <div className="px-4 py-4 border-b border-white/5 bg-white/2">
-            <button
-              onClick={() => setProfileOpen((v) => !v)}
-              className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-white/15 bg-slate-900/70 text-white hover:bg-slate-900 transition-colors"
-              aria-label="Ouvrir le menu profil"
-            >
-              <span className="flex items-center gap-2 min-w-0">
-                <User size={14} />
-                <span className="text-sm font-medium truncate">Profil {firstName}</span>
-              </span>
-              <ChevronDown size={14} className={`transition-transform ${profileOpen ? "rotate-180" : ""}`} />
-            </button>
-
-            {profileOpen && (
-              <div className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/95 shadow-xl overflow-hidden">
-               
-                {(userRole === "manager") && (
-                  <a
-                    href="/settings"
-                    className="flex items-center gap-2 px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 hover:text-white"
-                    onClick={() => setProfileOpen(false)}
-                  >
-                    <Settings size={14} />
-                    Paramètres
-                  </a>
-                )}
-                <a
-                  href="/company"
-                  className="flex items-center gap-2 px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 hover:text-white"
-                  onClick={() => setProfileOpen(false)}
-                >
-                  <Building2 size={14} />
-                  Sociétés
-                </a>
-                <button
-                  onClick={async () => {
-                    setProfileOpen(false);
-                    await handleLogout();
-                  }}
-                  className="w-full text-left flex items-center gap-2 px-3 py-2.5 text-sm text-red-300 hover:bg-red-500/10"
-                >
-                  <LogOut size={14} />
-                  Se déconnecter
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Dashboard en avant */}
         <div className="px-3 pt-3">
-          <a
+          <Link
             href="/dashboard"
             className="group flex items-center gap-3 px-3 py-3 rounded-xl border transition-all duration-200"
             style={{
@@ -153,11 +101,11 @@ export default function Navbar() {
               <p className="text-[10px] text-indigo-200/70">Vue globale et KPI</p>
             </div>
             <ChevronRight size={15} className="text-indigo-300 group-hover:translate-x-0.5 transition-transform" />
-          </a>
+          </Link>
         </div>
 
         {/* Navigation Links */}
-        <div className="flex-1 overflow-y-auto px-3 pt-4 pb-24 md:pb-4 flex flex-col gap-5">
+        <div className="flex-1 overflow-y-auto px-3 pt-4 pb-4 flex flex-col gap-5">
           
           {/* Section 1 */}
           <Section title="Flow principal">
@@ -177,6 +125,62 @@ export default function Navbar() {
           </Section>
 
         </div>
+
+        {/* User Profile Section — épinglée en bas, le menu s'ouvre vers le haut */}
+        {user && (
+          <div className="relative mt-auto flex-shrink-0 border-t border-white/5 px-3 py-3">
+            {profileOpen && (
+              <div className="absolute bottom-full left-3 right-3 z-50 mb-2 overflow-hidden rounded-xl border border-white/10 bg-slate-900/95 shadow-xl backdrop-blur">
+                {userRole === "manager" && (
+                  <Link
+                    href="/settings"
+                    className="flex items-center gap-2 px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 hover:text-white"
+                    onClick={() => setProfileOpen(false)}
+                  >
+                    <Settings size={14} />
+                    Paramètres
+                  </Link>
+                )}
+                <Link
+                  href="/company"
+                  className="flex items-center gap-2 px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 hover:text-white"
+                  onClick={() => setProfileOpen(false)}
+                >
+                  <Building2 size={14} />
+                  Sociétés
+                </Link>
+                <button
+                  onClick={async () => {
+                    setProfileOpen(false);
+                    await handleLogout();
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-red-300 hover:bg-red-500/10"
+                >
+                  <LogOut size={14} />
+                  Se déconnecter
+                </button>
+              </div>
+            )}
+
+            <button
+              onClick={() => setProfileOpen((v) => !v)}
+              className="flex w-full items-center justify-between gap-2 rounded-xl px-2.5 py-2 transition-colors hover:bg-white/10"
+              aria-label="Ouvrir le menu profil"
+              aria-expanded={profileOpen}
+            >
+              <span className="flex min-w-0 items-center gap-2.5">
+                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 text-xs font-bold text-white">
+                  {firstName.charAt(0).toUpperCase()}
+                </span>
+                <span className="truncate text-sm font-medium text-white">{firstName}</span>
+              </span>
+              <ChevronDown
+                size={14}
+                className={`flex-shrink-0 text-white/40 transition-transform ${profileOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Mobile Overlay */}
@@ -217,7 +221,7 @@ function FlowArrow() {
 
 function NavItem({ link, active, showDesc = false }: { link: any; active: boolean; showDesc?: boolean }) {
   return (
-    <a
+    <Link
       href={link.href}
       className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative"
       style={{
@@ -255,6 +259,6 @@ function NavItem({ link, active, showDesc = false }: { link: any; active: boolea
       ) : (
         <ChevronRight size={14} className={`opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 ${active ? "text-indigo-400" : "text-white/20"}`} />
       )}
-    </a>
+    </Link>
   );
 }

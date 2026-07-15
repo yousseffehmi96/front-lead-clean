@@ -1,13 +1,11 @@
 "use client"
 
-import { useMemo, useRef, useEffect, useState } from "react"
+import { useMemo, useEffect, useState } from "react"
 import Usefetch from "@/hooks/SocieteFetch"
-import { Chart, registerables } from "chart.js"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
 import { useRouter } from "next/navigation"
 import { getUserById } from "@/api/user-actions"
-Chart.register(...registerables)
 
 interface Stat {
   id: number
@@ -38,18 +36,6 @@ type User = {
   role: string
 }
 
-const DATASETS = [
-  { label: "Insérés", color: "#818cf8", key: "inserted_rows" },
-  { label: "Doublons", color: "#f43f5e", key: "duplicates_deleted" },
-  { label: "Emails complétés", color: "#6ee7b7", key: "emails_completed" },
-  { label: "Sociétés complétées", color: "#22d3ee", key: "societe_completed" },
-  { label: "Blacklistés", color: "#fcd34d", key: "blacklisted_removed" },
-  { label: "Vers gold", color: "#f59e0b", key: "moved_to_gold" },
-  { label: "Vers silver", color: "#94a3b8", key: "moved_to_silver" },
-  { label: "Vers clean", color: "#f9a8d4", key: "moved_to_clean" },
-  { label: "Supprimés", color: "#f87171", key: "total_deleted" },
-]
-
 const CARD_COLORS = [
   { color: "#818cf8", bg: "rgba(129,140,248,0.1)", border: "rgba(129,140,248,0.2)" },
   { color: "#f43f5e", bg: "rgba(244,63,94,0.1)", border: "rgba(244,63,94,0.2)" },
@@ -62,76 +48,6 @@ const CARD_COLORS = [
   { color: "#a78bfa", bg: "rgba(167,139,250,0.1)", border: "rgba(167,139,250,0.2)" },
   { color: "#f87171", bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.2)" },
 ]
-
-function MultiBarChart({ stats }: { stats: Stat[] }) {
-  const ref = useRef<HTMLCanvasElement>(null)
-
-  useEffect(() => {
-    if (!ref.current) return
-    const chart = new Chart(ref.current, {
-      type: "bar",
-      data: {
-        labels: stats.map(d => d.filename),
-        datasets: DATASETS.map(d => ({
-          label: d.label,
-          data: stats.map(s => s[d.key as keyof Stat] as number),
-          backgroundColor: d.color + "cc",
-          borderRadius: 4,
-          borderSkipped: false,
-        })),
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { grid: { display: false }, ticks: { color: "rgba(255,255,255,0.3)", font: { size: 10 } }, border: { color: "rgba(255,255,255,0.06)" } },
-          y: {
-            type: "logarithmic",
-            grid: { color: "rgba(255,255,255,0.05)" },
-            ticks: {
-              color: "rgba(255,255,255,0.3)",
-              font: { size: 10 },
-              callback: (val: string | number) => {
-                const num = Number(val)
-                return Number.isInteger(Math.log10(num)) || num === 0 ? num : ""
-              },
-            },
-            border: { color: "rgba(255,255,255,0.06)" },
-          },
-        },
-      },
-    })
-    return () => chart.destroy()
-  }, [stats])
-
-  return <canvas ref={ref} />
-}
-
-function DoughnutChart({ stats }: { stats: Stat[] }) {
-  const ref = useRef<HTMLCanvasElement>(null)
-
-  useEffect(() => {
-    if (!ref.current) return
-    const chart = new Chart(ref.current, {
-      type: "doughnut",
-      data: {
-        labels: stats.map(d => d.filename),
-        datasets: [{
-          data: stats.map(d => d.inserted_rows),
-          backgroundColor: CARD_COLORS.map(c => c.color + "cc"),
-          borderWidth: 2,
-          borderColor: "rgba(255,255,255,0.05)",
-        }],
-      },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: "65%" },
-    })
-
-    return () => chart.destroy()
-  }, [stats])
-
-  return <canvas ref={ref} />
-}
 
 function StatRow({ d, idx }: { d: Stat; idx: number }) {
   const [open, setOpen] = useState(false)
@@ -164,17 +80,20 @@ function StatRow({ d, idx }: { d: Stat; idx: number }) {
     fetchUser()
   }, [userid])
 
+  // Silver et Gold ne sont plus des tables (fusionnées dans `leads`, le niveau
+  // se lit sur la complétion). Les compteurs "moved_to_gold" / "moved_to_silver"
+  // ne sont plus alimentés par le pipeline : on n'affiche que ce qui existe.
   const details = [
     { label: "Emails complétés", val: d.emails_completed ?? 0, i: 2 },
     { label: "Sociétés complétées", val: d.societe_completed ?? 0, i: 3 },
     { label: "Blacklistés retirés", val: d.blacklisted_removed ?? 0, i: 5 },
-    { label: "🥇 Gold", val: d.moved_to_gold ?? 0, i: 6 },
-    { label: "🥈 Silver", val: d.moved_to_silver ?? 0, i: 7 },
-    { label: "🧹 Clean", val: d.moved_to_clean ?? 0, i: 8 },
-    { label: "Staging vs Silver", val: d.staging_vs_silver ?? 0, i: 0 },
-    { label: "Staging vs Gold", val: d.staging_vs_gold ?? 0, i: 1 },
-    { label: "Staging vs Appliqué", val: d.staging_vs_applique ?? 0, i: 4 },
-    { label: "Staging Internal", val: d.staging_internal ?? 0, i: 2 },
+    { label: "🧹 Vers Clean", val: d.moved_to_clean ?? 0, i: 8 },
+    // Doublons écartés à l'import. Silver et Gold étant fusionnés dans `leads`,
+    // les deux compteurs du backend portent sur la même table (partitions
+    // disjointes par complétion) : on les additionne en une seule métrique.
+    { label: "Doublons vs Leads", val: (d.staging_vs_gold ?? 0) + (d.staging_vs_silver ?? 0), i: 1 },
+    { label: "Doublons vs Staging", val: d.staging_vs_applique ?? 0, i: 4 },
+    { label: "Doublons internes", val: d.staging_internal ?? 0, i: 2 },
   ]
 
   return (
@@ -284,14 +203,10 @@ export default function Dashboard() {
       societe: stats.reduce((s, d) => s + (d.societe_completed ?? 0), 0),
       added_societes: stats.reduce((s, d) => s + (d.added_societes ?? 0), 0),
       blacklisted: stats.reduce((s, d) => s + (d.blacklisted_removed ?? 0), 0),
-      gold: stats.reduce((s, d) => s + (d.moved_to_gold ?? 0), 0),
-      silver: stats.reduce((s, d) => s + (d.moved_to_silver ?? 0), 0),
       clean: stats.reduce((s, d) => s + (d.moved_to_clean ?? 0), 0),
       total_deleted: totalDeleted,
     }
   }, [stats])
-
-  const total = totals?.inserted ?? 0
 
   if (!stats) return (
     <div className="flex items-center justify-center h-full" style={{ color: "rgba(255,255,255,0.2)" }}>
@@ -325,34 +240,6 @@ export default function Dashboard() {
           ))}
         </div>
       )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-          <p className="text-sm font-medium text-white mb-3">Statistiques par fichier</p>
-          <div className="flex flex-wrap gap-3 mb-3">
-            {DATASETS.map(d => (
-              <span key={d.key} className="flex items-center gap-1.5 text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
-                <span className="w-2 h-2 rounded-sm inline-block" style={{ background: d.color }} />
-                {d.label}
-              </span>
-            ))}
-          </div>
-          <div className="relative h-56"><MultiBarChart stats={stats} /></div>
-        </div>
-
-        <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-          <p className="text-sm font-medium text-white mb-3">Répartition des leads insérés</p>
-          <div className="flex flex-wrap gap-3 mb-3">
-            {stats.map((d, i) => (
-              <span key={d.id} className="flex items-center gap-1.5 text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
-                <span className="w-2 h-2 rounded-sm inline-block" style={{ background: CARD_COLORS[i % CARD_COLORS.length].color }} />
-                {d.filename} {total > 0 ? Math.round((d.inserted_rows / total) * 100) : 0}%
-              </span>
-            ))}
-          </div>
-          <div className="relative h-56"><DoughnutChart stats={stats} /></div>
-        </div>
-      </div>
 
       {/* TABLE */}
 <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-md">
