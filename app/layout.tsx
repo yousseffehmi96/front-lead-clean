@@ -27,8 +27,7 @@ export default function RootLayout({
   const pathname = usePathname();
 
   // Définir les pages où la navbar doit être CACHÉE
-  // On cache sur sign-in et sign-up
-  const isAuthPage = pathname?.startsWith("/sign-in") || pathname?.startsWith("/sign-up");
+  const isAuthPage = pathname?.startsWith("/sign-in");
 
   return (
     <html lang="en">

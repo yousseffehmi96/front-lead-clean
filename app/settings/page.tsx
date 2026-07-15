@@ -3,7 +3,7 @@ import { useState, useEffect } from "react"
 import { openApi } from "@/lib/api"
 import { Plus, Trash2, X, AlertTriangle, Clipboard } from "lucide-react"
 import { deleteUser, getAllUsers } from "@/api/user-actions" 
-import SignUpForm from "../sign-up/page"
+import SignUpForm from "@/componets/SignUpForm"
 import { useUser } from "@clerk/nextjs"
 
 export default function SettingsPage() {

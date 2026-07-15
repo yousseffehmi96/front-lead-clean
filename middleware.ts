@@ -1,10 +1,11 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
 // Routes accessibles sans être connecté
+// Pas de /sign-up : l'inscription libre est désactivée, les comptes sont
+// créés par un manager depuis Paramètres > Utilisateurs.
 const isPublicRoute = createRouteMatcher([
   '/login(.*)',
   '/sign-in(.*)',
-  '/sign-up(.*)',
   '/api/public(.*)',
 ]);
 
