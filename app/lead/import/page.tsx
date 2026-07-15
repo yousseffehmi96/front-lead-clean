@@ -21,6 +21,8 @@ export default   function LeadImportDropzone() {
   const ACCEPTED=[".csv",".xlsx"];
   const [message,setmessage]=useState('')
   const [data, setData] = useState<Record<string, string>[]>([]);
+  const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
+  const [sheetName, setSheetName] = useState<string>("");
   const accept=(f:File | undefined)=>{
     if(!f){
       setfile(null)
@@ -35,6 +37,8 @@ export default   function LeadImportDropzone() {
     }
     else{
       setfile(f)
+      setWorkbook(null)
+      setSheetName("")
       if (ext==='.csv'){
             readCsv(f)
       }
@@ -42,19 +46,35 @@ export default   function LeadImportDropzone() {
         readXlsx(f)
       }
     }
-    return 
+    return
 }
 
 
+const rowCount = (sheet: XLSX.WorkSheet) =>
+  sheet["!ref"] ? XLSX.utils.decode_range(sheet["!ref"]).e.r : 0;
+
+const loadSheet = (wb: XLSX.WorkBook, name: string) => {
+  const sheet = wb.Sheets[name];
+  const rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "" });
+  setSheetName(name);
+  setData(rows);
+};
+
 const readXlsx = async (f: File) => {
-  const buffer = await f.arrayBuffer();        
-  const workbook = XLSX.read(buffer);
+  const buffer = await f.arrayBuffer();
+  const wb = XLSX.read(buffer);
+  setWorkbook(wb);
 
-  const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
- const rows = XLSX.utils.sheet_to_json<Record<string, string>>(firstSheet);
+  // Un classeur peut contenir plusieurs onglets (ex: un onglet technique
+  // caché en premier + l'onglet de données visible ensuite). SheetNames[0]
+  // n'est donc pas toujours le bon : on privilégie par défaut celui qui
+  // contient le plus de données, mais l'utilisateur peut changer d'onglet
+  // via le sélecteur affiché quand le classeur en contient plusieurs.
+  const defaultSheet = wb.SheetNames.reduce((best, name) =>
+    rowCount(wb.Sheets[name]) > rowCount(wb.Sheets[best]) ? name : best
+  );
 
-
-  setData( rows)   
+  loadSheet(wb, defaultSheet);
 };
 
 const detectDelimiter = (headerLine: string): string => {
@@ -116,6 +136,23 @@ const readCsv = async (f: File) => {
                     </label>
                </div>
           </div>}
+
+          {file && workbook && workbook.SheetNames.length > 1 && (
+            <div className="flex items-center gap-2 px-3 pt-2 sm:px-6">
+              <label className="text-xs text-slate-400">Onglet du fichier :</label>
+              <select
+                value={sheetName}
+                onChange={(e) => loadSheet(workbook, e.target.value)}
+                className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-sm text-slate-200 outline-none focus:border-teal-400/50"
+              >
+                {workbook.SheetNames.map((name) => (
+                  <option key={name} value={name} className="bg-slate-900 text-slate-200">
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {file && <LeadsPage data={data} filename={file.name}/>}
     

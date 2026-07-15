@@ -11,7 +11,7 @@ export type FieldKey =
   | "societe"
   | "fonction"
   | "telephone"
-  | "localisation"
+  | "location"
   | "linkedin"
 
 const FIELDS: { key: FieldKey; label: string; required?: boolean }[] = [
@@ -21,7 +21,7 @@ const FIELDS: { key: FieldKey; label: string; required?: boolean }[] = [
   { key: "societe", label: "Société" },
   { key: "fonction", label: "Fonction" },
   { key: "telephone", label: "Téléphone" },
-  { key: "localisation", label: "Localisation" },
+  { key: "location", label: "Localisation" },
   { key: "linkedin", label: "LinkedIn" },
 ]
 

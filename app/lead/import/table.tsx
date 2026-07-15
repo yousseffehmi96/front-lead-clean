@@ -14,7 +14,13 @@ interface LeadsPageProps {
 }
 
 export default function LeadsPage({ data, filename }: LeadsPageProps) {
-  const fileHeaders = Object.keys(data[0] ?? {})
+  // Union des colonnes de toutes les lignes (pas juste la première), pour
+  // que la liste déroulante propose bien tous les champs du fichier Excel/CSV
+  // même si certaines cellules sont vides sur la première ligne.
+  const fileHeaders = React.useMemo(
+    () => Array.from(new Set(data.flatMap((row) => Object.keys(row)))),
+    [data]
+  )
 
   const userId = useSelector((state: any) => state.user.userId)
   const { user } = useUser()
