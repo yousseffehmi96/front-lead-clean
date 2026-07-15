@@ -11,9 +11,18 @@ import { Button } from "@/components/ui/button"
 interface LeadsPageProps {
   data: RawRow[]
   filename?: string
+  sheetLabel?: string
+  hasNextSheet?: boolean
+  onNextSheet?: () => void
 }
 
-export default function LeadsPage({ data, filename }: LeadsPageProps) {
+export default function LeadsPage({
+  data,
+  filename,
+  sheetLabel,
+  hasNextSheet,
+  onNextSheet,
+}: LeadsPageProps) {
   // Union des colonnes de toutes les lignes (pas juste la première), pour
   // que la liste déroulante propose bien tous les champs du fichier Excel/CSV
   // même si certaines cellules sont vides sur la première ligne.
@@ -70,6 +79,7 @@ export default function LeadsPage({ data, filename }: LeadsPageProps) {
         "Content-Type": "application/json",
       }
       const finalName = filename || "import-mappe"
+      console.log("[import] envoi /upload-mapped", { filename: finalName, mapping: cleanMapping, rowCount: data.length })
 
       // 1) Mapping + insertion dans import_leads (staging brut)
       const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload-mapped`, {
@@ -84,6 +94,7 @@ export default function LeadsPage({ data, filename }: LeadsPageProps) {
         }),
       })
       const uploadPayload = await uploadRes.json().catch(() => null)
+      console.log("[import] réponse /upload-mapped", uploadRes.status, uploadPayload)
       if (!uploadRes.ok) {
         throw new Error(uploadPayload?.detail || `Erreur serveur : ${uploadRes.status}`)
       }
@@ -148,6 +159,14 @@ export default function LeadsPage({ data, filename }: LeadsPageProps) {
             <span className="text-xs hidden sm:inline" style={{ color: "rgba(255,255,255,0.3)" }}>
               {data.length} entrées
             </span>
+            {sheetLabel && (
+              <span
+                className="text-xs font-medium px-2 py-0.5 rounded-md whitespace-nowrap"
+                style={{ color: "#a78bfa", background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.3)" }}
+              >
+                {sheetLabel}
+              </span>
+            )}
           </div>
           <div className="flex gap-2 w-full sm:w-auto justify-end">
             <Button
@@ -193,6 +212,14 @@ export default function LeadsPage({ data, filename }: LeadsPageProps) {
                 <li>{Number(result.blacklisted_removed || 0)} blacklisté(s) retiré(s)</li>
                 <li>{Number(result.emails_completed || 0)} email(s) complété(s)</li>
               </ul>
+            )}
+            {hasNextSheet && (
+              <Button
+                onClick={onNextSheet}
+                className="mt-3 bg-emerald-500 text-slate-950 hover:bg-emerald-400"
+              >
+                Feuille suivante →
+              </Button>
             )}
           </div>
         )}

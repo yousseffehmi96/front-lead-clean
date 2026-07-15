@@ -12,6 +12,7 @@ import {
 } from "@tanstack/react-table";
 import LeadsPage from "./table";
 import * as XLSX from "xlsx";
+import { Button } from "@/components/ui/button";
 
 
 export default   function LeadImportDropzone() {
@@ -22,23 +23,27 @@ export default   function LeadImportDropzone() {
   const [message,setmessage]=useState('')
   const [data, setData] = useState<Record<string, string>[]>([]);
   const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
-  const [sheetName, setSheetName] = useState<string>("");
+  const [sheetIndex, setSheetIndex] = useState(0);
+  const [sheetRowCounts, setSheetRowCounts] = useState<number[]>([]);
+  const sheetName = workbook?.SheetNames[sheetIndex] ?? "";
+  const hasPrevSheet = sheetRowCounts.slice(0, sheetIndex).some((c) => c > 0);
+  const hasNextSheet = sheetRowCounts.slice(sheetIndex + 1).some((c) => c > 0);
   const accept=(f:File | undefined)=>{
     if(!f){
       setfile(null)
       return
-    } 
+    }
     let ext=f.name.slice(f.name.lastIndexOf('.')).toLowerCase();
-    
+
     if(!ACCEPTED.includes(ext)){
-      
+
       setfile(null)
       setmessage("Format non pris en charge. Utilisez un fichier CSV ou XLSX.");
     }
     else{
       setfile(f)
       setWorkbook(null)
-      setSheetName("")
+      setSheetIndex(0)
       if (ext==='.csv'){
             readCsv(f)
       }
@@ -50,31 +55,46 @@ export default   function LeadImportDropzone() {
 }
 
 
-const rowCount = (sheet: XLSX.WorkSheet) =>
-  sheet["!ref"] ? XLSX.utils.decode_range(sheet["!ref"]).e.r : 0;
+const sheetRows = (wb: XLSX.WorkBook, index: number) =>
+  XLSX.utils.sheet_to_json<Record<string, string>>(wb.Sheets[wb.SheetNames[index]], { defval: "" });
 
-const loadSheet = (wb: XLSX.WorkBook, name: string) => {
-  const sheet = wb.Sheets[name];
-  const rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "" });
-  setSheetName(name);
+const loadSheetRows = (wb: XLSX.WorkBook, index: number) => {
+  const name = wb.SheetNames[index];
+  const rows = sheetRows(wb, index);
+  console.log(`[import] onglet "${name}" (${index + 1}/${wb.SheetNames.length}) -> ${rows.length} ligne(s)`, rows);
+  setSheetIndex(index);
   setData(rows);
+};
+
+// Passe à la prochaine feuille non vide dans la direction donnée (1 = suivante, -1 = précédente).
+// Les feuilles vides ne sont jamais présentées pour le mapping.
+const goToAdjacentSheet = (wb: XLSX.WorkBook, counts: number[], from: number, direction: 1 | -1) => {
+  let idx = from + direction;
+  while (idx >= 0 && idx < wb.SheetNames.length) {
+    if (counts[idx] > 0) {
+      loadSheetRows(wb, idx);
+      return;
+    }
+    idx += direction;
+  }
 };
 
 const readXlsx = async (f: File) => {
   const buffer = await f.arrayBuffer();
   const wb = XLSX.read(buffer);
-  setWorkbook(wb);
-
-  // Un classeur peut contenir plusieurs onglets (ex: un onglet technique
-  // caché en premier + l'onglet de données visible ensuite). SheetNames[0]
-  // n'est donc pas toujours le bon : on privilégie par défaut celui qui
-  // contient le plus de données, mais l'utilisateur peut changer d'onglet
-  // via le sélecteur affiché quand le classeur en contient plusieurs.
-  const defaultSheet = wb.SheetNames.reduce((best, name) =>
-    rowCount(wb.Sheets[name]) > rowCount(wb.Sheets[best]) ? name : best
+  const counts = wb.SheetNames.map((_, idx) => sheetRows(wb, idx).length);
+  console.log(
+    "[import] onglets détectés :",
+    wb.SheetNames.map((name, idx) => `${name} (${counts[idx]} ligne(s))`)
   );
+  setWorkbook(wb);
+  setSheetRowCounts(counts);
 
-  loadSheet(wb, defaultSheet);
+  // Un classeur peut contenir plusieurs onglets. On les traite dans l'ordre,
+  // en ignorant les feuilles vides : mapping + import de la 1ère feuille non
+  // vide, puis passage à la suivante non vide, etc.
+  const firstNonEmpty = counts.findIndex((c) => c > 0);
+  loadSheetRows(wb, firstNonEmpty === -1 ? 0 : firstNonEmpty);
 };
 
 const detectDelimiter = (headerLine: string): string => {
@@ -139,22 +159,65 @@ const readCsv = async (f: File) => {
 
           {file && workbook && workbook.SheetNames.length > 1 && (
             <div className="flex items-center gap-2 px-3 pt-2 sm:px-6">
-              <label className="text-xs text-slate-400">Onglet du fichier :</label>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToAdjacentSheet(workbook, sheetRowCounts, sheetIndex, -1)}
+                disabled={!hasPrevSheet}
+                className="border-white/10 bg-transparent text-slate-300 hover:bg-white/5 hover:text-white"
+              >
+                ← Précédente
+              </Button>
               <select
                 value={sheetName}
-                onChange={(e) => loadSheet(workbook, e.target.value)}
+                onChange={(e) => {
+                  const idx = workbook.SheetNames.indexOf(e.target.value)
+                  if (sheetRowCounts[idx] > 0) loadSheetRows(workbook, idx)
+                }}
                 className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-sm text-slate-200 outline-none focus:border-teal-400/50"
               >
-                {workbook.SheetNames.map((name) => (
-                  <option key={name} value={name} className="bg-slate-900 text-slate-200">
-                    {name}
+                {workbook.SheetNames.map((name, idx) => (
+                  <option
+                    key={name}
+                    value={name}
+                    disabled={sheetRowCounts[idx] === 0}
+                    className="bg-slate-900 text-slate-200"
+                  >
+                    {idx + 1}/{workbook.SheetNames.length} — {name}
+                    {sheetRowCounts[idx] === 0 ? " (vide)" : ""}
                   </option>
                 ))}
               </select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToAdjacentSheet(workbook, sheetRowCounts, sheetIndex, 1)}
+                disabled={!hasNextSheet}
+                className="border-white/10 bg-transparent text-slate-300 hover:bg-white/5 hover:text-white"
+              >
+                Suivante →
+              </Button>
             </div>
           )}
 
-          {file && <LeadsPage data={data} filename={file.name}/>}
+          {file && (
+            <LeadsPage
+              key={sheetName}
+              data={data}
+              filename={
+                workbook && workbook.SheetNames.length > 1
+                  ? `${file.name} [${sheetName}]`
+                  : file.name
+              }
+              sheetLabel={
+                workbook && workbook.SheetNames.length > 1
+                  ? `Feuille ${sheetIndex + 1}/${workbook.SheetNames.length} — ${sheetName}`
+                  : undefined
+              }
+              hasNextSheet={hasNextSheet}
+              onNextSheet={() => workbook && goToAdjacentSheet(workbook, sheetRowCounts, sheetIndex, 1)}
+            />
+          )}
     
     </>
           
