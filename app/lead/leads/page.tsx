@@ -76,17 +76,13 @@ export default function LeadsPage() {
     [rawData, edits]
   )
 
-  // Filtre "Gold uniquement" : Silver et Gold sont désormais la même table,
-  // le niveau se lit sur la complétion (100% = Gold).
-  const [goldOnly, setGoldOnly] = useState(false)
+  // Le niveau Gold/Silver se lit sur la complétion (100% = Gold) ; Silver et
+  // Gold sont désormais la même table.
   const goldCount = useMemo(
     () => mergedData.filter((l: any) => l.completion === 100).length,
     [mergedData]
   )
-  const data = useMemo(
-    () => (goldOnly ? mergedData.filter((l: any) => l.completion === 100) : mergedData),
-    [mergedData, goldOnly]
-  )
+  const data = mergedData
 
   const normalizeTextKey = (v: any) =>
     String(v ?? "")
@@ -684,35 +680,6 @@ export default function LeadsPage() {
               {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
             <div className="hidden md:flex gap-2">
-              {isSelectableList && (
-                <>
-                 
-                 
-                  {isVerifiableView && (
-                    <button
-                      onClick={handleBulkVerifyEmails}
-                      disabled={selectedLeadIds.size === 0 || sendingBulkVerify}
-                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
-                      style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}
-                    >
-                      {sendingBulkVerify ? "Vérification..." : "Vérifier emails"}
-                    </button>
-                  )}
-                </>
-              )}
-              <button
-                onClick={() => setGoldOnly((v) => !v)}
-                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
-                style={
-                  goldOnly
-                    ? { background: "rgba(245,158,11,0.2)", border: "1px solid rgba(245,158,11,0.5)", color: "#fcd34d" }
-                    : { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.6)" }
-                }
-                title="N'afficher que les leads complétés à 100%"
-              >
-                ★ {goldOnly ? "Gold uniquement" : `Gold (${goldCount})`}
-              </button>
-              <button onClick={handleReformulerLocalisation} disabled={reformulatingLocation} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}><MapPin size={13} />{reformulatingLocation ? "Reformulation..." : "Reformuler localisation"}</button>
               <button onClick={downloadCSV} disabled={exporting || goldCount === 0} title={`Exporte uniquement les ${goldCount} lead(s) à 100%`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={13} />CSV ({goldCount})</button>
               <button onClick={downloadXlsx} disabled={exporting || goldCount === 0} title={`Exporte uniquement les ${goldCount} lead(s) à 100%`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={13} />XLSX ({goldCount})</button>
             </div>

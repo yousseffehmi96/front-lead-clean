@@ -17,12 +17,9 @@ export default function LoginPage() {
       <SignIn 
         forceRedirectUrl="/lead/import" 
         appearance={{
-          layout: {
-            hideByline: true,
-          },
           variables: {
             colorPrimary: "#818cf8",
-            colorText: "white",
+            colorForeground: "white",
             colorBackground: "transparent",
           },
           elements: {

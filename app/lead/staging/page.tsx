@@ -43,7 +43,7 @@ export default function SteagingAppliquePage() {
   const userRole = ((user?.publicMetadata?.role as string) || "agent").toLowerCase()
   const isManager = userRole === "manager"
   const isStaging = false
-  const isSelectableList = true
+  const isSelectableList = false
   const isSteagingApplique = true
 
   const { data: fetchedLeads, loading: loadingLeads } = Usefetch(
