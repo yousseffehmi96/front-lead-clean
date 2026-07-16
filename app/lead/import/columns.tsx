@@ -42,7 +42,7 @@ export function buildColumns(
       const isMapped = Boolean(mapping[key])
       const missingRequired = Boolean(required) && !isMapped
       return (
-        <div className="min-w-[150px] py-1">
+        <div className="min-w-[120px] py-0.5">
           <div className="flex items-center gap-1.5">
             <span
               className={`h-1.5 w-1.5 rounded-full ${
@@ -68,7 +68,7 @@ export function buildColumns(
           <select
             value={mapping[key] ?? ""}
             onChange={(e) => setMapping({ ...mapping, [key]: e.target.value })}
-            className={`mt-1.5 w-full rounded-md border px-2 py-2 text-sm font-normal outline-none transition-colors ${
+            className={`mt-1 w-full rounded-md border px-2 py-1.5 text-sm font-normal outline-none transition-colors ${
               isMapped
                 ? "border-teal-400/40 bg-teal-400/10 text-teal-200 focus:border-teal-400/70"
                 : missingRequired

@@ -10,9 +10,12 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  // Toute route non-publique exige une session : sinon redirection vers /sign-in
+  // Toute route non-publique exige une session : sinon redirection vers NOTRE
+  // page /sign-in locale (et non l'Account Portal hébergé de Clerk).
   if (!isPublicRoute(req)) {
-    await auth.protect()
+    const signInUrl = new URL('/sign-in', req.url)
+    signInUrl.searchParams.set('redirect_url', req.url)
+    await auth.protect({ unauthenticatedUrl: signInUrl.toString() })
   }
 })
 

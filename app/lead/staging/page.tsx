@@ -180,7 +180,9 @@ export default function SteagingAppliquePage() {
   // Détection mobile
   const [isMobile, setIsMobile] = useState(false)
   const isIncompleteView = false
-  const isVerifiableView = true
+  // Vérification manuelle par lead désactivée : le cron vérifie automatiquement
+  // les emails après import et promeut les disponibles vers Optimized.
+  const isVerifiableView = false
   const shouldUseDataTable = !isMobile
   const cardsPerPage = 20
 

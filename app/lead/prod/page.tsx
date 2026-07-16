@@ -384,7 +384,7 @@ export default function ProdPage() {
         .dt-container table.dataTable thead th {
           background: rgba(255,255,255,0.04);
           border-bottom: 1px solid rgba(255,255,255,0.06) !important;
-          padding: 10px 16px; vertical-align: top;
+          padding: 8px 12px; vertical-align: top;
           font-size: 11px;
         }
         .dt-container table.dataTable tbody tr {
@@ -396,8 +396,8 @@ export default function ProdPage() {
         .dt-container table.dataTable tbody td {
           color: #cbd5e1;
           border: none !important;
-          padding: 11px 8px;
-          font-size: 12px;
+          padding: 8px 12px;
+          font-size: 13px;
           word-break: break-word;
         }
         .dt-container .dt-paging .dt-paging-button {

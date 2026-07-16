@@ -42,7 +42,7 @@ export function DataTable<TData, TValue>({
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: 8 } },
+    initialState: { pagination: { pageSize: 5 } },
   })
 
   const pageIndex = table.getState().pagination.pageIndex
@@ -64,7 +64,7 @@ export function DataTable<TData, TValue>({
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
-                    className="sticky top-0 z-10 h-auto bg-slate-900/80 py-3 backdrop-blur"
+                    className="sticky top-0 z-10 h-auto bg-slate-900/80 py-2 backdrop-blur"
                   >
                     {header.isPlaceholder
                       ? null
@@ -91,7 +91,7 @@ export function DataTable<TData, TValue>({
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className="max-w-[240px] truncate py-3.5 text-[15px] text-slate-200"
+                      className="max-w-[240px] truncate py-2 text-sm text-slate-200"
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
