@@ -12,7 +12,6 @@ export default function SteagingAppliquePage() {
   const [stat, setstat] = useState<string | null>(null)
   const [err, setError] = useState<string | null>(null)
   const [refresh, setRefresh] = useState<number>(0)
-  // Refresh dédié à la liste des sociétés (ne remonte pas le tableau des leads)
   const [societeRefresh, setSocieteRefresh] = useState<number>(0)
   const [uploading, setUploading] = useState(false)
   const [cleaning, setCleaning] = useState(false)
@@ -26,16 +25,14 @@ export default function SteagingAppliquePage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [mobilePage, setMobilePage] = useState(1)
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<number>>(() => new Set())
-  // Ref toujours à jour : évite que les redraw DataTable décochent les cases (closure figée)
   const selectedLeadIdsRef = useRef<Set<number>>(selectedLeadIds)
   selectedLeadIdsRef.current = selectedLeadIds
   const [emailPattern, setEmailPattern] = useState<string>("{prenom}.{nom}@{domaine}.{extension}")
-  const [sendingToSilver, setSendingToSilver] = useState(false)
+  const [sendingToOptimized, setSendingToOptimized] = useState(false)
   const [sendingBulkVerify, setSendingBulkVerify] = useState(false)
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; disponible: number; non_disponible: number } | null>(null)
   const [verifyingEmailId, setVerifyingEmailId] = useState<number | null>(null)
   const [emailVerifyResults, setEmailVerifyResults] = useState<Record<number, { status: "valid" | "invalid" | "error"; message: string }>>({})
-  // Emails générés en place (sans recharger la page)
   const [generatedEmails, setGeneratedEmails] = useState<Record<number, string>>({})
   const userId = useSelector((state:any) => state.user.userId)
   const email = useSelector((state:any) => state.user.email)
@@ -50,11 +47,8 @@ export default function SteagingAppliquePage() {
     `${process.env.NEXT_PUBLIC_API_URL}/${leads}?refresh=${refresh}`
   )
   const rawData = fetchedLeads || []
-  // Refetch la liste sociétés sur `refresh` (actions leads) ET `societeRefresh` (focus fenêtre)
   const societes = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/societe?refresh=${refresh}&s=${societeRefresh}`).data || []
 
-  // Les messages (erreur / résultat) s'effacent tout seuls au bout de 10 s.
-  // Le timer repart à zéro à chaque nouveau message.
   useEffect(() => {
     if (!err && !cleanResult) return
     const timer = setTimeout(() => {
@@ -97,7 +91,6 @@ export default function SteagingAppliquePage() {
         bestByKey.set(key, lead)
         continue
       }
-      // garder le plus récent (created_at), sinon plus grand id
       const a = toTime(existing?.created_at)
       const b = toTime(lead?.created_at)
       if (b > a) bestByKey.set(key, lead)
@@ -110,27 +103,16 @@ export default function SteagingAppliquePage() {
     return Array.from(bestByKey.values())
   }, [rawData, isSteagingApplique])
 
-  // Règle "cadre vert": égalité stricte (trim + lower) entre societe_leads.nom et lead.societe
   const societeExactKey = (s: any) =>
     String(s ?? "")
-      // retire les caractères invisibles fréquents (zero‑width, BOM)
       .replace(/[​-‍﻿]/g, "")
-      // normalise les espaces unicode en espace simple
       .replace(/[   ]/g, " ")
       .trim()
       .toLowerCase()
-  // Normalisation forte (utilisée pour dédup et noms/prénoms)
-  const normalizeSociete = (s: any) =>
-    String(s ?? "")
-      .trim()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/[^a-z0-9]+/g, "")
+
   const societesSet = useMemo(() => {
     const set = new Set<string>()
     for (const s of societes as any[]) {
-      // backend retourne généralement { nom, domaine, extension }
       if (s?.nom) set.add(societeExactKey(s.nom))
     }
     return set
@@ -149,22 +131,10 @@ export default function SteagingAppliquePage() {
     return map
   }, [societes])
 
-  const normalizeToken = (v: any) =>
-    String(v ?? "")
-      .trim()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/[^a-z0-9]+/g, "")
-
-  // L'email est généré côté backend lors de "Envoyer à Silver"
-
   useEffect(() => {
     setSelectedLeadIds(new Set())
   }, [leads, refresh])
 
-  // Re-synchronise la liste des sociétés quand l'onglet reprend le focus
-  // (ex. après avoir ajouté une société dans l'onglet Company) — sans recharger la page.
   useEffect(() => {
     const refetchSocietes = () => {
       if (document.visibilityState === "visible") setSocieteRefresh((p) => p + 1)
@@ -177,17 +147,14 @@ export default function SteagingAppliquePage() {
     }
   }, [])
 
-  // Détection mobile
   const [isMobile, setIsMobile] = useState(false)
-  const isSilverView = false
+  const isIncompleteView = false
   const isVerifiableView = true
   const shouldUseDataTable = !isMobile
   const cardsPerPage = 20
 
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
     checkMobile()
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
@@ -206,21 +173,17 @@ export default function SteagingAppliquePage() {
         import("datatables.net-react"),
         import("datatables.net-dt"),
       ])
-      // @ts-ignore
       await import("datatables.net-dt/css/dataTables.dataTables.css")
-
       DataTable.use(DT)
       setDTableComponent(() => DataTable)
     }
     load()
   }, [email, shouldUseDataTable])
 
-
   useEffect(() => {
     setMobilePage(1)
   }, [searchTerm, leads, refresh])
 
-  // Filtrage pour la vue mobile
   const filteredData = data.filter((item: any) => {
     if (!searchTerm) return true
     const searchLower = searchTerm.toLowerCase()
@@ -233,6 +196,7 @@ export default function SteagingAppliquePage() {
       item.location?.toLowerCase().includes(searchLower)
     )
   })
+
   const totalMobilePages = Math.max(1, Math.ceil(filteredData.length / cardsPerPage))
   const startIndex = (mobilePage - 1) * cardsPerPage
   const paginatedData = filteredData.slice(startIndex, startIndex + cardsPerPage)
@@ -251,7 +215,6 @@ export default function SteagingAppliquePage() {
   const selectAllLeads = () =>
     setSelectedLeadIds(new Set((data ?? []).map((d: any) => Number(d.id)).filter((n: number) => Number.isFinite(n))))
 
-  // Sélectionne uniquement les leads dont l'email est vérifié "disponible"
   const selectAllGreenLeads = () => {
     const ids = (data ?? [])
       .filter((d: any) => String(d?.statu ?? "").trim().toLowerCase() === "disponible")
@@ -260,12 +223,11 @@ export default function SteagingAppliquePage() {
     setSelectedLeadIds(new Set(ids))
   }
 
-  const sendSelectedToSilver = async () => {
+  const sendSelectedToOptimized = async () => {
     if (!isSteagingApplique) return
     const isUnavailable = (d: any) => String(d?.statu ?? "").trim().toLowerCase() === "non disponible"
     const selected = (data as any[]).filter((d: any) => selectedLeadIds.has(Number(d.id)))
     const blockedCount = selected.filter(isUnavailable).length
-    // On exclut les emails vérifiés "non disponible"
     const ids = selected.filter((d: any) => !isUnavailable(d)).map((d: any) => Number(d.id))
     if (ids.length === 0) {
       setError(blockedCount > 0
@@ -273,29 +235,27 @@ export default function SteagingAppliquePage() {
         : "Aucun lead sélectionné.")
       return
     }
-    setSendingToSilver(true)
+    setSendingToOptimized(true)
     setError(null)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging/to-silver`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging/to-optimized`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids, pattern: emailPattern }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json?.detail || `Erreur serveur : ${res.status}`)
-      // Non envoyés = exclus côté front (non disponibles) + ignorés côté backend → restés dans Applique
       const notSent = (Number(json?.skipped) || 0) + blockedCount
-      setCleanResult({ message: `✅ Envoyé vers Silver: ${json?.moved_to_silver ?? 0} | déjà en Silver supprimés: ${json?.deleted_already_in_silver ?? 0} | doublons supprimés: ${json?.deleted_duplicates ?? 0} | non envoyés (restés dans Applique): ${notSent}` })
+      setCleanResult({ message: `✅ Envoyé vers Optimized: ${json?.moved_to_incomplete ?? 0} | déjà en Optimized supprimés: ${json?.deleted_already_in_optimized ?? 0} | doublons supprimés: ${json?.deleted_duplicates ?? 0} | non envoyés (restés dans Applique): ${notSent}` })
       clearSelection()
       setRefresh((p) => p + 1)
     } catch (e: any) {
-      setError(e?.message || "Erreur lors de l'envoi vers Silver")
+      setError(e?.message || "Erreur lors de l'envoi vers Optimized")
     } finally {
-      setSendingToSilver(false)
+      setSendingToOptimized(false)
     }
   }
 
-  // Vérification par lead (regex -> sinon email généré depuis patterne -> test SMTP)
   const handleVerifyEmail = async (leadId: number) => {
     setVerifyingEmailId(leadId)
     try {
@@ -316,9 +276,6 @@ export default function SteagingAppliquePage() {
     }
   }
 
-  // Génère l'email d'un lead depuis le patterne de sa société (sans vérif, sans envoi Silver)
-  // Affichage EN PLACE : pas de rechargement de page.
-  // Logique de vérif d'un bouton "Vérifier email" desktop (réutilisée par le drawCallback et après génération)
   const runDesktopVerify = async (btn: HTMLElement) => {
     const leadId = Number(btn.dataset.id)
     if (!Number.isFinite(leadId)) return
@@ -361,18 +318,6 @@ export default function SteagingAppliquePage() {
     }
   }
 
-  // Crée le bouton "Vérifier email" (desktop) prêt à l'emploi
-  const makeVerifyBtn = (leadId: number): HTMLButtonElement => {
-    const b = document.createElement("button")
-    b.className = "dt-verify-email-btn"
-    b.dataset.id = String(leadId)
-    b.dataset.vl = "1"
-    b.textContent = "Vérifier email"
-    b.setAttribute("style", "display:block;margin-top:4px;padding:2px 8px;border-radius:5px;border:1px solid rgba(129,140,248,0.3);color:#a5b4fc;background:rgba(129,140,248,0.1);cursor:pointer;font-size:10px;font-weight:600;width:100%;text-align:center;")
-    b.addEventListener("click", (e) => { e.stopPropagation(); runDesktopVerify(b) })
-    return b
-  }
-
   const handleGenerateEmail = async (leadId: number) => {
     setError(null)
     try {
@@ -386,13 +331,10 @@ export default function SteagingAppliquePage() {
         return
       }
       const email = String(data.email || "")
-      // Vue mobile (React) : override local
       setGeneratedEmails((prev) => ({ ...prev, [leadId]: email }))
-      // Vue desktop (DataTable) : maj DOM en place de la pastille
       const pill = document.querySelector(`.dt-email-pill[data-id="${leadId}"]`) as HTMLElement | null
       if (pill) {
         pill.textContent = email
-        // L'email existe désormais -> texte simple, plus de pastille encadrée
         pill.style.border = "none"
         pill.style.background = "transparent"
         pill.style.padding = "0"
@@ -401,22 +343,14 @@ export default function SteagingAppliquePage() {
         pill.style.cursor = ""
         pill.classList.remove("dt-generate-email")
         pill.removeAttribute("title")
-        // Injecter le bouton "Vérifier email" (comme si la cellule avait été rendue avec un email)
-        const cellDiv = pill.parentElement
-        if (email && isVerifiableView && cellDiv && !cellDiv.querySelector(".dt-verify-email-btn")) {
-          cellDiv.appendChild(makeVerifyBtn(leadId))
-        }
       }
     } catch (e: any) {
       setError(e?.message || "Erreur lors de la génération de l'email")
     }
   }
 
-  // Vérification groupée : lance un job en arrière-plan et suit la progression.
   const handleBulkVerifyEmails = async () => {
     const ids = Array.from(selectedLeadIds)
-    console.log(ids);
-    
     if (ids.length === 0) return
     setSendingBulkVerify(true)
     setError(null)
@@ -434,7 +368,6 @@ export default function SteagingAppliquePage() {
       const total = Number(json?.total ?? ids.length)
       if (!jobId) throw new Error("Job non démarré")
 
-      // Poll de progression toutes les 1,5 s
       const final = await new Promise<any>((resolve) => {
         const iv = setInterval(async () => {
           try {
@@ -450,9 +383,7 @@ export default function SteagingAppliquePage() {
               clearInterval(iv)
               resolve(s)
             }
-          } catch {
-            // on retente au prochain tick
-          }
+          } catch {}
         }, 1500)
       })
 
@@ -467,8 +398,6 @@ export default function SteagingAppliquePage() {
     }
   }
 
-  // DataTables ne re-render pas automatiquement les cellules "render" sur changement d'état React.
-  // On synchronise donc les checkbox visibles avec selectedLeadIds.
   useEffect(() => {
     if (!shouldUseDataTable) return
     if (!isSelectableList) return
@@ -490,8 +419,6 @@ export default function SteagingAppliquePage() {
       const txt = (el.textContent || "").trim()
       const hasEmail = txt !== "" && txt !== "Email manquant" && txt !== "Email générable"
 
-      // 3 états : email présent -> texte simple ; manquant mais générable -> pastille
-      // verte cliquable ; manquant non générable -> pastille rouge.
       if (hasEmail) {
         el.style.border = "none"
         el.style.background = "transparent"
@@ -506,7 +433,6 @@ export default function SteagingAppliquePage() {
         el.style.padding = "4px 8px"
         el.style.color = "#86efac"
         el.textContent = "Email générable"
-        // rendre la pastille cliquable pour générer l'email
         el.classList.add("dt-generate-email")
         el.style.cursor = "pointer"
         el.title = "Cliquer pour générer l'email depuis le patterne"
@@ -564,57 +490,33 @@ export default function SteagingAppliquePage() {
 
   const badgeConfig: Record<string, { label: string; color: string; bg: string }> = {
     import: { label: "RAW", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
-    gold: { label: "★ GOLD", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
-    silver: { label: "◆ SILVER", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
+    complete: { label: "★ COMPLETE", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+    incomplete: { label: "◆ INCOMPLETE", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
     clean: { label: "✦ CLEAN", color: "#6ee7b7", bg: "rgba(110,231,183,0.1)" },
     "staging": { label: "🧩 APPLIQUE", color: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
     black: { label: "⛔ BLACK", color: "#f43f5e", bg: "rgba(244,63,94,0.1)" },
   }
   const badge = badgeConfig[leads as string] ?? { label: leads, color: "#818cf8", bg: "rgba(129,140,248,0.1)" }
 
-  // Composant Carte mobile
   const MobileCard = ({ lead, index }: { lead: any; index: number }) => {
     const isExpanded = expandedCard === index
     const id = Number(lead?.id)
     const isSelected = Number.isFinite(id) && selectedLeadIds.has(id)
-    // email affiché = email généré en place s'il existe, sinon celui du lead
     const displayEmail = generatedEmails[id] ?? lead.email
 
     return (
-      <div
-        className="rounded-xl mb-3 transition-all duration-200"
-        style={{
-          background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)",
-          border: "1px solid rgba(255,255,255,0.06)",
-        }}
-      >
+      <div className="rounded-xl mb-3 transition-all duration-200" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)", border: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="p-4">
           <div className="flex justify-between items-start mb-3 gap-2">
             <div className="flex-1">
-              <h3 className="text-white font-semibold text-base">
-                {lead.prenom} {lead.nom}
-              </h3>
-              {lead.fonction && (
-                <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  <Briefcase size={10} className="inline mr-1" />
-                  {lead.fonction}
-                </p>
-              )}
+              <h3 className="text-white font-semibold text-base">{lead.prenom} {lead.nom}</h3>
+              {lead.fonction && <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.4)" }}><Briefcase size={10} className="inline mr-1" />{lead.fonction}</p>}
             </div>
             <div className="flex items-center gap-2">
               {isSelectableList && Number.isFinite(id) && (
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={(e) => toggleLeadSelected(id, e.target.checked)}
-                  style={{ width: 16, height: 16, accentColor: "#818cf8" }}
-                />
+                <input type="checkbox" checked={isSelected} onChange={(e) => toggleLeadSelected(id, e.target.checked)} style={{ width: 16, height: 16, accentColor: "#818cf8" }} />
               )}
-              <button
-                onClick={() => setExpandedCard(isExpanded ? null : index)}
-                className="p-1 rounded-lg transition-colors"
-                style={{ background: "rgba(255,255,255,0.05)" }}
-              >
+              <button onClick={() => setExpandedCard(isExpanded ? null : index)} className="p-1 rounded-lg transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}>
                 {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
             </div>
@@ -622,66 +524,31 @@ export default function SteagingAppliquePage() {
 
           <div className="space-y-2">
             {(displayEmail || isSteagingApplique) && (
-              <div
-                className={`flex items-center gap-2 text-sm rounded-lg ${displayEmail ? "" : "px-2 py-1.5"}`}
-                style={{
-                  // 3 états : email présent -> texte simple ; manquant mais générable -> vert ; manquant -> rouge
-                  border: displayEmail
-                    ? "none"
-                    : societesSet.has(societeExactKey(lead?.societe))
-                      ? "1px solid rgba(34,197,94,0.55)"
-                      : "1px solid rgba(244,63,94,0.55)",
-                  background: displayEmail
-                    ? "transparent"
-                    : societesSet.has(societeExactKey(lead?.societe))
-                      ? "rgba(34,197,94,0.10)"
-                      : "rgba(244,63,94,0.10)",
-                }}
-              >
+              <div className={`flex items-center gap-2 text-sm rounded-lg ${displayEmail ? "" : "px-2 py-1.5"}`} style={{ border: displayEmail ? "none" : societesSet.has(societeExactKey(lead?.societe)) ? "1px solid rgba(34,197,94,0.55)" : "1px solid rgba(244,63,94,0.55)", background: displayEmail ? "transparent" : societesSet.has(societeExactKey(lead?.societe)) ? "rgba(34,197,94,0.10)" : "rgba(244,63,94,0.10)" }}>
                 <Mail size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
                 {displayEmail ? (
-                  <a href={`mailto:${displayEmail}`} className="text-blue-400 text-xs truncate flex-1 min-w-0">
-                    {displayEmail}
-                  </a>
+                  <a href={`mailto:${displayEmail}`} className="text-blue-400 text-xs truncate flex-1 min-w-0">{displayEmail}</a>
                 ) : isSteagingApplique && societesSet.has(societeExactKey(lead?.societe)) ? (
-                  <button
-                    onClick={() => handleGenerateEmail(Number(lead.id))}
-                    title="Générer l'email depuis le patterne"
-                    className="text-xs truncate flex-1 min-w-0 text-left underline decoration-dotted"
-                    style={{ color: "#86efac" }}
-                  >
-                    Email générable
-                  </button>
+                  <button onClick={() => handleGenerateEmail(Number(lead.id))} title="Générer l'email depuis le patterne" className="text-xs truncate flex-1 min-w-0 text-left underline decoration-dotted" style={{ color: "#86efac" }}>Email générable</button>
                 ) : (
-                  <span className="text-xs truncate flex-1 min-w-0" style={{ color: "rgba(255,255,255,0.45)" }}>
-                    Email manquant
-                  </span>
+                  <span className="text-xs truncate flex-1 min-w-0" style={{ color: "rgba(255,255,255,0.45)" }}>Email manquant</span>
                 )}
               </div>
             )}
             {isVerifiableView && displayEmail && (
               <div>
-                <button
-                  onClick={() => handleVerifyEmail(Number(lead.id))}
-                  disabled={verifyingEmailId === Number(lead.id)}
-                  className="w-full text-xs font-semibold px-2 py-1.5 rounded-lg disabled:opacity-40"
-                  style={{ background: "rgba(129,140,248,0.12)", border: "1px solid rgba(129,140,248,0.25)", color: "#a5b4fc" }}
-                >
+                <button onClick={() => handleVerifyEmail(Number(lead.id))} disabled={verifyingEmailId === Number(lead.id)} className="w-full text-xs font-semibold px-2 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(129,140,248,0.12)", border: "1px solid rgba(129,140,248,0.25)", color: "#a5b4fc" }}>
                   {verifyingEmailId === Number(lead.id) ? "Vérification..." : "Vérifier email"}
                 </button>
                 {emailVerifyResults[Number(lead.id)] && (
-                  <p className="text-xs mt-1 px-1" style={{ color: emailVerifyResults[Number(lead.id)].status === "valid" ? "#86efac" : "#fda4af" }}>
-                    {emailVerifyResults[Number(lead.id)].message}
-                  </p>
+                  <p className="text-xs mt-1 px-1" style={{ color: emailVerifyResults[Number(lead.id)].status === "valid" ? "#86efac" : "#fda4af" }}>{emailVerifyResults[Number(lead.id)].message}</p>
                 )}
               </div>
             )}
             {lead.telephone && (
               <div className="flex items-center gap-2 text-sm">
                 <Phone size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
-                <a href={`tel:${lead.telephone}`} className="text-green-400 text-xs">
-                  {lead.telephone}
-                </a>
+                <a href={`tel:${lead.telephone}`} className="text-green-400 text-xs">{lead.telephone}</a>
               </div>
             )}
             {lead.societe && (
@@ -693,9 +560,7 @@ export default function SteagingAppliquePage() {
             {lead.linkedin && (
               <div className="flex items-center gap-2 text-sm">
                 <Linkedin size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
-                <a href={lead.linkedin} target="_blank" rel="noopener noreferrer" className="text-blue-400 text-xs truncate flex-1 min-w-0">
-                  Profil LinkedIn
-                </a>
+                <a href={lead.linkedin} target="_blank" rel="noopener noreferrer" className="text-blue-400 text-xs truncate flex-1 min-w-0">Profil LinkedIn</a>
               </div>
             )}
             {lead.location && (
@@ -717,7 +582,6 @@ export default function SteagingAppliquePage() {
     )
   }
 
-  // Configuration DataTable (inchangée)
   const searchableCols = new Set(["nom", "prenom", "email", "fonction", "societe", "telephone", "linkedin", "location", "statu", "eliminer", "created_at"])
   const baseColumns = [
     { data: "nom", title: "Nom", defaultContent: "" },
@@ -733,31 +597,18 @@ export default function SteagingAppliquePage() {
         const companyExists = isSteagingApplique && soc && societesSet.has(soc)
         const value = val ? String(val) : ""
         const hasEmail = !!value
-        // 3 états : email présent -> texte simple ; manquant mais générable -> pastille verte ;
-        // manquant non générable -> pastille rouge. Seuls les états "manquant" sont
-        // encadrés : ce sont des badges de statut (et le vert est cliquable).
-        const border = hasEmail
-          ? "none"
-          : companyExists ? "1px solid rgba(34,197,94,0.55)" : "1px solid rgba(244,63,94,0.55)"
-        const bg = hasEmail
-          ? "transparent"
-          : companyExists ? "rgba(34,197,94,0.10)" : "rgba(244,63,94,0.10)"
-        const color = hasEmail
-          ? "#e2e8f0"
-          : companyExists ? "#86efac" : "#fda4af"
+        const border = hasEmail ? "none" : companyExists ? "1px solid rgba(34,197,94,0.55)" : "1px solid rgba(244,63,94,0.55)"
+        const bg = hasEmail ? "transparent" : companyExists ? "rgba(34,197,94,0.10)" : "rgba(244,63,94,0.10)"
+        const color = hasEmail ? "#e2e8f0" : companyExists ? "#86efac" : "#fda4af"
         const padding = hasEmail ? "0" : "4px 8px"
         const text = value ? value : (companyExists ? "Email générable" : "Email manquant")
         const opacity = value ? 1 : 0.55
-        // "Email générable" -> pastille cliquable qui génère l'email depuis le patterne
         const generable = !value && companyExists
         const genCls = generable ? " dt-generate-email" : ""
         const genStyle = generable ? "cursor:pointer;" : ""
         const genTitle = generable ? ' title="Cliquer pour générer l\'email depuis le patterne"' : ""
         const pill = `<span class="dt-email-pill${genCls}" data-soc="${encodeURIComponent(socRaw)}" data-id="${id}"${genTitle} style="display:block;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:${padding};border-radius:8px;border:${border};background:${bg};color:${color};opacity:${opacity};${genStyle}">${text || ""}</span>`
-        const verifyBtn = isVerifiableView && value
-          ? `<button data-id="${id}" data-type="verify-email" data-email="${encodeURIComponent(value)}" class="dt-verify-email-btn" style="display:block;margin-top:4px;padding:2px 8px;border-radius:5px;border:1px solid rgba(129,140,248,0.3);color:#a5b4fc;background:rgba(129,140,248,0.1);cursor:pointer;font-size:10px;font-weight:600;width:100%;text-align:center;">Vérifier email</button>`
-          : ""
-        return `<div>${pill}${verifyBtn}</div>`
+        return `<div>${pill}</div>`
       },
     },
     { data: "fonction", title: "Fonction", defaultContent: "" },
@@ -780,6 +631,7 @@ export default function SteagingAppliquePage() {
       },
     },
   ]
+
   const selectColumn = {
     data: "__select__",
     title: "",
@@ -792,12 +644,10 @@ export default function SteagingAppliquePage() {
       return `<input type="checkbox" class="dt-select-row" data-id="${id}" ${checked ? "checked" : ""} style="width:14px;height:14px;accent-color:#818cf8;cursor:pointer;" />`
     },
   }
+
   const dateColumn = { data: "created_at", title: "Date", render: (val: string, type: string) => (type === "sort" || type === "type") ? (val ? new Date(val).getTime() : 0) : (val ? new Date(val).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "") }
-  const columns = [
-    selectColumn,
-    ...baseColumns,
-    dateColumn,
-  ]
+
+  const columns = [selectColumn, ...baseColumns, dateColumn]
 
   const injectSearchIcons = (api: any, activeColumns: any[], activeSearchableCols: Set<string>, dateField: string) => {
     api.columns().every(function (this: any, index: number) {
@@ -842,9 +692,7 @@ export default function SteagingAppliquePage() {
     const selectRow = (e.target as HTMLElement).closest(".dt-select-row") as HTMLInputElement | null
     if (selectRow) {
       const id = Number(selectRow.dataset.id)
-      if (Number.isFinite(id)) {
-        toggleLeadSelected(id, selectRow.checked)
-      }
+      if (Number.isFinite(id)) toggleLeadSelected(id, selectRow.checked)
       return
     }
     const genPill = (e.target as HTMLElement).closest(".dt-generate-email") as HTMLElement | null
@@ -862,7 +710,6 @@ export default function SteagingAppliquePage() {
 
   return (
     <div className="h-full rounded-none flex flex-col" style={{ background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)", border: "1px solid rgba(255,255,255,0.06)" }}>
-      {/* Header */}
       <div className="sticky top-0 z-10 pr-3 pl-14 sm:px-6 py-3 sm:py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "inherit" }}>
         <div className="flex justify-between items-start sm:items-center flex-wrap gap-2 sm:gap-3">
           <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
@@ -883,45 +730,21 @@ export default function SteagingAppliquePage() {
               {isSelectableList && (
                 <>
                   <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                    <span className="text-[11px] font-semibold" style={{ color: "rgba(255,255,255,0.55)" }}>
-                      Sélection: <span className="text-white">{selectedLeadIds.size}</span>
-                    </span>
+                    <span className="text-[11px] font-semibold" style={{ color: "rgba(255,255,255,0.55)" }}>Sélection: <span className="text-white">{selectedLeadIds.size}</span></span>
                   </div>
                   {isSteagingApplique && (
-                    <button
-                      onClick={selectAllGreenLeads}
-                      disabled={(data?.length || 0) === 0}
-                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
-                      style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.30)", color: "#86efac" }}
-                    >
-                      Sélectionner verts
-                    </button>
+                    <button onClick={selectAllGreenLeads} disabled={(data?.length || 0) === 0} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.30)", color: "#86efac" }}>Sélectionner verts</button>
                   )}
-                  <button
-                    onClick={() => (selectedLeadIds.size === (data?.length || 0) ? clearSelection() : selectAllLeads())}
-                    disabled={(data?.length || 0) === 0}
-                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
-                    style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}
-                  >
+                  <button onClick={() => (selectedLeadIds.size === (data?.length || 0) ? clearSelection() : selectAllLeads())} disabled={(data?.length || 0) === 0} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}>
                     {selectedLeadIds.size === (data?.length || 0) ? "Tout désélectionner" : "Tout sélectionner"}
                   </button>
                   {isSteagingApplique && (
-                    <button
-                      onClick={sendSelectedToSilver}
-                      disabled={selectedLeadIds.size === 0 || sendingToSilver}
-                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
-                      style={{ background: "rgba(148,163,184,0.12)", border: "1px solid rgba(148,163,184,0.28)", color: "#e2e8f0" }}
-                    >
-                      {sendingToSilver ? "Envoi..." : "Envoyer à Lead"}
+                    <button onClick={sendSelectedToOptimized} disabled={selectedLeadIds.size === 0 || sendingToOptimized} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(148,163,184,0.12)", border: "1px solid rgba(148,163,184,0.28)", color: "#e2e8f0" }}>
+                      {sendingToOptimized ? "Envoi..." : "Envoyer à Lead"}
                     </button>
                   )}
                   {isVerifiableView && (
-                    <button
-                      onClick={handleBulkVerifyEmails}
-                      disabled={selectedLeadIds.size === 0 || sendingBulkVerify}
-                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
-                      style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}
-                    >
+                    <button onClick={handleBulkVerifyEmails} disabled={selectedLeadIds.size === 0 || sendingBulkVerify} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}>
                       {sendingBulkVerify ? "Vérification..." : "Vérifier emails"}
                     </button>
                   )}
@@ -930,7 +753,6 @@ export default function SteagingAppliquePage() {
             </div>
           </div>
         </div>
-        {/* Barre de recherche mobile (vue cartes uniquement) */}
         {isMobile && mobileView === "cards" && data.length > 0 && (
           <div className="mt-3">
             <div className="relative">
@@ -941,14 +763,12 @@ export default function SteagingAppliquePage() {
         )}
       </div>
 
-      {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
         <div className="md:hidden px-3 py-2 flex flex-col gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.2)" }}>
           <button onClick={() => { setRefresh((p) => p + 1); setMobileMenuOpen(false); }} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}><RefreshCw size={14} />Actualiser</button>
         </div>
       )}
 
-      {/* Messages d'erreur / succès (inchangés) */}
       {err && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#fda4af" }}>❌ {err}</div>}
       {bulkProgress && (
         <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(129,140,248,0.08)", border: "1px solid rgba(129,140,248,0.25)", color: "#a5b4fc" }}>
@@ -961,39 +781,15 @@ export default function SteagingAppliquePage() {
           </div>
         </div>
       )}
-      {cleanResult && cleanResult.message && !cleanResult.moved_to_gold && !cleanResult.total_deleted && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>✅ {cleanResult.message}</div>}
-      {cleanResult && cleanResult.total_deleted !== undefined && (<div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)", color: "#fda4af" }}><p className="font-semibold mb-2">🗑️ Suppression des doublons terminée</p><div className="grid grid-cols-2 sm:grid-cols-5 gap-2">{[
-        { label: "Total", val: cleanResult.total_deleted, icon: "🔢" },
-        { label: "Doublons en Gold", val: cleanResult.staging_vs_gold, icon: "🥇" },
-        { label: "Doublons en Silver", val: cleanResult.staging_vs_silver, icon: "🥈" },
-        { label: "Doublons Interne", val: cleanResult.staging_internal, icon: "♻️" },
-        { label: "Doublons Staging ", val: cleanResult.staging_vs_applique, icon: "🧩" },
-      ].map((item) => (<div key={item.label} className="px-2 sm:px-3 py-2 rounded-lg text-center" style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.15)" }}><p className="text-xs opacity-70">{item.icon} {item.label}</p><p className="font-bold text-sm sm:text-base">{item.val ?? 0}</p></div>))}</div>{uploadedRows > 0 && Number(cleanResult.total_deleted || 0) === uploadedRows && (<p className="mt-3 text-xs sm:text-sm font-semibold" style={{ color: "#fca5a5" }}>⚠️ Tu as deja traite ce fichier: tous les leads importes ont ete supprimes comme doublons.</p>)}</div>)}
-      {cleanResult && cleanResult.moved_to_gold !== undefined && (<div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}><p className="font-semibold mb-2">✅ Nettoyage terminé</p><div className="grid grid-cols-2 sm:grid-cols-3 gap-2">{[
-        { label: "🥇 Gold", val: cleanResult.moved_to_gold },
-        { label: "🥈 Silver", val: cleanResult.moved_to_silver },
-        { label: "🧹 Clean", val: cleanResult.moved_to_clean },
-        { label: "🧩 Staging", val: cleanResult.moved_to_steaging_applique },
-        { label: "📧 Emails complètè", val: cleanResult.emails_completed },
-        { label: "👤 Noms complètè", val: cleanResult.nom_prenom_completed },
-      ].map((item) => (<div key={item.label} className="px-2 sm:px-3 py-2 rounded-lg text-center" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.15)" }}><p className="text-xs opacity-70">{item.label}</p><p className="font-bold text-sm sm:text-base">{item.val ?? 0}</p></div>))}</div></div>)}
-
+      {cleanResult && cleanResult.message && !cleanResult.moved_to_complete && !cleanResult.total_deleted && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>✅ {cleanResult.message}</div>}
 
       <div className="px-2 sm:px-3 pb-4 pt-2 overflow-y-auto flex-1 overflow-x-hidden">
         {loadingLeads || (!DTableComponent && shouldUseDataTable) ? (
-          // Squelette aux dimensions du tableau : évite le saut de mise en page
-          // et le faux message "Aucune donnée" tant que le chargement est en cours.
           <div className="animate-pulse rounded-2xl border border-white/10 bg-slate-900/40 overflow-hidden">
             <div className="h-11 bg-slate-900/80 border-b border-white/10" />
             {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-4 px-4 h-12 border-b border-white/5"
-                style={{ background: i % 2 ? "rgba(255,255,255,0.025)" : "transparent" }}
-              >
-                {Array.from({ length: 5 }).map((__, j) => (
-                  <div key={j} className="h-3 rounded bg-white/10" style={{ flex: j === 0 ? 0.5 : 1 }} />
-                ))}
+              <div key={i} className="flex items-center gap-4 px-4 h-12 border-b border-white/5" style={{ background: i % 2 ? "rgba(255,255,255,0.025)" : "transparent" }}>
+                {Array.from({ length: 5 }).map((__, j) => <div key={j} className="h-3 rounded bg-white/10" style={{ flex: j === 0 ? 0.5 : 1 }} />)}
               </div>
             ))}
           </div>
@@ -1010,25 +806,9 @@ export default function SteagingAppliquePage() {
                     {paginatedData.map((lead: any, index: number) => <MobileCard key={lead.id || index} lead={lead} index={index} />)}
                     {totalMobilePages > 1 && (
                       <div className="mt-3 flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => setMobilePage((p) => Math.max(1, p - 1))}
-                          disabled={mobilePage === 1}
-                          className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40"
-                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}
-                        >
-                          Précédent
-                        </button>
-                        <span className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
-                          Page {mobilePage}/{totalMobilePages}
-                        </span>
-                        <button
-                          onClick={() => setMobilePage((p) => Math.min(totalMobilePages, p + 1))}
-                          disabled={mobilePage === totalMobilePages}
-                          className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40"
-                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}
-                        >
-                          Suivant
-                        </button>
+                        <button onClick={() => setMobilePage((p) => Math.max(1, p - 1))} disabled={mobilePage === 1} className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}>Précédent</button>
+                        <span className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>Page {mobilePage}/{totalMobilePages}</span>
+                        <button onClick={() => setMobilePage((p) => Math.min(totalMobilePages, p + 1))} disabled={mobilePage === totalMobilePages} className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}>Suivant</button>
                       </div>
                     )}
                   </>
@@ -1051,11 +831,7 @@ export default function SteagingAppliquePage() {
                       if (!isMobile) injectSearchIcons(api, columns, searchableCols, "created_at")
                     },
                     drawCallback: function () {
-                      // Attacher les listeners sur les boutons vérifier (logique partagée)
-                      document.querySelectorAll<HTMLElement>(".dt-verify-email-btn:not([data-vl])").forEach((btn) => {
-                        btn.dataset.vl = "1"
-                        btn.addEventListener("click", (e) => { e.stopPropagation(); runDesktopVerify(btn) })
-                      })
+                      // No verify buttons anymore
                     },
                     language: { processing: "Traitement en cours...", search: "Rechercher :", lengthMenu: "Afficher _MENU_", info: "_START_ à _END_ sur _TOTAL_", infoEmpty: "0 à 0 sur 0", infoFiltered: "(filtré de _MAX_)", loadingRecords: "Chargement...", zeroRecords: "Aucun élément", emptyTable: "Aucune donnée", paginate: { first: "«", previous: "‹", next: "›", last: "»" } }
                   }}

@@ -12,7 +12,7 @@ const COMPLETION_FIELDS = [
 ] as const
 
 export default function LeadsPage() {
-  const leads = "leads"
+  const leads = "optimized"
   const [DTableComponent, setDTableComponent] = useState<any>(null)
   const [openMenu, setOpenMenu] = useState<number | null>(null)
   const [stat, setstat] = useState<string | null>(null)
@@ -56,7 +56,7 @@ export default function LeadsPage() {
   const [exporting, setExporting] = useState(false)
 
   // La complétion n'est pas stockée en base : on la calcule ici, à partir des
-  // 8 champs du lead (12,5% par champ rempli). 100% => Gold.
+  // 8 champs du lead (12,5% par champ rempli). 100% => Complete.
   const isFilled = (v: any) => {
     const s = String(v ?? "").trim().toLowerCase()
     return s !== "" && s !== "nan" && s !== "none" && s !== "null"
@@ -76,9 +76,9 @@ export default function LeadsPage() {
     [rawData, edits]
   )
 
-  // Le niveau Gold/Silver se lit sur la complétion (100% = Gold) ; Silver et
-  // Gold sont désormais la même table.
-  const goldCount = useMemo(
+  // Le niveau Complete/Incomplete se lit sur la complétion (100% = Complete) ;
+  // Incomplete et Complete sont désormais la même table.
+  const completeCount = useMemo(
     () => mergedData.filter((l: any) => l.completion === 100).length,
     [mergedData]
   )
@@ -118,7 +118,7 @@ export default function LeadsPage() {
       .replace(/[̀-ͯ]/g, "")
       .replace(/[^a-z0-9]+/g, "")
 
-  // L'email est généré côté backend lors de "Envoyer à Silver"
+  // L'email est généré côté backend lors de "Envoyer à Optimized"
 
   useEffect(() => {
     setSelectedLeadIds(new Set())
@@ -127,7 +127,7 @@ export default function LeadsPage() {
 
   // Détection mobile
   const [isMobile, setIsMobile] = useState(false)
-  const isSilverView = true
+  const isIncompleteView = true
   const isVerifiableView = false
   const shouldUseDataTable = !isMobile
   const cardsPerPage = 20
@@ -211,17 +211,17 @@ export default function LeadsPage() {
     })
   }, [selectedLeadIds, shouldUseDataTable, isSelectableList])
 
-  const handleToGold = async (leadId: number) => {
+  const handleToComplete = async (leadId: number) => {
     setError(null)
     setCleanResult(null)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/togold/${leadId}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tocomplete/${leadId}`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || `Erreur serveur : ${res.status}`)
-      setCleanResult({ message: data.message || "Lead promu en GOLD avec succès !" })
+      setCleanResult({ message: data.message || "Lead promu Complete avec succès !" })
       setRefresh((prev) => prev + 1)
     } catch (err: any) {
       let message = err.message.substring(err.message.lastIndexOf(":") + 1)
@@ -312,7 +312,7 @@ export default function LeadsPage() {
     }
     setExporting(true)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/leads/export-${format}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/optimized/export-${format}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids }),
@@ -341,8 +341,8 @@ export default function LeadsPage() {
 
   const badgeConfig: Record<string, { label: string; color: string; bg: string }> = {
     import: { label: "RAW", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
-    gold: { label: "★ GOLD", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
-    silver: { label: "◆ SILVER", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
+    complete: { label: "★ COMPLETE", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+    incomplete: { label: "◆ INCOMPLETE", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
     clean: { label: "✦ CLEAN", color: "#6ee7b7", bg: "rgba(110,231,183,0.1)" },
     "staging": { label: "🧩 APPLIQUE", color: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
     black: { label: "⛔ BLACK", color: "#f43f5e", bg: "rgba(244,63,94,0.1)" },
@@ -352,7 +352,7 @@ export default function LeadsPage() {
   // Composant Carte mobile
   const MobileCard = ({ lead, index }: { lead: any; index: number }) => {
     const isExpanded = expandedCard === index
-    // (plus de boutons d'action par lead : le passage en Gold est automatique)
+    // (plus de boutons d'action par lead : le passage en Complete est automatique)
     const id = Number(lead?.id)
     const isSelected = Number.isFinite(id) && selectedLeadIds.has(id)
 
@@ -465,7 +465,7 @@ export default function LeadsPage() {
             </div>
           )}
 
-          {/* Plus de promotion manuelle vers Gold : le niveau se déduit de la complétion (100% = Gold). */}
+          {/* Plus de promotion manuelle vers Complete : le niveau se déduit de la complétion (100% = Complete). */}
         </div>
       </div>
     )
@@ -506,7 +506,25 @@ export default function LeadsPage() {
         const value = val ? String(val) : ""
         const text = value ? value : ""
         const opacity = value ? 1 : 0.55
-        const pill = `<span class="dt-email-pill dt-edit" contenteditable="true" spellcheck="false" data-soc="${encodeURIComponent(socRaw)}" data-id="${id}" data-field="email" data-original="${encodeURIComponent(value)}" style="display:block;min-width:120px;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;border-radius:8px;border:${border};background:${bg};color:${color};opacity:${opacity};outline:none;">${escapeHtml(text)}</span>`
+const pill = `
+<span 
+  class="dt-email-pill"
+  style="
+    display:block;
+    min-width:120px;
+    max-width:260px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    padding:4px 8px;
+   
+    background:${bg};
+    color:${color};
+    opacity:${opacity};
+  "
+>
+  ${escapeHtml(text)}
+</span>`
         const verifyBtn = isVerifiableView && value
           ? `<button data-id="${id}" data-type="verify-email" data-email="${encodeURIComponent(value)}" class="dt-verify-email-btn" style="display:block;margin-top:4px;padding:2px 8px;border-radius:5px;border:1px solid rgba(129,140,248,0.3);color:#a5b4fc;background:rgba(129,140,248,0.1);cursor:pointer;font-size:10px;font-weight:600;width:100%;text-align:center;">Vérifier email</button>`
           : ""
@@ -545,7 +563,7 @@ export default function LeadsPage() {
       return `<input type="checkbox" class="dt-select-row" data-id="${id}" ${checked ? "checked" : ""} style="width:14px;height:14px;accent-color:#818cf8;cursor:pointer;" />`
     },
   }
-  // Complétion : part des 8 champs renseignés. 100% => Gold.
+  // Complétion : part des 8 champs renseignés. 100% => Complete.
   const completionColumn = {
     data: "completion",
     title: "Complétion",
@@ -617,7 +635,7 @@ export default function LeadsPage() {
     if (!btn) return
     const id = Number(btn.dataset.id)
     const type = btn.dataset.type!
-    if (type === "to-gold") handleToGold(id)
+    if (type === "to-complete") handleToComplete(id)
     else if (type === "verify-email") handleVerifyEmail(id, decodeURIComponent(btn.dataset.email || ""))
   }
 
@@ -637,7 +655,7 @@ export default function LeadsPage() {
     setError(null)
     setSavingCell(true)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/leads/${id}/field`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/optimized/${id}/field`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ field, value: next }),
@@ -666,7 +684,7 @@ export default function LeadsPage() {
       <div className="sticky top-0 z-10 pr-3 pl-14 sm:px-6 py-3 sm:py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "inherit" }}>
         <div className="flex justify-between items-start sm:items-center flex-wrap gap-2 sm:gap-3">
           <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-            <h2 className="text-white font-semibold text-sm sm:text-base truncate">Liste des Leads</h2>
+            <h2 className="text-white font-semibold text-sm sm:text-base truncate">Liste des Leads Optimisés</h2>
             <span className="text-xs font-bold px-2 py-0.5 rounded-md whitespace-nowrap" style={{ color: badge.color, background: badge.bg, border: `1px solid ${badge.color}30` }}>{badge.label}</span>
             <span className="text-xs hidden sm:inline" style={{ color: "rgba(255,255,255,0.3)" }}>{data.length} entrées</span>
           </div>
@@ -680,8 +698,8 @@ export default function LeadsPage() {
               {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
             <div className="hidden md:flex gap-2">
-              <button onClick={downloadCSV} disabled={exporting || goldCount === 0} title={`Exporte uniquement les ${goldCount} lead(s) à 100%`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={13} />CSV ({goldCount})</button>
-              <button onClick={downloadXlsx} disabled={exporting || goldCount === 0} title={`Exporte uniquement les ${goldCount} lead(s) à 100%`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={13} />XLSX ({goldCount})</button>
+              <button onClick={downloadCSV} disabled={exporting || completeCount === 0} title={`Exporte uniquement les ${completeCount} lead(s) à 100%`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={13} />CSV ({completeCount})</button>
+              <button onClick={downloadXlsx} disabled={exporting || completeCount === 0} title={`Exporte uniquement les ${completeCount} lead(s) à 100%`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={13} />XLSX ({completeCount})</button>
             </div>
           </div>
         </div>
@@ -707,17 +725,17 @@ export default function LeadsPage() {
 
       {/* Messages d'erreur / succès (inchangés) */}
       {err && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#fda4af" }}>❌ {err}</div>}
-      {cleanResult && cleanResult.message && !cleanResult.moved_to_gold && !cleanResult.total_deleted && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>✅ {cleanResult.message}</div>}
+      {cleanResult && cleanResult.message && !cleanResult.moved_to_complete && !cleanResult.total_deleted && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>✅ {cleanResult.message}</div>}
       {cleanResult && cleanResult.total_deleted !== undefined && (<div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)", color: "#fda4af" }}><p className="font-semibold mb-2">🗑️ Suppression des doublons terminée</p><div className="grid grid-cols-2 sm:grid-cols-5 gap-2">{[
         { label: "Total", val: cleanResult.total_deleted, icon: "🔢" },
-        { label: "Doublons en Gold", val: cleanResult.staging_vs_gold, icon: "🥇" },
-        { label: "Doublons en Silver", val: cleanResult.staging_vs_silver, icon: "🥈" },
+        { label: "Doublons en Complete", val: cleanResult.staging_vs_complete, icon: "🥇" },
+        { label: "Doublons en Incomplete", val: cleanResult.staging_vs_incomplete, icon: "🥈" },
         { label: "Doublons Interne", val: cleanResult.staging_internal, icon: "♻️" },
         { label: "Doublons Staging ", val: cleanResult.staging_vs_applique, icon: "🧩" },
       ].map((item) => (<div key={item.label} className="px-2 sm:px-3 py-2 rounded-lg text-center" style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.15)" }}><p className="text-xs opacity-70">{item.icon} {item.label}</p><p className="font-bold text-sm sm:text-base">{item.val ?? 0}</p></div>))}</div>{uploadedRows > 0 && Number(cleanResult.total_deleted || 0) === uploadedRows && (<p className="mt-3 text-xs sm:text-sm font-semibold" style={{ color: "#fca5a5" }}>⚠️ Tu as deja traite ce fichier: tous les leads importes ont ete supprimes comme doublons.</p>)}</div>)}
-      {cleanResult && cleanResult.moved_to_gold !== undefined && (<div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}><p className="font-semibold mb-2">✅ Nettoyage terminé</p><div className="grid grid-cols-2 sm:grid-cols-3 gap-2">{[
-        { label: "🥇 Gold", val: cleanResult.moved_to_gold },
-        { label: "🥈 Silver", val: cleanResult.moved_to_silver },
+      {cleanResult && cleanResult.moved_to_complete !== undefined && (<div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}><p className="font-semibold mb-2">✅ Nettoyage terminé</p><div className="grid grid-cols-2 sm:grid-cols-3 gap-2">{[
+        { label: "🥇 Complete", val: cleanResult.moved_to_complete },
+        { label: "🥈 Incomplete", val: cleanResult.moved_to_incomplete },
         { label: "🧹 Clean", val: cleanResult.moved_to_clean },
         { label: "🧩 Staging", val: cleanResult.moved_to_steaging_applique },
         { label: "📧 Emails complètè", val: cleanResult.emails_completed },

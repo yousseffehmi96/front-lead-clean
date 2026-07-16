@@ -16,11 +16,11 @@ interface Stat {
   societe_completed: number
   added_societes: number
   blacklisted_removed: number
-  moved_to_silver: number
+  moved_to_incomplete: number
   moved_to_clean: number
-  moved_to_gold: number
-  staging_vs_silver: number
-  staging_vs_gold: number
+  moved_to_complete: number
+  staging_vs_incomplete: number
+  staging_vs_complete: number
   staging_vs_applique: number
   staging_internal: number
   total_deleted: number
@@ -80,18 +80,19 @@ function StatRow({ d, idx }: { d: Stat; idx: number }) {
     fetchUser()
   }, [userid])
 
-  // Silver et Gold ne sont plus des tables (fusionnées dans `leads`, le niveau
-  // se lit sur la complétion). Les compteurs "moved_to_gold" / "moved_to_silver"
-  // ne sont plus alimentés par le pipeline : on n'affiche que ce qui existe.
+  // Incomplete et Complete ne sont plus des tables (fusionnées dans `optimized`,
+  // le niveau se lit sur la complétion). Les compteurs "moved_to_complete" /
+  // "moved_to_incomplete" ne sont plus alimentés par le pipeline : on
+  // n'affiche que ce qui existe.
   const details = [
     { label: "Emails complétés", val: d.emails_completed ?? 0, i: 2 },
     { label: "Sociétés complétées", val: d.societe_completed ?? 0, i: 3 },
     { label: "Blacklistés retirés", val: d.blacklisted_removed ?? 0, i: 5 },
     { label: "🧹 Vers Clean", val: d.moved_to_clean ?? 0, i: 8 },
-    // Doublons écartés à l'import. Silver et Gold étant fusionnés dans `leads`,
-    // les deux compteurs du backend portent sur la même table (partitions
-    // disjointes par complétion) : on les additionne en une seule métrique.
-    { label: "Doublons vs Leads", val: (d.staging_vs_gold ?? 0) + (d.staging_vs_silver ?? 0), i: 1 },
+    // Doublons écartés à l'import. Incomplete et Complete étant fusionnés dans
+    // `optimized`, les deux compteurs du backend portent sur la même table
+    // (partitions disjointes par complétion) : on les additionne en une seule métrique.
+    { label: "Doublons vs Leads", val: (d.staging_vs_complete ?? 0) + (d.staging_vs_incomplete ?? 0), i: 1 },
     { label: "Doublons vs Staging", val: d.staging_vs_applique ?? 0, i: 4 },
     { label: "Doublons internes", val: d.staging_internal ?? 0, i: 2 },
   ]

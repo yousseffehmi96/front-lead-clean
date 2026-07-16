@@ -105,7 +105,7 @@ export default function LeadsPage({
         return
       }
 
-      // 2) Nettoyage + déduplication (vs silver/gold/applique) puis déplacement vers staging_leads
+      // 2) Nettoyage + déduplication (vs incomplete/complete/applique) puis déplacement vers staging_leads
       const dispatchRes = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/staging-dispatch/import_leads`,
         {
@@ -206,8 +206,8 @@ export default function LeadsPage({
                 <li>{Number(result.moved_to_steaging_applique || 0)} déplacée(s) vers Staging</li>
                 <li>{Number(result.moved_to_clean || 0)} envoyée(s) vers Clean (incomplètes)</li>
                 <li>
-                  {Number(result.staging_vs_silver || 0)} doublon(s) vs Silver ·{" "}
-                  {Number(result.staging_vs_gold || 0)} vs Gold
+                  {Number(result.staging_vs_incomplete || 0)} doublon(s) vs Incomplete ·{" "}
+                  {Number(result.staging_vs_complete || 0)} vs Complete
                 </li>
                 <li>{Number(result.blacklisted_removed || 0)} blacklisté(s) retiré(s)</li>
                 <li>{Number(result.emails_completed || 0)} email(s) complété(s)</li>

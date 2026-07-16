@@ -69,7 +69,7 @@ export default function LeadList({ leads }: { leads: string }) {
   const [emailPattern, setEmailPattern] = useState<string>("{prenom}.{nom}@{domaine}.{extension}")
   const [applyingEmailPattern, setApplyingEmailPattern] = useState(false)
   const [savingEmailPattern, setSavingEmailPattern] = useState(false)
-  const [sendingToSilver, setSendingToSilver] = useState(false)
+  const [sendingToOptimized, setSendingToOptimized] = useState(false)
   const [deletingClean, setDeletingClean] = useState(false)
   const [reformulatingLocation, setReformulatingLocation] = useState(false)
   const [verifyingEmailId, setVerifyingEmailId] = useState<number | null>(null)
@@ -83,7 +83,7 @@ export default function LeadList({ leads }: { leads: string }) {
   const userRole = ((user?.publicMetadata?.role as string) || "agent").toLowerCase()
   const isManager = userRole === "manager"
   const isStaging = leads === "staging"
-  const isSelectableList = leads === "staging" || leads === "clean" || leads === "silver" || leads === "gold"
+  const isSelectableList = leads === "staging" || leads === "clean" || leads === "incomplete" || leads === "complete"
   const isSteagingApplique = leads === "staging"
 
   const rawData = Usefetch(`${process.env.NEXT_PUBLIC_API_URL}/${leads}?refresh=${refresh}`).data || []
@@ -182,7 +182,7 @@ export default function LeadList({ leads }: { leads: string }) {
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]+/g, "")
 
-  // L'email est généré côté backend lors de "Envoyer à Silver"
+  // L'email est généré côté backend lors de "Envoyer à Optimized"
 
   useEffect(() => {
     setSelectedLeadIds(new Set())
@@ -226,7 +226,7 @@ export default function LeadList({ leads }: { leads: string }) {
 
   useEffect(() => {
     const fetchPattern = async () => {
-      if (leads !== "silver") return
+      if (leads !== "incomplete") return
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/settings/email-pattern`)
         const data = await res.json()
@@ -240,8 +240,8 @@ export default function LeadList({ leads }: { leads: string }) {
 
   // Détection mobile
   const [isMobile, setIsMobile] = useState(false)
-  const isSilverView = leads === "silver"
-  const isVerifiableView = leads === "silver" || leads === "gold" || leads === "staging"
+  const isIncompleteView = leads === "incomplete"
+  const isVerifiableView = leads === "incomplete" || leads === "complete" || leads === "staging"
   const shouldUseDataTable = !isMobile
   const cardsPerPage = 20
   
@@ -320,27 +320,27 @@ export default function LeadList({ leads }: { leads: string }) {
     setSelectedLeadIds(new Set(ids))
   }
 
-  const sendSelectedToSilver = async () => {
+  const sendSelectedToOptimized = async () => {
     if (!isSteagingApplique) return
     const ids = Array.from(selectedLeadIds)
     if (ids.length === 0) return
-    setSendingToSilver(true)
+    setSendingToOptimized(true)
     setError(null)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging/to-silver`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/staging/to-optimized`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids, pattern: emailPattern }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json?.detail || `Erreur serveur : ${res.status}`)
-      setCleanResult({ message: `✅ Envoyé vers Silver: ${json?.moved_to_silver ?? 0} | déjà en Silver supprimés: ${json?.deleted_already_in_silver ?? 0} | doublons supprimés: ${json?.deleted_duplicates ?? 0} | ignorés: ${json?.skipped ?? 0}` })
+      setCleanResult({ message: `✅ Envoyé vers Optimized: ${json?.moved_to_incomplete ?? 0} | déjà en Optimized supprimés: ${json?.deleted_already_in_optimized ?? 0} | doublons supprimés: ${json?.deleted_duplicates ?? 0} | ignorés: ${json?.skipped ?? 0}` })
       clearSelection()
       setRefresh((p) => p + 1)
     } catch (e: any) {
-      setError(e?.message || "Erreur lors de l'envoi vers Silver")
+      setError(e?.message || "Erreur lors de l'envoi vers Optimized")
     } finally {
-      setSendingToSilver(false)
+      setSendingToOptimized(false)
     }
   }
 
@@ -519,12 +519,12 @@ export default function LeadList({ leads }: { leads: string }) {
     }
   }
 
-  const handleApplyEmailPatternSilver = async () => {
+  const handleApplyEmailPatternOptimized = async () => {
     setApplyingEmailPattern(true)
     setError(null)
     setCleanResult(null)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/silver/complete-email`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/optimized/complete-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pattern: emailPattern, overwrite: true }),
@@ -560,17 +560,17 @@ export default function LeadList({ leads }: { leads: string }) {
     }
   }
 
-  const handleToGold = async (leadId: number) => {
+  const handleToComplete = async (leadId: number) => {
     setError(null)
     setCleanResult(null)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/togold/${leadId}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tocomplete/${leadId}`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || `Erreur serveur : ${res.status}`)
-      setCleanResult({ message: data.message || "Lead promu en GOLD avec succès !" })
+      setCleanResult({ message: data.message || "Lead promu Complete avec succès !" })
       setRefresh((prev) => prev + 1)
     } catch (err: any) {
       let message = err.message.substring(err.message.lastIndexOf(":") + 1)
@@ -688,8 +688,8 @@ export default function LeadList({ leads }: { leads: string }) {
 
   const badgeConfig: Record<string, { label: string; color: string; bg: string }> = {
     import: { label: "RAW", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
-    gold: { label: "★ GOLD", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
-    silver: { label: "◆ SILVER", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
+    complete: { label: "★ COMPLETE", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+    incomplete: { label: "◆ INCOMPLETE", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
     clean: { label: "✦ CLEAN", color: "#6ee7b7", bg: "rgba(110,231,183,0.1)" },
     "staging": { label: "🧩 APPLIQUE", color: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
     black: { label: "⛔ BLACK", color: "#f43f5e", bg: "rgba(244,63,94,0.1)" },
@@ -699,7 +699,7 @@ export default function LeadList({ leads }: { leads: string }) {
   // Composant Carte mobile
   const MobileCard = ({ lead, index }: { lead: any; index: number }) => {
     const isExpanded = expandedCard === index
-    const hasActionButtons = leads === "gold" || leads === "prod" || leads === "silver"
+    const hasActionButtons = leads === "complete" || leads === "prod" || leads === "incomplete"
     const id = Number(lead?.id)
     const isSelected = Number.isFinite(id) && selectedLeadIds.has(id)
     // Conformité de l'email au patterne de la société (regex) : true / false / null (non évaluable)
@@ -844,16 +844,16 @@ export default function LeadList({ leads }: { leads: string }) {
 
           {hasActionButtons && isExpanded && (
             <div className="mt-4 pt-3 flex flex-col sm:flex-row gap-2" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-              {leads === "silver" && (
+              {leads === "incomplete" && (
                 <button
-                  onClick={() => handleToGold(lead.id)}
+                  onClick={() => handleToComplete(lead.id)}
                   className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all"
                   style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}
                 >
-                  ★ Promouvoir Gold
+                  ★ Promouvoir Complete
                 </button>
               )}
-              {(leads === "gold" || leads === "prod") && (
+              {(leads === "complete" || leads === "prod") && (
                 <>
                   <button
                     onClick={() => handelclick("Unsubscribe", lead.id)}
@@ -945,14 +945,14 @@ export default function LeadList({ leads }: { leads: string }) {
   }
   const blackColumn = { data: "eliminer", title: "Eliminer", defaultContent: "" }
   const prodColumn = { data: "id", title: "Action", orderable: false, render: (id: number) => `<div style="display:flex;gap:6px;flex-wrap:wrap;"><button data-id="${id}" data-type="Unsubscribe" class="dt-action-btn" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(244,63,94,0.4);color:#f43f5e;background:rgba(244,63,94,0.08);cursor:pointer;font-size:11px;font-weight:600;">Désabonner</button><button data-id="${id}" data-type="archive" class="dt-action-btn" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(148,163,184,0.3);color:#94a3b8;background:rgba(148,163,184,0.08);cursor:pointer;font-size:11px;font-weight:600;">Archiver</button></div>` }
-  const silverColumn = { data: "id", title: "Action", orderable: false, render: (id: number) => `<button data-id="${id}" data-type="to-gold" class="dt-action-btn" style="padding:4px 12px;border-radius:6px;border:1px solid rgba(245,158,11,0.4);color:#fcd34d;background:rgba(245,158,11,0.08);cursor:pointer;font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px;">★ → Gold</button>` }
+  const completeColumn = { data: "id", title: "Action", orderable: false, render: (id: number) => `<button data-id="${id}" data-type="to-complete" class="dt-action-btn" style="padding:4px 12px;border-radius:6px;border:1px solid rgba(245,158,11,0.4);color:#fcd34d;background:rgba(245,158,11,0.08);cursor:pointer;font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px;">★ → Complete</button>` }
   const dateColumn = { data: "created_at", title: "Date", render: (val: string, type: string) => (type === "sort" || type === "type") ? (val ? new Date(val).getTime() : 0) : (val ? new Date(val).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "") }
   const columns = [
     ...(isSelectableList ? [selectColumn] : []),
     ...baseColumns,
     ...(leads === "black" ? [blackColumn] : []),
-    ...(leads === "gold" || leads === "prod" ? [prodColumn] : []),
-    ...(leads === "silver" ? [silverColumn] : []),
+    ...(leads === "complete" || leads === "prod" ? [prodColumn] : []),
+    ...(leads === "incomplete" ? [completeColumn] : []),
     dateColumn,
   ]
   const historyColumns = [
@@ -986,8 +986,8 @@ export default function LeadList({ leads }: { leads: string }) {
       render: (val: string) => {
         const v = (val || "staging").toLowerCase()
         const ui: Record<string, { label: string; color: string; bg: string; border: string }> = {
-          gold: { label: "Gold", color: "#fcd34d", bg: "rgba(245,158,11,0.15)", border: "rgba(245,158,11,0.35)" },
-          silver: { label: "Silver", color: "#cbd5e1", bg: "rgba(148,163,184,0.15)", border: "rgba(148,163,184,0.35)" },
+          complete: { label: "Complete", color: "#fcd34d", bg: "rgba(245,158,11,0.15)", border: "rgba(245,158,11,0.35)" },
+          incomplete: { label: "Incomplete", color: "#cbd5e1", bg: "rgba(148,163,184,0.15)", border: "rgba(148,163,184,0.35)" },
           clean: { label: "Clean", color: "#6ee7b7", bg: "rgba(110,231,183,0.15)", border: "rgba(110,231,183,0.35)" },
           staging: { label: "Staging", color: "#a5b4fc", bg: "rgba(129,140,248,0.15)", border: "rgba(129,140,248,0.35)" },
         }
@@ -1049,7 +1049,7 @@ export default function LeadList({ leads }: { leads: string }) {
     if (!btn) return
     const id = Number(btn.dataset.id)
     const type = btn.dataset.type!
-    if (type === "to-gold") handleToGold(id)
+    if (type === "to-complete") handleToComplete(id)
     else if (type === "verify-email") handleVerifyEmail(id, decodeURIComponent(btn.dataset.email || ""))
     else handelclick(type, id)
   }
@@ -1103,12 +1103,12 @@ export default function LeadList({ leads }: { leads: string }) {
                   </button>
                   {isSteagingApplique && (
                     <button
-                      onClick={sendSelectedToSilver}
-                      disabled={selectedLeadIds.size === 0 || sendingToSilver}
+                      onClick={sendSelectedToOptimized}
+                      disabled={selectedLeadIds.size === 0 || sendingToOptimized}
                       className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
                       style={{ background: "rgba(148,163,184,0.12)", border: "1px solid rgba(148,163,184,0.28)", color: "#e2e8f0" }}
                     >
-                      {sendingToSilver ? "Envoi..." : "Envoyer à Silver"}
+                      {sendingToOptimized ? "Envoi..." : "Envoyer à Optimized"}
                     </button>
                   )}
                   {isVerifiableView && (
@@ -1135,8 +1135,8 @@ export default function LeadList({ leads }: { leads: string }) {
               )}
               {leads === "staging" && !isManager && <><button onClick={downloadLastImportCSV} disabled={!userId} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={13} />Dernier CSV</button><button onClick={downloadLastImportXlsx} disabled={!userId} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={13} />Dernier XLSX</button></>}
               {leads === "staging" && <button onClick={handleClean} disabled={cleaning || data.length === 0} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}><Sparkles size={13} />{cleaning ? "Nettoyage..." : "Nettoyer"}</button>}
-              {leads === "gold" && <><button onClick={downloadCSV} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={13} />CSV</button><button onClick={downloadXlsx} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={13} />XLSX</button></>}
-              {(leads === "silver" || leads === "gold") && <button onClick={handleReformulerLocalisation} disabled={reformulatingLocation} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}><MapPin size={13} />{reformulatingLocation ? "Reformulation..." : "Reformuler localisation"}</button>}
+              {leads === "complete" && <><button onClick={downloadCSV} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={13} />CSV</button><button onClick={downloadXlsx} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={13} />XLSX</button></>}
+              {(leads === "incomplete" || leads === "complete") && <button onClick={handleReformulerLocalisation} disabled={reformulatingLocation} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}><MapPin size={13} />{reformulatingLocation ? "Reformulation..." : "Reformuler localisation"}</button>}
             </div>
           </div>
         </div>
@@ -1158,24 +1158,24 @@ export default function LeadList({ leads }: { leads: string }) {
           {leads === "staging" && <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40 w-full" style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", color: "#a5b4fc" }}><Upload size={14} />{uploading ? "Chargement..." : "Importer"}</button>}
           {leads === "staging" && !isManager && <><button onClick={downloadLastImportCSV} disabled={!userId} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40 w-full" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={14} />Exporter dernier CSV</button><button onClick={downloadLastImportXlsx} disabled={!userId} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40 w-full" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={14} />Exporter dernier XLSX</button></>}
           {leads === "staging" && <button onClick={handleClean} disabled={cleaning || data.length === 0} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40 w-full" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#fcd34d" }}><Sparkles size={14} />{cleaning ? "Nettoyage..." : "Nettoyer"}</button>}
-          {leads === "gold" && <><button onClick={downloadCSV} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={14} />Télécharger CSV</button><button onClick={downloadXlsx} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={14} />Télécharger XLSX</button></>}
+          {leads === "complete" && <><button onClick={downloadCSV} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={14} />Télécharger CSV</button><button onClick={downloadXlsx} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={14} />Télécharger XLSX</button></>}
           <button onClick={() => { setRefresh((p) => p + 1); setMobileMenuOpen(false); }} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}><RefreshCw size={14} />Actualiser</button>
         </div>
       )}
 
       {/* Messages d'erreur / succès (inchangés) */}
       {err && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#fda4af" }}>❌ {err}</div>}
-      {cleanResult && cleanResult.message && !cleanResult.moved_to_gold && !cleanResult.total_deleted && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>✅ {cleanResult.message}</div>}
+      {cleanResult && cleanResult.message && !cleanResult.moved_to_complete && !cleanResult.total_deleted && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>✅ {cleanResult.message}</div>}
       {cleanResult && cleanResult.total_deleted !== undefined && (<div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)", color: "#fda4af" }}><p className="font-semibold mb-2">🗑️ Suppression des doublons terminée</p><div className="grid grid-cols-2 sm:grid-cols-5 gap-2">{[
         { label: "Total", val: cleanResult.total_deleted, icon: "🔢" },
-        { label: "Doublons en Gold", val: cleanResult.staging_vs_gold, icon: "🥇" },
-        { label: "Doublons en Silver", val: cleanResult.staging_vs_silver, icon: "🥈" },
+        { label: "Doublons en Complete", val: cleanResult.staging_vs_complete, icon: "🥇" },
+        { label: "Doublons en Incomplete", val: cleanResult.staging_vs_incomplete, icon: "🥈" },
         { label: "Doublons Interne", val: cleanResult.staging_internal, icon: "♻️" },
         { label: "Doublons Staging ", val: cleanResult.staging_vs_applique, icon: "🧩" },
       ].map((item) => (<div key={item.label} className="px-2 sm:px-3 py-2 rounded-lg text-center" style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.15)" }}><p className="text-xs opacity-70">{item.icon} {item.label}</p><p className="font-bold text-sm sm:text-base">{item.val ?? 0}</p></div>))}</div>{uploadedRows > 0 && Number(cleanResult.total_deleted || 0) === uploadedRows && (<p className="mt-3 text-xs sm:text-sm font-semibold" style={{ color: "#fca5a5" }}>⚠️ Tu as deja traite ce fichier: tous les leads importes ont ete supprimes comme doublons.</p>)}</div>)}
-      {cleanResult && cleanResult.moved_to_gold !== undefined && (<div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}><p className="font-semibold mb-2">✅ Nettoyage terminé</p><div className="grid grid-cols-2 sm:grid-cols-3 gap-2">{[
-        { label: "🥇 Gold", val: cleanResult.moved_to_gold },
-        { label: "🥈 Silver", val: cleanResult.moved_to_silver },
+      {cleanResult && cleanResult.moved_to_complete !== undefined && (<div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}><p className="font-semibold mb-2">✅ Nettoyage terminé</p><div className="grid grid-cols-2 sm:grid-cols-3 gap-2">{[
+        { label: "🥇 Complete", val: cleanResult.moved_to_complete },
+        { label: "🥈 Incomplete", val: cleanResult.moved_to_incomplete },
         { label: "🧹 Clean", val: cleanResult.moved_to_clean },
         { label: "🧩 Staging", val: cleanResult.moved_to_steaging_applique },
         { label: "📧 Emails complètè", val: cleanResult.emails_completed },
@@ -1265,7 +1265,7 @@ export default function LeadList({ leads }: { leads: string }) {
       `}</style>
 
       <div className="px-2 sm:px-3 pb-4 pt-2 overflow-y-auto flex-1 overflow-x-hidden">
-        {leads === "silver" && (
+        {leads === "incomplete" && (
           <div
             className="mb-3 rounded-xl px-3 py-2 sm:px-4 sm:py-3 flex flex-col sm:flex-row sm:items-center gap-2"
             style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}
@@ -1283,7 +1283,7 @@ export default function LeadList({ leads }: { leads: string }) {
                 placeholder="{prenom}.{nom}@{domaine}.{extension}"
               />
               <button
-                onClick={handleApplyEmailPatternSilver}
+                onClick={handleApplyEmailPatternOptimized}
                 disabled={applyingEmailPattern}
                 className="px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold disabled:opacity-40 whitespace-nowrap"
                 style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.25)", color: "#86efac" }}

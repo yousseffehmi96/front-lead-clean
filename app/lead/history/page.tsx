@@ -5,8 +5,8 @@ import { useSelector } from "react-redux"
 import { History, Filter, RefreshCw, Linkedin } from "lucide-react"
 
 const DEST_UI: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  gold: { label: "Gold", color: "#fcd34d", bg: "rgba(245,158,11,0.15)", border: "rgba(245,158,11,0.35)" },
-  silver: { label: "Silver", color: "#cbd5e1", bg: "rgba(148,163,184,0.15)", border: "rgba(148,163,184,0.35)" },
+  complete: { label: "Complete", color: "#fcd34d", bg: "rgba(245,158,11,0.15)", border: "rgba(245,158,11,0.35)" },
+  incomplete: { label: "Incomplete", color: "#cbd5e1", bg: "rgba(148,163,184,0.15)", border: "rgba(148,163,184,0.35)" },
   clean: { label: "Clean", color: "#6ee7b7", bg: "rgba(110,231,183,0.15)", border: "rgba(110,231,183,0.35)" },
   staging: { label: "Staging", color: "#a5b4fc", bg: "rgba(129,140,248,0.15)", border: "rgba(129,140,248,0.35)" },
 }

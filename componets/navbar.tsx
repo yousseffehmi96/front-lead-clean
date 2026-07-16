@@ -40,7 +40,7 @@ export default function Navbar() {
   const flow1Links = [
     { id: "Import", href: "/lead/import", text: "Import", icon: <Zap size={16} />, badge: "1", badgeColor: "#f59e0b", desc: "Import & brut" },
     { id: "Staging", href: "/lead/staging", text: "Staging", icon: <Database size={16} />, badge: "🧩", badgeColor: "#fbbf24", desc: "Aucune règle" },
-    { id: "Leads", href: "/lead/leads", text: "Leads", icon: <Sparkles size={16} />, badge: "2", badgeColor: "#f59e0b", desc: "Complétion & Gold" },
+    { id: "Leads", href: "/lead/leads", text: "Optimized", icon: <Sparkles size={16} />, badge: "2", badgeColor: "#f59e0b", desc: "Complétion & Complete" },
   ];
 
   const flow2Links = [
