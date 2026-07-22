@@ -300,14 +300,13 @@ export default function LeadsPage() {
     }
   }
 
-  // Export : uniquement les leads à 100%. La complétion étant calculée ici,
-  // c'est le front qui envoie la sélection au backend.
+  // Export : tous les leads, sans contrainte de complétion.
   const exportLeads = async (format: "csv" | "xlsx") => {
     setMobileMenuOpen(false)
     setError(null)
-    const ids = mergedData.filter((l: any) => l.completion === 100).map((l: any) => l.id)
+    const ids = mergedData.map((l: any) => l.id)
     if (ids.length === 0) {
-      setError("Aucun lead complété à 100% à exporter.")
+      setError("Aucun lead à exporter.")
       return
     }
     setExporting(true)
@@ -325,7 +324,7 @@ export default function LeadsPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `leads-100-pourcent.${format}`
+      a.download = `leads-optimized.${format}`
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -476,22 +475,37 @@ export default function LeadsPage() {
   const escapeHtml = (s: string) =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 
-  // Cellule éditable : remplir un champ fait monter la complétion, le vider la fait baisser.
-  const editableCell = (field: string, title: string) => ({
+  // Cellule texte simple (non éditable) : affichage brut, tiret si vide.
+  const plainCell = (field: string, title: string) => ({
     data: field,
     title,
     defaultContent: "",
-    render: (val: any, type: string, row: any) => {
+    render: (val: any, type: string) => {
       if (type === "sort" || type === "type" || type === "filter") return val ?? ""
-      const id = Number(row?.id)
       const value = val == null ? "" : String(val)
-      return `<span class="dt-edit" contenteditable="true" spellcheck="false" data-id="${id}" data-field="${field}" data-original="${encodeURIComponent(value)}" style="display:block;min-width:80px;min-height:20px;outline:none;color:#e2e8f0;">${escapeHtml(value)}</span>`
+      return value
+        ? `<span style="color:#e2e8f0;">${escapeHtml(value)}</span>`
+        : `<span style="color:rgba(255,255,255,0.25);">—</span>`
     },
   })
 
+  // Colonne LinkedIn : lien cliquable vers le profil.
+  const linkedinCell = {
+    data: "linkedin",
+    title: "LinkedIn",
+    defaultContent: "",
+    render: (val: any, type: string) => {
+      if (type === "sort" || type === "type" || type === "filter") return val ?? ""
+      const value = val == null ? "" : String(val).trim()
+      if (!value || value.toLowerCase() === "nan") return `<span style="color:rgba(255,255,255,0.25);">—</span>`
+      const href = /^https?:\/\//i.test(value) ? value : `https://${value}`
+      return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" style="color:#818cf8;text-decoration:underline;font-weight:600;">Profil</a>`
+    },
+  }
+
   const baseColumns = [
-    editableCell("nom", "Nom"),
-    editableCell("prenom", "Prénom"),
+    plainCell("nom", "Nom"),
+    plainCell("prenom", "Prénom"),
     {
       data: "email",
       title: "Email",
@@ -531,11 +545,11 @@ const pill = `
         return `<div>${pill}${verifyBtn}</div>`
       },
     },
-    editableCell("fonction", "Fonction"),
-    editableCell("societe", "Société"),
-    editableCell("telephone", "Téléphone"),
-    editableCell("linkedin", "LinkedIn"),
-    editableCell("location", "Location"),
+    plainCell("fonction", "Fonction"),
+    plainCell("societe", "Société"),
+    plainCell("telephone", "Téléphone"),
+    linkedinCell,
+    plainCell("location", "Location"),
     {
       data: "statu",
       title: "Statut",
@@ -698,8 +712,8 @@ const pill = `
               {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
             <div className="hidden md:flex gap-2">
-              <button onClick={downloadCSV} disabled={exporting || completeCount === 0} title={`Exporte uniquement les ${completeCount} lead(s) à 100%`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={13} />CSV ({completeCount})</button>
-              <button onClick={downloadXlsx} disabled={exporting || completeCount === 0} title={`Exporte uniquement les ${completeCount} lead(s) à 100%`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={13} />XLSX ({completeCount})</button>
+              <button onClick={downloadCSV} disabled={exporting || data.length === 0} title={`Exporter tous les ${data.length} lead(s)`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.3)", color: "#6ee7b7" }}><Download size={13} />CSV ({data.length})</button>
+              <button onClick={downloadXlsx} disabled={exporting || data.length === 0} title={`Exporter tous les ${data.length} lead(s)`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6" }}><Download size={13} />XLSX ({data.length})</button>
             </div>
           </div>
         </div>
