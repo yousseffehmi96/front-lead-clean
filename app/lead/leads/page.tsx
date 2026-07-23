@@ -229,6 +229,25 @@ export default function LeadsPage() {
     }
   }
 
+  // Déplace un lead vers la Blacklist (le retire d'Optimized).
+  // La raison ("archive" ou "unsubscribe") est stockée dans le champ `eliminer`.
+  const handleBlacklist = async (leadId: number, reason: "archive" | "Unsubscribe" = "archive") => {
+    setError(null)
+    setCleanResult(null)
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/toblack/${leadId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reason),
+      })
+      if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`)
+      setCleanResult({ message: `Lead ajouté à la Blacklist (${reason}).` })
+      setRefresh((prev) => prev + 1)
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }
+
   const handleBulkVerifyEmails = async () => {
     const ids = Array.from(selectedLeadIds)
     if (ids.length === 0) return
@@ -464,7 +483,22 @@ export default function LeadsPage() {
             </div>
           )}
 
-          {/* Plus de promotion manuelle vers Complete : le niveau se déduit de la complétion (100% = Complete). */}
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={() => handleBlacklist(id, "archive")}
+              className="flex-1 text-xs font-semibold px-2 py-1.5 rounded-lg"
+              style={{ background: "rgba(148,163,184,0.08)", border: "1px solid rgba(148,163,184,0.4)", color: "#cbd5e1" }}
+            >
+              🗄️ Archive
+            </button>
+            <button
+              onClick={() => handleBlacklist(id, "Unsubscribe")}
+              className="flex-1 text-xs font-semibold px-2 py-1.5 rounded-lg"
+              style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.4)", color: "#fda4af" }}
+            >
+              🚫 Unsubscribe
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -595,7 +629,18 @@ const pill = `
     },
   }
   const dateColumn = { data: "created_at", title: "Date", render: (val: string, type: string) => (type === "sort" || type === "type") ? (val ? new Date(val).getTime() : 0) : (val ? new Date(val).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "") }
-  const columns = [selectColumn, ...baseColumns, completionColumn, dateColumn]
+  const blacklistColumn = {
+    data: "id",
+    title: "Action",
+    orderable: false,
+    searchable: false,
+    render: (id: number) =>
+      `<div style="display:flex;gap:4px;">
+        <button data-id="${id}" data-type="to-black" data-reason="archive" class="dt-action-btn" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(148,163,184,0.4);color:#cbd5e1;background:rgba(148,163,184,0.08);cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap;">🗄️ Archive</button>
+        <button data-id="${id}" data-type="to-black" data-reason="Unsubscribe" class="dt-action-btn" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(244,63,94,0.4);color:#fda4af;background:rgba(244,63,94,0.08);cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap;">🚫 Unsubscribe</button>
+      </div>`,
+  }
+  const columns = [selectColumn, ...baseColumns, completionColumn, dateColumn, blacklistColumn]
 
   const injectSearchIcons = (api: any, activeColumns: any[], activeSearchableCols: Set<string>, dateField: string) => {
     api.columns().every(function (this: any, index: number) {
@@ -651,6 +696,7 @@ const pill = `
     const type = btn.dataset.type!
     if (type === "to-complete") handleToComplete(id)
     else if (type === "verify-email") handleVerifyEmail(id, decodeURIComponent(btn.dataset.email || ""))
+    else if (type === "to-black") handleBlacklist(id, btn.dataset.reason === "Unsubscribe" ? "Unsubscribe" : "archive")
   }
 
   // Édition inline : à la sortie du champ, on enregistre et on récupère la

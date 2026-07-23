@@ -298,18 +298,11 @@ export default function CleanPage() {
       data: "email",
       title: "Email",
       defaultContent: "",
-      render: (val: string, _t: any, row: any) => {
-        const id = Number(row?.id)
-        const socRaw = String(row?.societe ?? "")
-        const companyExists = false
-        const border = companyExists ? "1px solid rgba(34,197,94,0.55)" : "1px solid rgba(255,255,255,0.08)"
-        const bg = companyExists ? "rgba(34,197,94,0.10)" : "transparent"
-        const color = companyExists ? "#86efac" : "#e2e8f0"
+      render: (val: string) => {
         const value = val ? String(val) : ""
-        const text = value ? value : ""
-        const opacity = value ? 1 : 0.55
-        const pill = `<span class="dt-email-pill" data-soc="${encodeURIComponent(socRaw)}" data-id="${id}" style="display:block;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;border-radius:8px;border:${border};background:${bg};color:${color};opacity:${opacity};">${text || ""}</span>`
-        return `<div>${pill}</div>`
+        return value
+          ? `<span style="color:#e2e8f0;">${value}</span>`
+          : `<span style="color:rgba(255,255,255,0.25);">—</span>`
       },
     },
     { data: "fonction", title: "Fonction", defaultContent: "" },
