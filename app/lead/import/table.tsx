@@ -124,11 +124,43 @@ export default function LeadsPage({
       }
 
       setResult({ ...uploadPayload, ...dispatchPayload })
+
+      // 3) Le résultat nettoyé a été figé dans export_leads : on le télécharge en Excel.
+      // Un échec ici ne doit pas faire passer l'import pour raté (il a réussi).
+      try {
+        await telechargerExport(finalName)
+      } catch (err: any) {
+        setError(`Import réussi, mais le téléchargement Excel a échoué : ${err.message}`)
+      }
     } catch (err: any) {
       setError(err.message)
     } finally {
       setImporting(false)
     }
+  }
+
+  // Télécharge le fichier Excel du lot qui vient d'être importé et nettoyé
+  const telechargerExport = async (nomFichier: string) => {
+    const params = new URLSearchParams({
+      filename: nomFichier,
+      userid: String(userId ?? ""),
+    })
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/export-leads/download-xlsx?${params}`
+    )
+    if (!res.ok) {
+      const payload = await res.json().catch(() => null)
+      throw new Error(payload?.detail || `Erreur serveur : ${res.status}`)
+    }
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `${nomFichier.replace(/\.[^.]+$/, "")}-nettoye.xlsx`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -206,21 +238,41 @@ export default function LeadsPage({
                 <li>{Number(result.moved_to_steaging_applique || 0)} déplacée(s) vers Staging</li>
                 <li>{Number(result.moved_to_clean || 0)} envoyée(s) vers Clean (incomplètes)</li>
                 <li>
-                  {Number(result.staging_vs_incomplete || 0)} doublon(s) vs Incomplete ·{" "}
-                  {Number(result.staging_vs_complete || 0)} vs Complete
+                  {/* Incomplete et Complete sont la même table `optimized`,
+                      distinguée par la complétion : un seul compteur suffit. */}
+                  {Number(result.staging_vs_incomplete || 0) +
+                    Number(result.staging_vs_complete || 0)}{" "}
+                  doublon(s) vs Optimized
                 </li>
                 <li>{Number(result.blacklisted_removed || 0)} blacklisté(s) retiré(s)</li>
                 <li>{Number(result.emails_completed || 0)} email(s) complété(s)</li>
+                <li className="font-semibold text-emerald-200">
+                  📊 {Number(result.exported_rows || 0)} ligne(s) dans le fichier Excel
+                </li>
               </ul>
             )}
-            {hasNextSheet && (
-              <Button
-                onClick={onNextSheet}
-                className="mt-3 bg-emerald-500 text-slate-950 hover:bg-emerald-400"
-              >
-                Feuille suivante →
-              </Button>
-            )}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {!result.duplicate_file_processed && Number(result.exported_rows || 0) > 0 && (
+                <Button
+                  onClick={() =>
+                    telechargerExport(filename || "import-mappe").catch((e) =>
+                      setError(`Téléchargement impossible : ${e.message}`)
+                    )
+                  }
+                  className="bg-blue-500 text-slate-950 hover:bg-blue-400"
+                >
+                  ⬇ Retélécharger l'Excel
+                </Button>
+              )}
+              {hasNextSheet && (
+                <Button
+                  onClick={onNextSheet}
+                  className="bg-emerald-500 text-slate-950 hover:bg-emerald-400"
+                >
+                  Feuille suivante →
+                </Button>
+              )}
+            </div>
           </div>
         )}
 
