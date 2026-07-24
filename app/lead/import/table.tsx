@@ -124,14 +124,8 @@ export default function LeadsPage({
       }
 
       setResult({ ...uploadPayload, ...dispatchPayload })
-
-      // 3) Le résultat nettoyé a été figé dans export_leads : on le télécharge en Excel.
-      // Un échec ici ne doit pas faire passer l'import pour raté (il a réussi).
-      try {
-        await telechargerExport(finalName)
-      } catch (err: any) {
-        setError(`Import réussi, mais le téléchargement Excel a échoué : ${err.message}`)
-      }
+      // Le téléchargement Excel n'est plus automatique : l'utilisateur peut le
+      // lancer manuellement via le bouton « Retélécharger l'Excel » ci-dessous.
     } catch (err: any) {
       setError(err.message)
     } finally {
