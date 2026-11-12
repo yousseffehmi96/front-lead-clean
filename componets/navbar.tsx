@@ -1,23 +1,12 @@
 "use client";
 import { useState } from "react";
-import {
-  Database,
-  Shield,
-  Building2,
-  Sparkles,
-  LayoutDashboard,
-  ChevronRight,
-  Zap,
-  Settings,
-  LogOut,
-  Menu,
-  X,
-  ChevronDown,
-  History,
-} from "lucide-react";
+// Sidebar en texte seul : ne restent que les commandes (ouverture/fermeture du
+// menu mobile, indicateur de dépliage du menu profil).
+import { ChevronDown, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useClerk, useUser } from "@clerk/nextjs";
+import ImportProgress from "./ImportProgress";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -38,22 +27,22 @@ export default function Navbar() {
   // --- CONFIGURATION DES LIENS ---
 
   const flow1Links = [
-    { id: "Import", href: "/lead/import", text: "Import", icon: <Zap size={16} />, badge: "1", badgeColor: "#f59e0b", desc: "Import & brut" },
-    { id: "Staging", href: "/lead/staging", text: "Staging", icon: <Database size={16} />, badge: "🧩", badgeColor: "#fbbf24", desc: "Aucune règle" },
-    { id: "Leads", href: "/lead/leads", text: "Optimized", icon: <Sparkles size={16} />, badge: "2", badgeColor: "#f59e0b", desc: "Complétion & Complete" },
+    { id: "Import", href: "/lead/import", text: "Import", badge: "1", badgeColor: "#b45309", desc: "Import & brut" },
+    { id: "Staging", href: "/lead/staging", text: "Staging", badge: "", badgeColor: "#d97706", desc: "Aucune règle" },
+    { id: "Leads", href: "/lead/leads", text: "Optimized", badge: "2", badgeColor: "#b45309", desc: "Complétion & Complete" },
   ];
 
   const flow2Links = [
-    { id: "Clean", href: "/lead/clean", text: "Clean", icon: <Sparkles size={16} />, badge: "✦", badgeColor: "#6ee7b7", desc: "À corriger" },
-    { id: "Blacklist", href: "/lead/black", text: "Blacklist", icon: <Shield size={16} />, badge: "⛔", badgeColor: "#f43f5e", desc: "Bannis" },
-    { id: "Historique", href: "/lead/history", text: "Historique", icon: <History size={16} />, badge: "", badgeColor: "#818cf8", desc: "Imports" },
+    { id: "Clean", href: "/lead/clean", text: "Clean", badge: "", badgeColor: "#059669", desc: "À corriger" },
+    { id: "Blacklist", href: "/lead/black", text: "Blacklist", badge: "", badgeColor: "#e11d48", desc: "Bannis" },
+    { id: "Historique", href: "/lead/history", text: "Historique", badge: "", badgeColor: "#4f46e5", desc: "Imports" },
   ];
 
   return (
     <>
       {/* Hamburger mobile */}
       <button
-        className={`md:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-indigo-600 text-white transition-opacity ${open ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+        className={`md:hidden fixed top-4 left-4 z-50 flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--app-accent)] text-white shadow-[var(--app-shadow-md)] transition-opacity ${open ? "opacity-0 pointer-events-none" : "opacity-100"}`}
         onClick={() => setOpen(!open)}
         aria-label="Ouvrir le menu"
       >
@@ -62,24 +51,21 @@ export default function Navbar() {
 
       {/* Sidebar Container */}
       <div
-        className={`fixed top-0 left-0 h-[100dvh] w-60 flex flex-col flex-shrink-0 bg-gradient-to-br from-slate-900 to-indigo-950 border-r border-white/10 transition-transform duration-300 z-40
+        className={`fixed top-0 left-0 h-[100dvh] w-60 flex flex-col flex-shrink-0 bg-[var(--app-rail)] border-r border-[color:var(--app-rail-border)] shadow-[1px_0_0_rgba(15,23,42,0.02)] transition-transform duration-300 z-40
         ${open ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 md:static md:flex`}
       >
         {/* Logo Section */}
-        <div className="px-5 pt-6 pb-5 border-b border-white/5 flex items-center gap-2.5 relative">
+        <div className="px-5 pt-6 pb-5 border-b border-[color:var(--app-rail-border)] flex items-center gap-2.5 relative">
           <button
-            className="md:hidden absolute top-4 right-3 p-1.5 rounded-md text-white/70 hover:text-white hover:bg-white/10"
+            className="md:hidden absolute top-4 right-3 app-btn app-btn-ghost app-btn-sm app-btn-icon"
             onClick={() => setOpen(false)}
             aria-label="Fermer le menu"
           >
             <X size={16} />
           </button>
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-tr from-indigo-500 to-purple-500 shadow-lg">
-            <Zap size={15} color="white" fill="white" />
-          </div>
           <div>
-            <h1 className="text-white font-bold text-sm tracking-wide">LeadsCleaner</h1>
-            <p className="text-xs text-white/30">Data Pipeline</p>
+            <h1 className="app-title text-sm tracking-wide">LeadsCleaner</h1>
+            <p className="text-[11px] text-[color:var(--app-text-faint)]">Data Pipeline</p>
           </div>
         </div>
 
@@ -87,26 +73,22 @@ export default function Navbar() {
         <div className="px-3 pt-3">
           <Link
             href="/dashboard"
-            className="group flex items-center gap-3 px-3 py-3 rounded-xl border transition-all duration-200"
-            style={{
-              background: pathname === "/dashboard" ? "rgba(99,102,241,0.2)" : "rgba(99,102,241,0.08)",
-              borderColor: pathname === "/dashboard" ? "rgba(99,102,241,0.45)" : "rgba(99,102,241,0.25)",
-            }}
+            className={`group flex items-center gap-3 rounded-xl border px-3 py-3 transition-all duration-200 ${
+              pathname === "/dashboard"
+                ? "border-[color:var(--app-accent-border)] bg-[var(--app-surface)] shadow-[var(--app-shadow-sm)]"
+                : "border-[color:var(--app-rail-border)] bg-[var(--app-surface)] shadow-[var(--app-shadow-xs)] hover:border-[color:var(--app-accent-border)]"
+            }`}
           >
-            <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
-              <LayoutDashboard size={16} />
-            </div>
             <div className="flex-1">
-              <p className="text-white text-sm font-semibold">Dashboard</p>
-              <p className="text-[10px] text-indigo-200/70">Vue globale et KPI</p>
+              <p className="app-title text-sm">Dashboard</p>
+              <p className="text-[10px] text-[color:var(--app-text-muted)]">Vue globale et KPI</p>
             </div>
-            <ChevronRight size={15} className="text-indigo-300 group-hover:translate-x-0.5 transition-transform" />
           </Link>
         </div>
 
         {/* Navigation Links */}
         <div className="flex-1 overflow-y-auto px-3 pt-4 pb-4 flex flex-col gap-5">
-          
+
           {/* Section 1 */}
           <Section title="Flow principal">
             {flow1Links.map((link, i) => (
@@ -126,27 +108,28 @@ export default function Navbar() {
 
         </div>
 
+        {/* Progression de l'import en cours, visible depuis toutes les pages */}
+        <ImportProgress />
+
         {/* User Profile Section — épinglée en bas, le menu s'ouvre vers le haut */}
         {user && (
-          <div className="relative mt-auto flex-shrink-0 border-t border-white/5 px-3 py-3">
+          <div className="relative mt-auto flex-shrink-0 border-t border-[color:var(--app-rail-border)] px-3 py-3">
             {profileOpen && (
-              <div className="absolute bottom-full left-3 right-3 z-50 mb-2 overflow-hidden rounded-xl border border-white/10 bg-slate-900/95 shadow-xl backdrop-blur">
+              <div className="app-card absolute bottom-full left-3 right-3 z-50 mb-2 overflow-hidden p-1 shadow-[var(--app-shadow-lg)]">
                 {userRole === "manager" && (
                   <Link
                     href="/settings"
-                    className="flex items-center gap-2 px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 hover:text-white"
+                    className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-[color:var(--app-text-secondary)] transition-colors hover:bg-[var(--app-surface-hover)] hover:text-[color:var(--app-text)]"
                     onClick={() => setProfileOpen(false)}
                   >
-                    <Settings size={14} />
                     Paramètres
                   </Link>
                 )}
                 <Link
                   href="/company"
-                  className="flex items-center gap-2 px-3 py-2.5 text-sm text-white/80 hover:bg-white/10 hover:text-white"
+                  className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-[color:var(--app-text-secondary)] transition-colors hover:bg-[var(--app-surface-hover)] hover:text-[color:var(--app-text)]"
                   onClick={() => setProfileOpen(false)}
                 >
-                  <Building2 size={14} />
                   Sociétés
                 </Link>
                 <button
@@ -154,9 +137,8 @@ export default function Navbar() {
                     setProfileOpen(false);
                     await handleLogout();
                   }}
-                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-red-300 hover:bg-red-500/10"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-rose-600 transition-colors hover:bg-rose-50"
                 >
-                  <LogOut size={14} />
                   Se déconnecter
                 </button>
               </div>
@@ -164,19 +146,19 @@ export default function Navbar() {
 
             <button
               onClick={() => setProfileOpen((v) => !v)}
-              className="flex w-full items-center justify-between gap-2 rounded-xl px-2.5 py-2 transition-colors hover:bg-white/10"
+              className="flex w-full items-center justify-between gap-2 rounded-xl px-2.5 py-2 transition-colors hover:bg-[var(--app-surface)]"
               aria-label="Ouvrir le menu profil"
               aria-expanded={profileOpen}
             >
               <span className="flex min-w-0 items-center gap-2.5">
-                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 text-xs font-bold text-white">
+                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 text-xs font-bold text-white">
                   {firstName.charAt(0).toUpperCase()}
                 </span>
-                <span className="truncate text-sm font-medium text-white">{firstName}</span>
+                <span className="truncate text-sm font-medium text-[color:var(--app-text)]">{firstName}</span>
               </span>
               <ChevronDown
                 size={14}
-                className={`flex-shrink-0 text-white/40 transition-transform ${profileOpen ? "rotate-180" : ""}`}
+                className={`flex-shrink-0 text-[color:var(--app-text-faint)] transition-transform ${profileOpen ? "rotate-180" : ""}`}
               />
             </button>
           </div>
@@ -186,7 +168,7 @@ export default function Navbar() {
       {/* Mobile Overlay */}
       {open && (
         <div
-          className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm"
+          className="fixed inset-0 bg-slate-900/40 z-30 md:hidden backdrop-blur-sm"
           onClick={() => setOpen(false)}
         />
       )}
@@ -201,20 +183,19 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2 mb-1 px-2">
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20">{title}</p>
-        <div className="flex-1 h-px bg-white/5" />
+        <p className="app-eyebrow">{title}</p>
+        <div className="flex-1 h-px bg-[var(--app-rail-border)]" />
       </div>
       <div className="flex flex-col gap-1">{children}</div>
     </div>
   );
 }
 
+/** Séparateur entre deux étapes du flow (remplace la flèche descendante). */
 function FlowArrow() {
   return (
-    <div className="flex justify-center py-1 opacity-20">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
-        <path d="M12 5v14M19 12l-7 7-7-7" />
-      </svg>
+    <div className="flex justify-center py-1">
+      <div className="h-3 w-px bg-[var(--app-rail-border)]" />
     </div>
   );
 }
@@ -223,23 +204,18 @@ function NavItem({ link, active, showDesc = false }: { link: any; active: boolea
   return (
     <Link
       href={link.href}
-      className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative"
-      style={{
-        background: active ? "rgba(99, 102, 241, 0.12)" : "transparent",
-        border: active ? "1px solid rgba(99, 102, 241, 0.2)" : "1px solid transparent",
-        color: active ? "#fff" : "rgba(255, 255, 255, 0.45)",
-      }}
+      className={`app-nav-item group ${active ? "app-nav-item-active" : ""}`}
     >
-      {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.8)]" />}
-      
-      <span className={`transition-colors ${active ? "text-indigo-400" : "group-hover:text-white"}`}>
-        {link.icon}
-      </span>
+      {active && (
+        <div className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-[var(--app-accent)]" />
+      )}
 
       <div className="flex-1 min-w-0">
-        <span className="text-sm font-semibold block leading-tight">{link.text}</span>
+        <span className={`block text-sm font-semibold leading-tight ${active ? "" : "text-[color:var(--app-text)]"}`}>
+          {link.text}
+        </span>
         {showDesc && link.desc && (
-          <span className="text-[10px] block text-white/20 group-hover:text-white/40 transition-colors">
+          <span className="block text-[10px] text-[color:var(--app-text-muted)]">
             {link.desc}
           </span>
         )}
@@ -247,18 +223,16 @@ function NavItem({ link, active, showDesc = false }: { link: any; active: boolea
 
       {link.badge ? (
         <span
-          className="text-[9px] font-black px-1.5 py-0.5 rounded-md flex-shrink-0"
+          className="app-badge flex-shrink-0 px-1.5 py-0.5 text-[9px] font-black"
           style={{
             color: link.badgeColor,
-            background: `${link.badgeColor}15`,
-            border: `1px solid ${link.badgeColor}30`,
+            background: `${link.badgeColor}14`,
+            borderColor: `${link.badgeColor}33`,
           }}
         >
           {link.badge}
         </span>
-      ) : (
-        <ChevronRight size={14} className={`opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 ${active ? "text-indigo-400" : "text-white/20"}`} />
-      )}
+      ) : null}
     </Link>
   );
 }

@@ -59,7 +59,7 @@ const [tokenToDelete, setTokenToDelete] = useState<string | null>(null)
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/token`)
     const data = await res.json()
 
-    // 🔥 FIX IMPORTANT
+    // FIX IMPORTANT
     setTokens(data.tokens || data.data || data || [])
     
   } catch (err) {
@@ -106,18 +106,16 @@ const copyToken = (token: string) => {
 }
 
   return (
-    <div className="min-h-screen p-4 pl-14 md:p-8" style={{ background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)" }}>
+    <div className="app-page min-h-screen p-4 pl-14 md:p-8">
 
       {/* MENU TABS */}
-      <div className="flex gap-3 mb-8 border-b border-white/10 pb-3 overflow-x-auto">
+      <div className="flex gap-3 mb-8 border-b border-[color:var(--app-border)] pb-3 overflow-x-auto">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-sm rounded-lg transition whitespace-nowrap ${
-              activeTab === tab.id
-                ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                : "text-white/50 hover:text-white"
+            className={`app-btn ${
+              activeTab === tab.id ? "app-btn-soft" : "app-btn-ghost"
             }`}
           >
             {tab.label}
@@ -130,19 +128,19 @@ const copyToken = (token: string) => {
         <div className="animate-in fade-in duration-500">
           <div className="flex justify-between items-center mb-8">
             <div>
-              <h2 className="text-2xl font-bold text-white">Export base</h2>
-              <p className="text-sm text-white/40 mt-1">Télécharger toute la base (ZIP de CSV)</p>
+              <h2 className="app-title text-[22px]">Export base</h2>
+              <p className="app-subtitle mt-1 text-[13px]">Télécharger toute la base (ZIP de CSV)</p>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 max-w-3xl">
+          <div className="app-card p-6 max-w-3xl">
             <button
               onClick={() => openApi(`${process.env.NEXT_PUBLIC_API_URL}/export/database-zip?is_manager=true`)}
-              className="px-5 py-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/25 transition text-sm font-semibold"
+              className="app-btn app-btn-lg app-btn-success"
             >
               Exporter toute la base (.zip)
             </button>
-            <p className="mt-3 text-xs text-white/40">
+            <p className="mt-3 text-xs text-[color:var(--app-text-muted)]">
               Le fichier contient un CSV par table (séparateur ;).
             </p>
           </div>
@@ -154,27 +152,26 @@ const copyToken = (token: string) => {
         <div className="animate-in fade-in duration-500">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-white">Gestion des utilisateurs</h2>
-              <p className="text-sm text-white/40 mt-1">Liste des agents et managers accédant à la plateforme</p>
+              <h2 className="app-title text-[22px]">Gestion des utilisateurs</h2>
+              <p className="app-subtitle mt-1 text-[13px]">Liste des agents et managers accédant à la plateforme</p>
             </div>
 
             <button 
               onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl transition shadow-lg shadow-indigo-500/20"
-              style={{ background: "linear-gradient(135deg, #6366f1, #818cf8)", color: "white" }}
+              className="app-btn app-btn-lg app-btn-primary"
             >
               <Plus size={16} />
               Ajouter un agent
             </button>
           </div>
 
-        <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/80 to-indigo-950/60 backdrop-blur-xl overflow-x-auto shadow-xl">
+        <div className="app-card overflow-x-auto">
 
   <table className="min-w-[600px] w-full text-xs md:text-sm">
 
     {/* HEADER */}
-    <thead className="bg-white/5 backdrop-blur-md">
-      <tr className="text-white/50 uppercase text-[10px] tracking-wider">
+    <thead className="bg-[var(--app-bg-subtle)] backdrop-blur-md">
+      <tr className="text-[color:var(--app-text-muted)] uppercase text-[10px] tracking-wider">
         <th className="px-3 md:px-6 py-3 text-left">Utilisateur</th>
         <th className="px-3 md:px-6 py-3 text-center">Rôle</th>
         <th className="px-3 md:px-6 py-3 text-center">Dernière connexion</th>
@@ -183,11 +180,11 @@ const copyToken = (token: string) => {
     </thead>
 
     {/* BODY */}
-    <tbody className="divide-y divide-white/5">
+    <tbody className="divide-y divide-[color:var(--app-border-subtle)]">
 
       {loadingUsers ? (
         <tr>
-          <td colSpan={4} className="text-center py-8 text-white/30">
+          <td colSpan={4} className="text-center py-8 text-[color:var(--app-text-faint)]">
             Chargement...
           </td>
         </tr>
@@ -196,7 +193,7 @@ const copyToken = (token: string) => {
         <tr
           key={u.id}
           className={`transition-all duration-200 group ${
-            idx % 2 === 0 ? "bg-white/[0.01]" : "bg-transparent"
+            idx % 2 === 0 ? "bg-[var(--app-bg-subtle)]" : "bg-transparent"
           } hover:bg-indigo-500/10`}
         >
 
@@ -204,15 +201,15 @@ const copyToken = (token: string) => {
           <td className="px-3 md:px-6 py-4">
             <div className="flex items-center gap-3">
 
-              <div className="w-9 h-9 bg-gradient-to-br from-indigo-500/30 to-indigo-400/10 border border-indigo-500/30 rounded-xl flex items-center justify-center text-xs font-bold text-indigo-300 shadow">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--app-accent-border)] bg-[var(--app-accent-soft)] text-xs font-bold text-[color:var(--app-accent-hover)]">
                 {u.firstName?.[0]}
               </div>
 
               <div>
-                <p className="text-white text-xs md:text-sm font-medium">
+                <p className="text-[color:var(--app-text)] text-xs md:text-sm font-medium">
                   {u.firstName}
                 </p>
-                <p className="text-[10px] text-white/40">
+                <p className="text-[10px] text-[color:var(--app-text-muted)]">
                   {u.email}
                 </p>
               </div>
@@ -224,15 +221,15 @@ const copyToken = (token: string) => {
           <td className="px-3 md:px-6 py-4 text-center">
             <span className={`px-2 py-1 rounded-full text-[10px] font-semibold border ${
               u.role === "manager"
-                ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
-                : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                ? "bg-indigo-500/10 text-indigo-600 border-indigo-500/20"
+                : "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
             }`}>
               {u.role}
             </span>
           </td>
 
           {/* DATE */}
-          <td className="px-3 md:px-6 py-4 text-center text-white/40 text-xs">
+          <td className="px-3 md:px-6 py-4 text-center text-[color:var(--app-text-muted)] text-xs">
             {u.lastSignInAt
               ? new Date(u.lastSignInAt).toLocaleDateString()
               : "—"}
@@ -242,7 +239,7 @@ const copyToken = (token: string) => {
           <td className="px-3 md:px-6 py-4 text-right">
             <button
               onClick={() => setUserToDelete(u.id)}
-              className="p-2 rounded-lg text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all"
+              className="app-btn app-btn-icon app-btn-ghost hover:bg-rose-50! hover:text-rose-600!"
             >
               <Trash2 size={16} />
             </button>
@@ -257,9 +254,9 @@ const copyToken = (token: string) => {
 
           {/* MODAL AJOUT UTILISATEUR */}
           {isModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-              <div className="bg-slate-900 border border-white/10 p-8 rounded-2xl w-full max-w-md shadow-2xl relative animate-in zoom-in duration-200">
-                <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-white/40 hover:text-white"><X size={20} /></button>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm p-4">
+              <div className="app-card relative w-full max-w-md p-8 shadow-[var(--app-shadow-lg)] animate-in zoom-in duration-200">
+                <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-[color:var(--app-text-muted)] hover:text-[color:var(--app-text)]"><X size={20} /></button>
                 <SignUpForm onSuccess={() => { setIsModalOpen(false); fetchUsers(); }} />
               </div>
             </div>
@@ -267,26 +264,26 @@ const copyToken = (token: string) => {
 
           {/* MODAL CONFIRM DELETE USER */}
           {userToDelete && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-              <div className="bg-gradient-to-br from-slate-900 to-indigo-950 border border-white/10 p-8 rounded-2xl w-full max-w-md shadow-2xl relative animate-in zoom-in duration-200">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm p-4">
+              <div className="app-card relative w-full max-w-md p-8 shadow-[var(--app-shadow-lg)] animate-in zoom-in duration-200">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center">
                     <AlertTriangle className="text-red-400" size={24} />
                   </div>
                   <div>
-                    <h3 className="text-white font-semibold text-lg">Confirmer la suppression</h3>
-                    <p className="text-white/50 text-sm">Cette action est irréversible</p>
+                    <h3 className="text-[color:var(--app-text)] font-semibold text-lg">Confirmer la suppression</h3>
+                    <p className="text-[color:var(--app-text-muted)] text-sm">Cette action est irréversible</p>
                   </div>
                 </div>
                 
-                <p className="text-white/70 text-sm mb-6">
+                <p className="text-[color:var(--app-text-secondary)] text-sm mb-6">
                   Êtes-vous sûr de vouloir supprimer cet utilisateur ? Toutes ses données seront perdues définitivement.
                 </p>
                 
                 <div className="flex gap-3">
                   <button
                     onClick={() => setUserToDelete(null)}
-                    className="flex-1 px-4 py-2.5 rounded-lg border border-white/10 text-white/70 hover:bg-white/5 transition-all text-sm font-medium"
+                    className="app-btn app-btn-secondary flex-1"
                   >
                     Annuler
                   </button>
@@ -304,7 +301,7 @@ const copyToken = (token: string) => {
                       setUserToDelete(null)
                     }}
                     disabled={loadingDelete}
-                    className={`flex-1 px-4 py-2.5 rounded-lg text-white font-semibold transition-all text-sm shadow-lg shadow-red-500/30 ${
+                    className={`flex-1 px-4 py-2.5 rounded-lg text-[color:var(--app-text)] font-semibold transition-all text-sm shadow-lg shadow-red-500/30 ${
                       loadingDelete
                         ? "bg-red-400/50 cursor-not-allowed"
                         : "bg-red-500 hover:bg-red-600"
@@ -326,13 +323,13 @@ const copyToken = (token: string) => {
 
     <div className="flex justify-between items-center mb-8">
       <div>
-        <h2 className="text-2xl font-bold text-white">Tokens API</h2>
-        <p className="text-sm text-white/40">Gérez vos clés API</p>
+        <h2 className="app-title text-[22px]">Tokens API</h2>
+        <p className="text-sm text-[color:var(--app-text-muted)]">Gérez vos clés API</p>
       </div>
 
       <button
         onClick={() => setIsAddTokenModalOpen(true)}
-        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 transition"
+        className="app-btn app-btn-lg app-btn-primary"
       >
         <Plus size={16} /> Nouveau token
       </button>
@@ -340,19 +337,19 @@ const copyToken = (token: string) => {
 
     <div className="space-y-4">
       {loadingTokens ? (
-        <p className="text-white/30">Chargement...</p>
+        <p className="text-[color:var(--app-text-faint)]">Chargement...</p>
       ) : tokens.length === 0 ? (
-        <p className="text-white/30">Aucun token</p>
+        <p className="text-[color:var(--app-text-faint)]">Aucun token</p>
       ) : (
         tokens.map((t) => (
-          <div key={t.id} className="p-4 rounded-xl bg-white/5 border border-white/10 flex justify-between items-center">
+          <div key={t.id} className="app-card flex items-center justify-between p-4">
             
             <div>
-              <p className="text-white font-medium">{t.name}</p>
-              <p className="text-xs text-white/40">
+              <p className="text-[color:var(--app-text)] font-medium">{t.name}</p>
+              <p className="text-xs text-[color:var(--app-text-muted)]">
                 Créé le {new Date(t.createdAt).toLocaleDateString()}
               </p>
-              <p className="text-xs text-indigo-300 mt-1 font-mono">
+              <p className="text-xs text-indigo-700 mt-1 font-mono">
                 {t.token.slice(0, 8)}••••••••
               </p>
             </div>
@@ -360,7 +357,7 @@ const copyToken = (token: string) => {
             <div className="flex gap-2">
               <button
   onClick={() => copyToken(t.token)}
-  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition shadow-md hover:shadow-lg"
+  className="app-btn app-btn-primary"
 >
   <Clipboard size={16} />
   Copier
@@ -368,7 +365,7 @@ const copyToken = (token: string) => {
 
               <button
                 onClick={() => setTokenToDelete(t.id)}
-                className="px-3 py-1 rounded bg-red-500/20 text-red-300 text-xs"
+                className="app-btn app-btn-sm app-btn-danger"
               >
                 Supprimer
               </button>
@@ -380,36 +377,36 @@ const copyToken = (token: string) => {
 
     {/* MODAL CREATE TOKEN */}
     {isAddTokenModalOpen && (
-      <div className="fixed inset-0 flex items-center justify-center bg-black/60">
-        <div className="bg-slate-900 p-6 rounded-xl w-full max-w-sm">
-          <h3 className="text-white mb-4">Créer un token</h3>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 backdrop-blur-sm">
+        <div className="app-card w-full max-w-sm p-6 shadow-[var(--app-shadow-lg)]">
+          <h3 className="text-[color:var(--app-text)] mb-4">Créer un token</h3>
 
           <input
             type="text"
             placeholder="Nom du token"
             value={newTokenName}
             onChange={(e) => setNewTokenName(e.target.value)}
-            className="w-full p-2 rounded bg-white/5 border border-white/10 text-white mb-4"
+            className="app-input mb-4"
           />
           <input
             type="text"
             placeholder="Token"
             value={token}
             onChange={(e) => setToken(e.target.value)}
-            className="w-full p-2 rounded bg-white/5 border border-white/10 text-white mb-4"
+            className="app-input mb-4"
           />
 
           <div className="flex gap-2">
             <button
               onClick={() => setIsAddTokenModalOpen(false)}
-              className="flex-1 border border-white/10 text-white/70 py-2 rounded"
+              className="app-btn app-btn-secondary flex-1"
             >
               Annuler
             </button>
 
             <button
               onClick={createToken}
-              className="flex-1 bg-indigo-500 text-white py-2 rounded"
+              className="app-btn app-btn-primary flex-1"
             >
               Créer
             </button>
@@ -420,21 +417,21 @@ const copyToken = (token: string) => {
 
     {/* DELETE MODAL */}
     {tokenToDelete && (
-      <div className="fixed inset-0 flex items-center justify-center bg-black/60">
-        <div className="bg-slate-900 p-6 rounded-xl w-full max-w-sm">
-          <p className="text-white mb-4">Supprimer ce token ?</p>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 backdrop-blur-sm">
+        <div className="app-card w-full max-w-sm p-6 shadow-[var(--app-shadow-lg)]">
+          <p className="text-[color:var(--app-text)] mb-4">Supprimer ce token ?</p>
 
           <div className="flex gap-2">
             <button
               onClick={() => setTokenToDelete(null)}
-              className="flex-1 border border-white/10 text-white py-2 rounded"
+              className="app-btn app-btn-secondary flex-1"
             >
               Annuler
             </button>
 
             <button
               onClick={() => deleteToken(tokenToDelete)}
-              className="flex-1 bg-red-500 text-white py-2 rounded"
+              className="app-btn app-btn-primary flex-1 bg-rose-600! hover:bg-rose-700!"
             >
               Supprimer
             </button>

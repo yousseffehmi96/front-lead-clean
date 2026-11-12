@@ -33,16 +33,16 @@ export default function Delete({ deletes, setRefresh, id }: DeleteProps) {
       <div
         className="w-full max-w-sm rounded-2xl p-6 relative"
         style={{
-          background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)",
-          border: "1px solid rgba(255,255,255,0.1)",
-          boxShadow: "0 25px 50px rgba(0,0,0,0.5)",
+          background: "var(--app-bg)",
+          border: "1px solid var(--app-border)",
+          boxShadow: "0 20px 40px rgba(15,23,42,0.15)",
         }}
       >
         {/* Close */}
         <button
           onClick={() => deletes(false)}
           className="absolute top-4 right-4 p-1 rounded-lg"
-          style={{ color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.05)" }}
+          style={{ color: "var(--app-text-faint)", background: "var(--app-surface-hover)" }}
         >
           <X size={14} />
         </button>
@@ -52,14 +52,14 @@ export default function Delete({ deletes, setRefresh, id }: DeleteProps) {
           className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
           style={{ background: "rgba(244,63,94,0.15)", border: "1px solid rgba(244,63,94,0.3)" }}
         >
-          <AlertTriangle size={22} style={{ color: "#f43f5e" }} />
+          <AlertTriangle size={22} style={{ color: "#e11d48" }} />
         </div>
 
-        <h2 className="text-white font-semibold text-base mb-2">
+        <h2 className="text-[color:var(--app-text)] font-semibold text-base mb-2">
           Confirmer la suppression
         </h2>
 
-        <p className="text-sm mb-6" style={{ color: "rgba(255,255,255,0.4)" }}>
+        <p className="text-sm mb-6" style={{ color: "var(--app-text-muted)" }}>
           Êtes-vous sûr de vouloir supprimer cette société ? Cette action est irréversible.
         </p>
 
@@ -68,9 +68,9 @@ export default function Delete({ deletes, setRefresh, id }: DeleteProps) {
             onClick={() => deletes(false)}
             className="flex-1 text-sm font-semibold py-2.5 rounded-lg transition-all"
             style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              color: "rgba(255,255,255,0.5)",
+              background: "var(--app-surface-hover)",
+              border: "1px solid var(--app-border)",
+              color: "var(--app-text-muted)",
             }}
           >
             Annuler
@@ -82,7 +82,7 @@ export default function Delete({ deletes, setRefresh, id }: DeleteProps) {
             style={{
               background: "rgba(244,63,94,0.15)",
               border: "1px solid rgba(244,63,94,0.3)",
-              color: "#fda4af",
+              color: "#e11d48",
             }}
           >
             <Trash2 size={13} />
@@ -93,18 +93,18 @@ export default function Delete({ deletes, setRefresh, id }: DeleteProps) {
         {sucee && (
           <div
             className="mt-4 p-3 rounded-lg text-xs text-center font-medium"
-            style={{ background: "rgba(110,231,183,0.1)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}
+            style={{ background: "rgba(110,231,183,0.1)", border: "1px solid rgba(110,231,183,0.2)", color: "#059669" }}
           >
-            ✅ {sucee}
+            {sucee}
           </div>
         )}
 
         {err && (
           <div
             className="mt-4 p-3 rounded-lg text-xs text-center font-medium"
-            style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.2)", color: "#fda4af" }}
+            style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.2)", color: "#e11d48" }}
           >
-            ❌ {err}
+            {err}
           </div>
         )}
       </div>

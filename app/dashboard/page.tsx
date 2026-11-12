@@ -2,10 +2,11 @@
 
 import { useMemo, useEffect, useState } from "react"
 import Usefetch from "@/hooks/SocieteFetch"
-import { ChevronDown, ChevronRight } from "lucide-react"
+import { ChevronDown, ChevronRight, Loader2 } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
 import { useRouter } from "next/navigation"
 import { getUserById } from "@/api/user-actions"
+import { CARD_COLORS } from "@/lib/theme"
 
 interface Stat {
   id: number
@@ -35,19 +36,6 @@ type User = {
   email: string
   role: string
 }
-
-const CARD_COLORS = [
-  { color: "#818cf8", bg: "rgba(129,140,248,0.1)", border: "rgba(129,140,248,0.2)" },
-  { color: "#f43f5e", bg: "rgba(244,63,94,0.1)", border: "rgba(244,63,94,0.2)" },
-  { color: "#6ee7b7", bg: "rgba(110,231,183,0.1)", border: "rgba(110,231,183,0.2)" },
-  { color: "#fcd34d", bg: "rgba(252,211,77,0.1)", border: "rgba(252,211,77,0.2)" },
-  { color: "#f59e0b", bg: "rgba(245,158,11,0.1)", border: "rgba(245,158,11,0.2)" },
-  { color: "#94a3b8", bg: "rgba(148,163,184,0.1)", border: "rgba(148,163,184,0.2)" },
-  { color: "#f9a8d4", bg: "rgba(249,168,212,0.1)", border: "rgba(249,168,212,0.2)" },
-  { color: "#22d3ee", bg: "rgba(34,211,238,0.1)", border: "rgba(34,211,238,0.2)" },
-  { color: "#a78bfa", bg: "rgba(167,139,250,0.1)", border: "rgba(167,139,250,0.2)" },
-  { color: "#f87171", bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.2)" },
-]
 
 function StatRow({ d, idx }: { d: Stat; idx: number }) {
   const [open, setOpen] = useState(false)
@@ -88,7 +76,7 @@ function StatRow({ d, idx }: { d: Stat; idx: number }) {
     { label: "Emails complétés", val: d.emails_completed ?? 0, i: 2 },
     { label: "Sociétés complétées", val: d.societe_completed ?? 0, i: 3 },
     { label: "Blacklistés retirés", val: d.blacklisted_removed ?? 0, i: 5 },
-    { label: "🧹 Vers Clean", val: d.moved_to_clean ?? 0, i: 8 },
+    { label:"Vers Clean", val: d.moved_to_clean ?? 0, i: 8 },
     // Doublons écartés à l'import. Incomplete et Complete étant fusionnés dans
     // `optimized`, les deux compteurs du backend portent sur la même table
     // (partitions disjointes par complétion) : on les additionne en une seule métrique.
@@ -100,61 +88,54 @@ function StatRow({ d, idx }: { d: Stat; idx: number }) {
   return (
     <>
       <tr
-        style={{
-          borderBottom: open ? "none" : "1px solid rgba(255,255,255,0.04)",
-          background: open ? "rgba(99,102,241,0.07)" : idx % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)",
-          transition: "background 0.1s",
-          cursor: "pointer",
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
-        onMouseLeave={(e) => (e.currentTarget.style.background = open ? "rgba(99,102,241,0.07)" : idx % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)")}
+        className={`cursor-pointer transition-colors ${open ? "bg-[var(--app-accent-soft)]" : "hover:bg-[var(--app-bg-subtle)]"}`}
         onClick={() => setOpen(!open)}
       >
-<td className="px-3 md:px-4 py-3 text-white/80">
+        <td className="px-3 md:px-4 py-3">
           <div className="flex items-center gap-2">
-            <span style={{ color: open ? "#818cf8" : "rgba(255,255,255,0.25)", transition: "color 0.15s" }}>
+            <span className={open ? "text-[color:var(--app-accent)]" : "text-[color:var(--app-text-faint)]"}>
               {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
             </span>
-           <span className="text-xs md:text-sm font-medium text-white truncate max-w-[120px] md:max-w-none">
-  {d.filename}
-</span>
+            <span className="text-xs md:text-sm font-medium text-[color:var(--app-text)] truncate max-w-[120px] md:max-w-none">
+              {d.filename}
+            </span>
           </div>
         </td>
         <td className="px-4 py-3">
-          <span className="text-xs font-semibold px-2 py-1 rounded-md" style={{ color: CARD_COLORS[3].color, background: CARD_COLORS[3].bg, border: `1px solid ${CARD_COLORS[3].border}` }}>
+          <span className="app-badge" style={{ color: CARD_COLORS[3].color, background: CARD_COLORS[3].bg, borderColor: CARD_COLORS[3].border }}>
             {detected}
           </span>
         </td>
         <td className="px-4 py-3">
-          <span className="text-xs font-semibold px-2 py-1 rounded-md" style={{ color: CARD_COLORS[2].color, background: CARD_COLORS[2].bg, border: `1px solid ${CARD_COLORS[2].border}` }}>
+          <span className="app-badge" style={{ color: CARD_COLORS[2].color, background: CARD_COLORS[2].bg, borderColor: CARD_COLORS[2].border }}>
             {duplicatesDeleted}
           </span>
         </td>
-       <td className="px-3 md:px-4 py-3">
-  <div className="flex items-center gap-2">
-
-    <div className="w-7 h-7 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400 text-xs font-bold">
-      {user?.firstName?.[0] || "U"}
-    </div>
-
-    <span className="text-xs md:text-sm text-white/80 truncate max-w-[80px]">
-      {loading ? "..." : user?.firstName || userid}
-    </span>
-
-  </div>
-</td>
-
-        <td className="px-3 md:px-4 py-3 text-[11px] md:text-xs text-white/50">
-  {new Date(d.created_at).toLocaleDateString("fr-FR")}
-</td>
+        <td className="px-3 md:px-4 py-3">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-[color:var(--app-accent-border)] bg-[var(--app-accent-soft)] text-xs font-bold text-[color:var(--app-accent-hover)]">
+              {user?.firstName?.[0] || "U"}
+            </div>
+            <span className="text-xs md:text-sm text-[color:var(--app-text-secondary)] truncate max-w-[80px]">
+              {loading ? "..." : user?.firstName || userid}
+            </span>
+          </div>
+        </td>
+        <td className="px-3 md:px-4 py-3 text-[11px] md:text-xs text-[color:var(--app-text-muted)] whitespace-nowrap">
+          {new Date(d.created_at).toLocaleDateString("fr-FR")}
+        </td>
       </tr>
       {open && (
-        <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: "rgba(99,102,241,0.03)" }}>
-          <td colSpan={6} style={{ padding: "10px 24px 14px" }}>
+        <tr className="bg-[var(--app-accent-soft)]">
+          <td colSpan={6} className="px-4 pb-4 pt-1 md:px-6">
             <div className="flex flex-wrap gap-2">
               {details.map(({ label, val, i }) => (
-                <div key={label} className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: CARD_COLORS[i].bg, border: `1px solid ${CARD_COLORS[i].border}` }}>
-                  <span className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>{label}</span>
+                <div
+                  key={label}
+                  className="flex items-center gap-2 rounded-lg border bg-white px-3 py-1.5"
+                  style={{ borderColor: CARD_COLORS[i].border }}
+                >
+                  <span className="text-xs text-[color:var(--app-text-muted)]">{label}</span>
                   <span className="text-xs font-bold" style={{ color: CARD_COLORS[i].color }}>{val}</span>
                 </div>
               ))}
@@ -210,9 +191,9 @@ export default function Dashboard() {
   }, [stats])
 
   if (!stats) return (
-    <div className="flex items-center justify-center h-full" style={{ color: "rgba(255,255,255,0.2)" }}>
-      <div className="text-center">
-        <div className="text-4xl mb-3">⚡</div>
+    <div className="app-page flex h-full items-center justify-center">
+      <div className="app-empty">
+        <Loader2 size={28} className="animate-spin" />
         <p className="text-sm">Chargement...</p>
       </div>
     </div>
@@ -225,47 +206,61 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="h-full overflow-y-auto p-4 pl-14 md:p-6 space-y-5" style={{ color: "#cbd5e1", background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)" }}>
-      <div style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "16px" }}>
-        <h1 className="text-white font-semibold text-lg">Dashboard</h1>
-        <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>{stats.length} imports enregistrés</p>
+    <div className="app-page h-full overflow-y-auto">
+      {/* En-tête */}
+      <div className="app-header px-4 pl-14 py-4 md:px-8">
+        <h1 className="app-title text-lg">Dashboard</h1>
+        <p className="app-subtitle mt-0.5">{stats.length} imports enregistrés</p>
       </div>
 
-      {totals && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {metricCards.map((m, i) => (
-            <div key={m.label} className="rounded-xl p-4" style={{ background: CARD_COLORS[i].bg, border: `1px solid ${CARD_COLORS[i].border}` }}>
-              <p className="text-xs mb-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>{m.label}</p>
-              <p className="text-2xl font-bold" style={{ color: CARD_COLORS[i].color }}>{m.value.toLocaleString("fr-FR")}</p>
-            </div>
-          ))}
+      <div className="space-y-6 p-4 md:p-8">
+        {/* Métriques */}
+        {totals && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {metricCards.map((m, i) => (
+              <div key={m.label} className="app-card app-card-hover p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="app-eyebrow">{m.label}</p>
+                  <span
+                    className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                    style={{ background: CARD_COLORS[i].color }}
+                  />
+                </div>
+                <p className="mt-3 text-[28px] font-bold leading-none tracking-tight text-[color:var(--app-text)]">
+                  {m.value.toLocaleString("fr-FR")}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Historique des imports */}
+        <div className="app-card overflow-hidden">
+          <div className="flex items-center justify-between gap-3 border-b border-[color:var(--app-border)] px-5 py-3.5">
+            <h2 className="app-title text-sm">Historique des imports</h2>
+            <span className="app-count">{stats.length}</span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-[600px] w-full text-xs md:text-sm">
+              <thead className="bg-[var(--app-bg-subtle)]">
+                <tr className="text-[10px] uppercase tracking-[0.06em] text-[color:var(--app-text-muted)] md:text-[11px]">
+                  <th className="px-3 md:px-4 py-3 text-left font-semibold">Fichier</th>
+                  <th className="px-3 md:px-4 py-3 text-left font-semibold">Détectés</th>
+                  <th className="px-3 md:px-4 py-3 text-left font-semibold">Doublons effacés</th>
+                  <th className="px-3 md:px-4 py-3 text-left font-semibold">Utilisateur</th>
+                  <th className="px-3 md:px-4 py-3 text-left font-semibold">Date</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-[color:var(--app-border-subtle)]">
+                {stats.map((d, idx) => (
+                  <StatRow key={d.id} d={d} idx={idx} />
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      )}
-
-      {/* TABLE */}
-<div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-md">
-
-  <table className="min-w-[600px] w-full text-xs md:text-sm">
-
-    {/* HEADER */}
-    <thead className="bg-white/5">
-      <tr className="text-white/60 text-[11px] md:text-xs uppercase tracking-wider">
-        <th className="px-3 md:px-4 py-3 text-left">Fichier</th>
-        <th className="px-3 md:px-4 py-3 text-left">detectés</th>
-        <th className="px-3 md:px-4 py-3 text-left">Doublons effacés</th>
-        <th className="px-3 md:px-4 py-3 text-left">Utilisateur</th>
-        <th className="px-3 md:px-4 py-3 text-left">Date</th>
-      </tr>
-    </thead>
-
-    {/* BODY */}
-    <tbody className="divide-y divide-white/5">
-      {stats.map((d, idx) => (
-        <StatRow key={d.id} d={d} idx={idx} />
-      ))}
-    </tbody>
-
-  </table>
       </div>
     </div>
   )

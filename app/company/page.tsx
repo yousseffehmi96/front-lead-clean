@@ -173,8 +173,8 @@ export default function Company() {
 
   const SortIcon = ({ colKey }: { colKey: SortKey }) => {
     if (sortKey !== colKey) return <ChevronsUpDown size={11} className="opacity-20" />
-    if (sortDir === "asc")  return <ChevronUp size={11} className="text-indigo-400" />
-    return <ChevronDown size={11} className="text-indigo-400" />
+    if (sortDir === "asc")  return <ChevronUp size={11} className="text-indigo-600" />
+    return <ChevronDown size={11} className="text-indigo-600" />
   }
 
   const headers: { label: string; key: SortKey | null; sortable: boolean }[] = [
@@ -193,17 +193,16 @@ export default function Company() {
   return (
     <>
       <div
-        className="min-h-screen flex flex-col p-4 pl-14 md:p-8 space-y-6"
-        style={{ color: "#cbd5e1", background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)" }}
+        className="app-page min-h-screen flex flex-col p-4 pl-14 md:p-8 space-y-6"
       >
         {/* --- HEADER RESPONSIVE --- */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-white/5">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-[color:var(--app-border)]">
           <div>
-            <h1 className="text-white font-bold text-xl flex items-center gap-2">
-              <Building2 size={22} className="text-indigo-400" />
+            <h1 className="text-[color:var(--app-text)] font-bold text-xl flex items-center gap-2">
+              <Building2 size={22} className="text-indigo-600" />
               Sociétés
             </h1>
-            <p className="text-xs text-white/30 mt-1">
+            <p className="text-xs text-[color:var(--app-text-faint)] mt-1">
               {filtered.length} résultats trouvés
             </p>
           </div>
@@ -212,14 +211,14 @@ export default function Company() {
             {Object.keys(colSearch).length > 0 && (
               <button
                 onClick={() => { setColSearch({}); setActiveCol(null); setPage(1) }}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-1 text-xs px-4 py-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1 text-xs px-4 py-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-700"
               >
                 <X size={14} /> Réinitialiser
               </button>
             )}
             <button
               onClick={openAdd}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-200"
+              className="app-btn app-btn-soft flex-1 sm:flex-none"
             >
               <Plus size={14} /> Ajouter
             </button>
@@ -234,19 +233,19 @@ export default function Company() {
             paginated.map((d: any, idx: number) => (
               <div 
                 key={d.id}
-                className="p-5 rounded-2xl space-y-4 border border-white/5 bg-white/5 relative overflow-hidden"
+                className="app-card app-card-hover relative space-y-4 overflow-hidden p-5"
               >
                 <div className="flex justify-between items-start">
                   <div>
-                    <span className="text-[10px] uppercase font-bold tracking-widest text-indigo-400/60">Société</span>
-                    <h3 className="text-white font-semibold text-lg leading-tight">{d.nom}</h3>
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-indigo-600/60">Société</span>
+                    <h3 className="text-[color:var(--app-text)] font-semibold text-lg leading-tight">{d.nom}</h3>
                     <div className="mt-1 flex flex-col gap-0.5 items-start">
                       {String(d.patterne ?? "").split("\n").filter(Boolean).map((p: string, i: number) => (
-                        <span key={i} className="font-mono text-[11px] text-emerald-300/80 bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10">{p}</span>
+                        <span key={i} className="font-mono text-[11px] text-emerald-700/80 bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10">{p}</span>
                       ))}
                     </div>
                     {d.regex && (
-                      <span className="mt-1 block font-mono text-[10px] text-amber-300/70 break-all">
+                      <span className="mt-1 block font-mono text-[10px] text-amber-700/70 break-all">
                         {String(d.regex).split("\n").filter(Boolean).join("   •   ")}
                       </span>
                     )}
@@ -254,13 +253,13 @@ export default function Company() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => openEdit(d)}
-                      className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-indigo-300"
+                      className="flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--app-accent-border)] bg-[var(--app-accent-soft)] text-[color:var(--app-accent-hover)]"
                     >
                       <Pencil size={16}/>
                     </button>
                     <button 
                       onClick={() => { setDeletedata(true); setidsociete(d.id) }}
-                      className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400"
+                      className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600"
                     >
                       <Trash2 size={16}/>
                     </button>
@@ -273,19 +272,19 @@ export default function Company() {
         </div>
 
         {/* --- VUE DESKTOP (TABLEAU) --- */}
-        <div className="hidden md:block rounded-2xl overflow-hidden border border-white/5 bg-black/20">
+        <div className="app-card hidden overflow-hidden md:block">
           <table className="w-full text-sm text-left border-collapse">
             <thead>
-              <tr className="bg-white/5 border-b border-white/5">
-                <th className="p-4 text-[11px] font-bold uppercase text-white/20 w-12">#</th>
+              <tr className="bg-[var(--app-bg-subtle)] border-b border-[color:var(--app-border-subtle)]">
+                <th className="p-4 text-[11px] font-bold uppercase text-[color:var(--app-text-faint)] w-12">#</th>
                 {headers.map((h) => (
-                  <th key={h.label} className={`p-4 text-[11px] font-bold uppercase text-white/30 ${h.label === "Actions" ? "text-center w-24" : ""}`}>
+                  <th key={h.label} className={`p-4 text-[11px] font-bold uppercase text-[color:var(--app-text-faint)] ${h.label === "Actions" ? "text-center w-24" : ""}`}>
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2">
                         {h.sortable && h.key ? (
                           <button
                             onClick={() => handleSort(h.key as SortKey)}
-                            className={`flex items-center gap-2 hover:text-white transition-colors ${sortKey === h.key ? "text-indigo-400" : ""}`}
+                            className={`flex items-center gap-2 hover:text-[color:var(--app-text)] transition-colors ${sortKey === h.key ? "text-indigo-600" : ""}`}
                           >
                             {h.label} <SortIcon colKey={h.key as SortKey} />
                           </button>
@@ -294,7 +293,7 @@ export default function Company() {
                         {h.key && (
                           <button
                             onClick={() => toggleSearch(h.key!)}
-                            className={`p-1 rounded ${colSearch[h.key!] ? "bg-indigo-500/20 text-indigo-400" : "text-white/20"}`}
+                            className={`p-1 rounded ${colSearch[h.key!] ? "bg-indigo-500/20 text-indigo-600" : "text-[color:var(--app-text-faint)]"}`}
                           >
                             <Search size={12} />
                           </button>
@@ -306,7 +305,7 @@ export default function Company() {
                           autoFocus
                           value={colSearch[h.key] ?? ""}
                           onChange={(e) => { setColSearch(prev => ({ ...prev, [h.key!]: e.target.value })); setPage(1) }}
-                          className="bg-black/40 border border-white/10 rounded px-2 py-1 text-[11px] outline-none focus:border-indigo-500/50"
+                          className="app-input h-8 rounded-md px-2 text-[11px]"
                           placeholder={`Filtrer...`}
                         />
                       )}
@@ -317,25 +316,25 @@ export default function Company() {
             </thead>
             <tbody>
               {paginated.map((d: any, idx: number) => (
-                <tr key={d.id} className="border-b border-white/5 hover:bg-white/5 transition-colors group">
-                  <td className="p-4 text-white/20 text-xs">{(safePage - 1) * pageSize + idx + 1}</td>
-                  <td className="p-4 font-medium text-white">{d.nom}</td>
+                <tr key={d.id} className="border-b border-[color:var(--app-border-subtle)] hover:bg-[var(--app-bg-subtle)] transition-colors group">
+                  <td className="p-4 text-[color:var(--app-text-faint)] text-xs">{(safePage - 1) * pageSize + idx + 1}</td>
+                  <td className="p-4 font-medium text-[color:var(--app-text)]">{d.nom}</td>
                   <td className="p-4">
                     <div className="flex flex-col gap-1 items-start">
                       {String(d.patterne ?? "").split("\n").filter(Boolean).map((p: string, i: number) => (
-                        <span key={i} className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-300 text-xs border border-emerald-500/20 font-mono">{p}</span>
+                        <span key={i} className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-700 text-xs border border-emerald-500/20 font-mono">{p}</span>
                       ))}
                     </div>
                     {d.regex && (
-                      <div className="mt-1 font-mono text-[10px] text-amber-300/70 break-all">
+                      <div className="mt-1 font-mono text-[10px] text-amber-700/70 break-all">
                         {String(d.regex).split("\n").filter(Boolean).map((r: string, i: number) => (<div key={i}>{r}</div>))}
                       </div>
                     )}
                   </td>
                   <td className="p-4">
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
-                      <button onClick={() => openEdit(d)} className="p-2 hover:text-indigo-400"><Pencil size={14}/></button>
-                      <button onClick={() => { setDeletedata(true); setidsociete(d.id) }} className="p-2 hover:text-rose-400"><Trash2 size={14}/></button>
+                      <button onClick={() => openEdit(d)} className="p-2 hover:text-indigo-600"><Pencil size={14}/></button>
+                      <button onClick={() => { setDeletedata(true); setidsociete(d.id) }} className="p-2 hover:text-rose-600"><Trash2 size={14}/></button>
                     </div>
                   </td>
                 </tr>
@@ -347,17 +346,17 @@ export default function Company() {
         {/* --- PAGINATION RESPONSIVE --- */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-4">
           <div className="flex items-center gap-4 order-2 sm:order-1">
-            <div className="flex items-center gap-2 text-xs text-white/30">
+            <div className="flex items-center gap-2 text-xs text-[color:var(--app-text-faint)]">
               <span>Lignes :</span>
               <select
                 value={pageSize}
                 onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1) }}
-                className="bg-white/5 border border-white/10 rounded-md px-2 py-1 outline-none text-white cursor-pointer"
+                className="app-select h-8 w-auto cursor-pointer px-2 text-xs"
               >
-                {PAGE_SIZE_OPTIONS.map(s => <option key={s} value={s} className="bg-slate-900">{s}</option>)}
+                {PAGE_SIZE_OPTIONS.map(s => <option key={s} value={s} className="bg-[var(--app-bg-subtle)]">{s}</option>)}
               </select>
             </div>
-            <span className="text-[11px] text-white/20">
+            <span className="text-[11px] text-[color:var(--app-text-faint)]">
               {Math.min((safePage - 1) * pageSize + 1, sorted.length)} - {Math.min(safePage * pageSize, sorted.length)} sur {sorted.length}
             </span>
           </div>
@@ -366,10 +365,10 @@ export default function Company() {
             <PagBtn onClick={() => setPage(1)} disabled={safePage === 1}><ChevronsLeft size={14} /></PagBtn>
             <PagBtn onClick={() => setPage(p => p - 1)} disabled={safePage === 1}><ChevronLeft size={14} /></PagBtn>
             
-            <div className="px-3 py-1 bg-white/5 rounded-lg border border-white/10 mx-1">
-               <span className="text-xs font-bold text-indigo-400">{safePage}</span>
-               <span className="text-xs text-white/20 mx-2">/</span>
-               <span className="text-xs text-white/40">{totalPages}</span>
+            <div className="app-chip mx-1">
+               <span className="text-xs font-bold text-indigo-600">{safePage}</span>
+               <span className="text-xs text-[color:var(--app-text-faint)] mx-2">/</span>
+               <span className="text-xs text-[color:var(--app-text-muted)]">{totalPages}</span>
             </div>
 
             <PagBtn onClick={() => setPage(p => p + 1)} disabled={safePage === totalPages}><ChevronRight size={14} /></PagBtn>
@@ -380,54 +379,54 @@ export default function Company() {
 
       {/* --- MODAL FORMULAIRE --- */}
       {showForm && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-3xl p-8 bg-slate-900 border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-slate-900/30 backdrop-blur-sm">
+          <div className="app-card w-full max-w-md p-8 shadow-[var(--app-shadow-lg)] animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-white font-bold text-lg flex items-center gap-2">
-                <Building2 size={20} className="text-indigo-400" />
+              <h2 className="text-[color:var(--app-text)] font-bold text-lg flex items-center gap-2">
+                <Building2 size={20} className="text-indigo-600" />
                 {isEdit ? "Édition" : "Nouvelle Société"}
               </h2>
-              <button onClick={resetForm} className="p-2 rounded-full hover:bg-white/5 text-white/30"><X size={18} /></button>
+              <button onClick={resetForm} className="p-2 rounded-full hover:bg-[var(--app-bg-subtle)] text-[color:var(--app-text-faint)]"><X size={18} /></button>
             </div>
             
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] uppercase font-bold text-white/20 ml-1">nom de société</label>
+                <label className="text-[10px] uppercase font-bold text-[color:var(--app-text-faint)] ml-1">nom de société</label>
                 <input
                   name="nom"
                   placeholder="Entrer le nom..."
                   value={societe?.nom ?? ""}
                   onChange={handle}
-                  className="w-full text-sm px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white outline-none focus:border-indigo-500/50 transition-all"
+                  className="app-input h-11"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] uppercase font-bold text-white/20 ml-1">patterne(s)</label>
+                <label className="text-[10px] uppercase font-bold text-[color:var(--app-text-faint)] ml-1">patterne(s)</label>
                 <textarea
                   name="patterne"
                   rows={2}
                   placeholder={"{prenom}.{nom}@soprat.fr\n{p}.{nom}@soprat.fr"}
                   value={patterne}
                   onChange={(e) => { setPatterne(e.target.value); setRegex(patterneToRegex(e.target.value)) }}
-                  className="w-full text-sm px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-emerald-200 font-mono outline-none focus:border-indigo-500/50 transition-all resize-y"
+                  className="w-full text-sm px-4 py-3 rounded-xl bg-[var(--app-bg-subtle)] border border-[color:var(--app-border)] text-emerald-700 font-mono outline-none focus:border-indigo-500/50 transition-all resize-y"
                 />
-                <p className="text-[10px] text-white/30 ml-1">
-                  Un patterne par ligne. Tokens : <span className="font-mono text-indigo-300">{"{prenom}"}</span> <span className="font-mono text-indigo-300">{"{nom}"}</span> <span className="font-mono text-indigo-300">{"{p}"}</span> (init. prénom) <span className="font-mono text-indigo-300">{"{n}"}</span> (init. nom)
+                <p className="text-[10px] text-[color:var(--app-text-faint)] ml-1">
+                  Un patterne par ligne. Tokens : <span className="font-mono text-indigo-700">{"{prenom}"}</span> <span className="font-mono text-indigo-700">{"{nom}"}</span> <span className="font-mono text-indigo-700">{"{p}"}</span> (init. prénom) <span className="font-mono text-indigo-700">{"{n}"}</span> (init. nom)
                 </p>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] uppercase font-bold text-white/20 ml-1">regex</label>
+                <label className="text-[10px] uppercase font-bold text-[color:var(--app-text-faint)] ml-1">regex</label>
                 <textarea
                   name="regex"
                   rows={2}
                   placeholder={"^[a-z]+([._-][a-z]+)*@soprat\\.fr$"}
                   value={regex}
                   onChange={(e) => setRegex(e.target.value)}
-                  className="w-full text-sm px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-amber-200 font-mono outline-none focus:border-indigo-500/50 transition-all resize-y"
+                  className="w-full text-sm px-4 py-3 rounded-xl bg-[var(--app-bg-subtle)] border border-[color:var(--app-border)] text-amber-700 font-mono outline-none focus:border-indigo-500/50 transition-all resize-y"
                 />
-                <p className="text-[10px] text-white/30 ml-1">
+                <p className="text-[10px] text-[color:var(--app-text-faint)] ml-1">
                   Généré automatiquement depuis le patterne (modifiable si besoin).
                 </p>
               </div>
@@ -435,14 +434,14 @@ export default function Company() {
               <button
                 onClick={isEdit ? handleUpdate : handleClick}
                 className={`w-full py-4 rounded-xl font-bold text-sm mt-4 transition-all shadow-lg ${
-                  isEdit ? "bg-amber-500 text-amber-950 hover:bg-amber-400" : "bg-indigo-600 text-white hover:bg-indigo-500"
+                  isEdit ? "bg-amber-600 text-white hover:bg-amber-700" : "bg-indigo-600 text-white hover:bg-indigo-700"
                 }`}
               >
                 {isEdit ? "Enregistrer les modifications" : "Créer la société"}
               </button>
               
-              {sucee && <p className="text-center text-xs text-emerald-400 bg-emerald-500/10 py-2 rounded-lg">✅ {sucee}</p>}
-              {err && <p className="text-center text-xs text-rose-400 bg-rose-500/10 py-2 rounded-lg">❌ {err}</p>}
+              {sucee && <p className="text-center text-xs text-emerald-600 bg-emerald-500/10 py-2 rounded-lg">{sucee}</p>}
+              {err && <p className="text-center text-xs text-rose-600 bg-rose-500/10 py-2 rounded-lg">{err}</p>}
             </div>
           </div>
         </div>
@@ -461,8 +460,8 @@ function PagBtn({ children, onClick, disabled = false, active = false }: {
       onClick={onClick}
       disabled={disabled}
       className={`min-w-[36px] h-[36px] rounded-xl flex items-center justify-center transition-all border
-        ${disabled ? "opacity-10 cursor-not-allowed border-transparent" : "hover:bg-white/5 border-white/5 text-white/60 active:scale-95"}
-        ${active ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-300" : ""}
+        ${disabled ? "opacity-10 cursor-not-allowed border-transparent" : "hover:bg-[var(--app-bg-subtle)] border-[color:var(--app-border-subtle)] text-[color:var(--app-text-secondary)] active:scale-95"}
+        ${active ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-700" : ""}
       `}
     >
       {children}

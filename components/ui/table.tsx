@@ -23,7 +23,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       data-slot="table-header"
-      className={cn("[&_tr]:border-b [&_tr]:border-white/10", className)}
+      className={cn("[&_tr]:border-b [&_tr]:border-slate-200", className)}
       {...props}
     />
   )
@@ -44,7 +44,7 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
     <tfoot
       data-slot="table-footer"
       className={cn(
-        "border-t border-white/10 bg-white/[0.03] font-medium text-slate-300 [&>tr]:last:border-b-0",
+        "border-t border-slate-200 bg-slate-50 font-medium text-slate-700 [&>tr]:last:border-b-0",
         className
       )}
       {...props}
@@ -57,7 +57,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b border-white/5 transition-colors hover:bg-white/[0.04] has-aria-expanded:bg-white/[0.04] data-[state=selected]:bg-teal-400/10",
+        "border-b border-[color:var(--app-border-subtle)] transition-colors hover:bg-[var(--app-bg-subtle)] has-aria-expanded:bg-[var(--app-bg-subtle)] data-[state=selected]:bg-[var(--app-accent-soft)]",
         className
       )}
       {...props}
@@ -70,7 +70,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-11 px-4 text-left align-middle text-[11px] font-medium uppercase tracking-wider whitespace-nowrap text-slate-400 [&:has([role=checkbox])]:pr-0",
+        "h-11 px-4 text-left align-middle text-[11px] font-medium uppercase tracking-wider whitespace-nowrap text-slate-500 [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}
@@ -83,7 +83,7 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "px-4 py-3 align-middle whitespace-nowrap text-slate-300 [&:has([role=checkbox])]:pr-0",
+        "px-4 py-3 align-middle whitespace-nowrap text-slate-700 [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}

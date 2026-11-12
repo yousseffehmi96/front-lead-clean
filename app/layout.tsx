@@ -8,6 +8,7 @@ import { Provider } from "react-redux"
 import { store } from "../store/store"
 import AuthSync from "@/componets/AuthSync"
 import ApiAuth from "@/componets/ApiAuth"
+import ImportJobProvider from "@/componets/ImportJobProvider"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,22 +34,27 @@ export default function RootLayout({
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-row h-screen`}
-        style={{ background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)" }}
+        style={{ background: "var(--app-bg)" }}
       >
         <ClerkProvider
 
         >
           {/* Injecte le token Clerk dans tous les appels API */}
           <ApiAuth />
-          {/* Affiche la Navbar UNIQUEMENT si ce n'est pas une page d'auth */}
-          {!isAuthPage && <Navbar />}
+          {/* Suivi de l'import en tâche de fond : englobe la navbar ET la page
+              pour que la carte de progression et la page Import partagent le
+              même job (un seul polling). */}
+          <ImportJobProvider>
+            {/* Affiche la Navbar UNIQUEMENT si ce n'est pas une page d'auth */}
+            {!isAuthPage && <Navbar />}
 
-          <main className={`flex-1 overflow-y-auto h-screen ${isAuthPage ? 'w-full' : ''}`}>
-            <Provider store={store}>
-              <AuthSync />
-              {children}
-            </Provider>
-          </main>
+            <main className={`flex-1 overflow-y-auto h-screen ${isAuthPage ? 'w-full' : ''}`}>
+              <Provider store={store}>
+                <AuthSync />
+                {children}
+              </Provider>
+            </main>
+          </ImportJobProvider>
         </ClerkProvider>
       </body>
     </html>

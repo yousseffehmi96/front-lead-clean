@@ -6,6 +6,8 @@ import { useSelector } from "react-redux"
 import { DataTable } from "./data-table"
 import { buildColumns, REQUIRED_FIELDS, type RawRow, type FieldKey } from "./columns"
 import { Button } from "@/components/ui/button"
+import { useImportJob } from "@/componets/ImportJobProvider"
+import { AlertCircle, ArrowRight, CheckCircle2, Download, FileSpreadsheet, Loader2 } from "lucide-react"
 
 
 interface LeadsPageProps {
@@ -37,9 +39,13 @@ export default function LeadsPage({
   const [mapping, setMapping] = React.useState<Record<FieldKey, string>>(
     {} as Record<FieldKey, string>
   )
-  const [importing, setImporting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const [result, setResult] = React.useState<any>(null)
+
+  // L'état de l'import vit dans le contexte, pas ici : il doit survivre à un
+  // changement de page et à un rechargement.
+  const { job, starting, startImport } = useImportJob()
+  const importing = starting || job?.status === "running"
+  const result = job?.status === "done" ? job.result : null
 
   const columns = React.useMemo(
     () => buildColumns(fileHeaders, mapping, setMapping),
@@ -70,66 +76,20 @@ export default function LeadsPage({
       )
       return
     }
-    setImporting(true)
     setError(null)
-    setResult(null)
     try {
-      // Le token Clerk est injecté automatiquement par <ApiAuth /> (patch global de fetch)
-      const authHeaders: Record<string, string> = {
-        "Content-Type": "application/json",
-      }
-      const finalName = filename || "import-mappe"
-      console.log("[import] envoi /upload-mapped", { filename: finalName, mapping: cleanMapping, rowCount: data.length })
-
-      // 1) Mapping + insertion dans import_leads (staging brut)
-      const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload-mapped`, {
-        method: "POST",
-        headers: authHeaders,
-        body: JSON.stringify({
-          mapping: cleanMapping,
-          rows: data,
-          userid: userId ?? "",
-          username: String(user?.firstName || ""),
-          filename: finalName,
-        }),
+      // Le serveur lance le traitement en tâche de fond et rend la main tout de
+      // suite : on ne suit plus qu'un job_id. Le token Clerk est ajouté
+      // automatiquement par <ApiAuth /> (patch global de fetch).
+      await startImport({
+        mapping: cleanMapping,
+        rows: data,
+        userid: userId ?? "",
+        username: String(user?.firstName || ""),
+        filename: filename || "import-mappe",
       })
-      const uploadPayload = await uploadRes.json().catch(() => null)
-      console.log("[import] réponse /upload-mapped", uploadRes.status, uploadPayload)
-      if (!uploadRes.ok) {
-        throw new Error(uploadPayload?.detail || `Erreur serveur : ${uploadRes.status}`)
-      }
-
-      // Fichier déjà traité : rien inséré, inutile de lancer le dispatch
-      if (uploadPayload?.duplicate_file_processed) {
-        setResult(uploadPayload)
-        return
-      }
-
-      // 2) Nettoyage + déduplication (vs incomplete/complete/applique) puis déplacement vers staging_leads
-      const dispatchRes = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/staging-dispatch/import_leads`,
-        {
-          method: "POST",
-          headers: authHeaders,
-          body: JSON.stringify({
-            filename: finalName,
-            userid: userId ?? "",
-            inserted_rows: Number(uploadPayload?.inserted_rows || 0),
-          }),
-        }
-      )
-      const dispatchPayload = await dispatchRes.json().catch(() => null)
-      if (!dispatchRes.ok) {
-        throw new Error(dispatchPayload?.detail || `Erreur nettoyage : ${dispatchRes.status}`)
-      }
-
-      setResult({ ...uploadPayload, ...dispatchPayload })
-      // Le téléchargement Excel n'est plus automatique : l'utilisateur peut le
-      // lancer manuellement via le bouton « Retélécharger l'Excel » ci-dessous.
     } catch (err: any) {
       setError(err.message)
-    } finally {
-      setImporting(false)
     }
   }
 
@@ -159,36 +119,27 @@ export default function LeadsPage({
 
   return (
     // Même gabarit que Staging / Leads / Clean : dégradé indigo + en-tête sticky
-    <div
-      className="h-full rounded-none flex flex-col"
-      style={{
-        background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)",
-        border: "1px solid rgba(255,255,255,0.06)",
-      }}
-    >
+    <div className="app-page h-full flex flex-col">
       {/* Header */}
-      <div
-        className="sticky top-0 z-10 pr-3 pl-14 sm:px-6 py-3 sm:py-4"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "inherit" }}
-      >
+      <div className="app-header pr-3 pl-14 sm:px-6 py-3 sm:py-4">
         <div className="flex justify-between items-start sm:items-center flex-wrap gap-2 sm:gap-3">
           <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-            <h2 className="text-white font-semibold text-sm sm:text-base truncate">
+            <h2 className="app-title text-sm sm:text-base truncate">
               Associer les colonnes
             </h2>
             <span
-              className="text-xs font-bold px-2 py-0.5 rounded-md whitespace-nowrap"
-              style={{ color: "#f59e0b", background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)" }}
+              className="app-badge"
+              style={{ color: "#b45309", background: "rgba(180,83,9,0.08)", borderColor: "rgba(180,83,9,0.25)" }}
             >
               Import
             </span>
-            <span className="text-xs hidden sm:inline" style={{ color: "rgba(255,255,255,0.3)" }}>
+            <span className="app-count hidden sm:inline">
               {data.length} entrées
             </span>
             {sheetLabel && (
               <span
-                className="text-xs font-medium px-2 py-0.5 rounded-md whitespace-nowrap"
-                style={{ color: "#a78bfa", background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.3)" }}
+                className="app-badge font-medium"
+                style={{ color: "#7c3aed", background: "rgba(124,58,237,0.08)", borderColor: "rgba(124,58,237,0.25)" }}
               >
                 {sheetLabel}
               </span>
@@ -198,13 +149,13 @@ export default function LeadsPage({
             <Button
               onClick={handleImport}
               disabled={importing || !allRequiredMapped}
-              className="bg-teal-500 text-slate-950 hover:bg-teal-400 disabled:opacity-40"
+              className="app-btn app-btn-primary"
             >
               {importing ? "Import en cours…" : "Importer & nettoyer"}
             </Button>
           </div>
         </div>
-        <p className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
+        <p className="app-subtitle mt-1.5">
           Choisissez, pour chaque champ, la colonne correspondante de votre fichier.
           Le mapping et le nettoyage sont appliqués côté serveur.
         </p>
@@ -214,20 +165,58 @@ export default function LeadsPage({
         <DataTable columns={columns} data={data} />
 
         {error && (
-          <p className="mt-3 rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2.5 text-[15px] text-rose-300">
+          <p className="mt-3 flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">
+            <AlertCircle size={15} className="flex-shrink-0" />
             {error}
           </p>
         )}
 
+        {/* Import en cours : étape et pourcentage, mis à jour par le contexte.
+            L'utilisateur peut quitter la page, la carte de la sidebar prend le relais. */}
+        {job?.status === "running" && (
+          <div className="app-card mt-3 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="flex items-center gap-2 text-sm font-semibold text-[color:var(--app-text)]">
+                <Loader2 size={15} className="animate-spin text-[color:var(--app-accent)]" />
+                Import en cours
+              </p>
+              <span className="text-sm font-semibold tabular-nums text-[color:var(--app-text-secondary)]">
+                {job.percent}%
+              </span>
+            </div>
+            <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-[var(--app-surface-hover)]">
+              <div
+                className="h-full rounded-full bg-[var(--app-accent)] transition-all duration-500"
+                style={{ width: `${job.percent}%` }}
+              />
+            </div>
+            <p className="app-subtitle mt-2">
+              {job.label}
+              {job.steps_total ? ` · étape ${(job.step ?? 0) + 1}/${job.steps_total}` : ""}
+            </p>
+            <p className="app-subtitle mt-0.5">
+              Tu peux quitter cette page : la progression reste visible dans le menu de gauche.
+            </p>
+          </div>
+        )}
+
+        {job?.status === "error" && (
+          <p className="mt-3 flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">
+            <AlertCircle size={15} className="flex-shrink-0" />
+            {job.error || "L'import a échoué."}
+          </p>
+        )}
+
         {result && (
-          <div className="mt-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-base text-emerald-300">
-            <p className="font-semibold">
+          <div className="app-card mt-3 border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+            <p className="flex items-center gap-2 font-semibold">
+              <CheckCircle2 size={15} className="flex-shrink-0" />
               {result.duplicate_file_processed
                 ? result.message || "Fichier déjà traité."
                 : "Import & nettoyage terminés."}
             </p>
             {!result.duplicate_file_processed && (
-              <ul className="mt-1.5 space-y-1 text-sm text-emerald-200/90">
+              <ul className="mt-1.5 space-y-1 text-[13px] text-emerald-700">
                 <li>{Number(result.inserted_rows || 0)} ligne(s) importée(s)</li>
                 <li>{Number(result.moved_to_steaging_applique || 0)} déplacée(s) vers Staging</li>
                 <li>{Number(result.moved_to_clean || 0)} envoyée(s) vers Clean (incomplètes)</li>
@@ -240,8 +229,9 @@ export default function LeadsPage({
                 </li>
                 <li>{Number(result.blacklisted_removed || 0)} blacklisté(s) retiré(s)</li>
                 <li>{Number(result.emails_completed || 0)} email(s) complété(s)</li>
-                <li className="font-semibold text-emerald-200">
-                  📊 {Number(result.exported_rows || 0)} ligne(s) dans le fichier Excel
+                <li className="flex items-center gap-1.5 font-semibold text-emerald-800">
+                  <FileSpreadsheet size={13} />
+                  {Number(result.exported_rows || 0)} ligne(s) dans le fichier Excel
                 </li>
               </ul>
             )}
@@ -253,17 +243,19 @@ export default function LeadsPage({
                       setError(`Téléchargement impossible : ${e.message}`)
                     )
                   }
-                  className="bg-blue-500 text-slate-950 hover:bg-blue-400"
+                  className="app-btn app-btn-info"
                 >
-                  ⬇ Retélécharger l'Excel
+                  <Download size={13} />
+                  Retélécharger l'Excel
                 </Button>
               )}
               {hasNextSheet && (
                 <Button
                   onClick={onNextSheet}
-                  className="bg-emerald-500 text-slate-950 hover:bg-emerald-400"
+                  className="app-btn app-btn-success"
                 >
-                  Feuille suivante →
+                  Feuille suivante
+                  <ArrowRight size={13} />
                 </Button>
               )}
             </div>

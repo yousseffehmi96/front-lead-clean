@@ -80,6 +80,48 @@
     --sidebar-ring: oklch(0.708 0 0);
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
+
+    /* L'app n'a qu'un theme clair : on le declare au navigateur pour que les
+       controles natifs (select, input date, barres de defilement) ne passent
+       pas en sombre quand l'OS est en dark mode. */
+    color-scheme: light;
+
+    /* --- Systeme de design (theme clair) ----------------------------------
+       Une seule source pour les surfaces, le texte, l'accent et l'elevation.
+       Utilisable en style inline (color: "var(--app-text)") comme en classe
+       Tailwind arbitraire (text-[color:var(--app-text)]).
+       -------------------------------------------------------------------- */
+
+    /* fonds & surfaces */
+    --app-bg: #ffffff;
+    --app-bg-subtle: #f8fafc;
+    --app-surface: #ffffff;
+    --app-surface-hover: #f1f5f9;
+    --app-border: #e4e8ef;
+    --app-border-subtle: #eef1f6;
+
+    /* rail de navigation : surface et bordure plus marquees que le contenu */
+    --app-rail: #f4f6fa;
+    --app-rail-border: #dde3ec;
+
+    /* texte */
+    --app-text: #0f172a;
+    --app-text-secondary: #475569;
+    --app-text-muted: #64748b;
+    --app-text-faint: #94a3b8;
+
+    /* accent */
+    --app-accent: #4f46e5;
+    --app-accent-hover: #4338ca;
+    --app-accent-soft: #eef2ff;
+    --app-accent-border: #dfe3fd;
+
+    /* elevation & focus */
+    --app-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --app-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+    --app-shadow-md: 0 6px 16px rgba(15, 23, 42, 0.08);
+    --app-shadow-lg: 0 20px 45px rgba(15, 23, 42, 0.14);
+    --app-ring: 0 0 0 3px rgba(79, 70, 229, 0.13);
 }
 
 .dark {
@@ -128,98 +170,383 @@
     }
 }
 
-/* ---------------------------------------------------------------------------
-   Thème DataTables unifié — calqué sur le tableau de la page Import :
-   lignes zébrées, séparateurs de colonnes, en-tête sombre, texte 15px.
-   Partagé par Staging, Leads, Blacklist et Clean (évite la duplication
-   du même bloc <style> dans chaque page).
-   --------------------------------------------------------------------------- */
+/* ===========================================================================
+   Couche de composants — habillage commun a toute la plateforme.
+   Les pages composent avec ces classes plutot que de redefinir des couleurs
+   en dur : un ajustement ici se propage partout.
+   =========================================================================== */
+@layer components {
+
+  /* --- coquille de page --------------------------------------------------- */
+  .app-page {
+    background: var(--app-bg);
+    color: var(--app-text-secondary);
+  }
+
+  /* En-tete de page colle en haut, legerement translucide au defilement. */
+  .app-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(10px) saturate(180%);
+    -webkit-backdrop-filter: blur(10px) saturate(180%);
+    border-bottom: 1px solid var(--app-border);
+  }
+
+  .app-title {
+    color: var(--app-text);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .app-subtitle {
+    color: var(--app-text-muted);
+    font-size: 12px;
+  }
+
+  /* Libelle de section : petites majuscules espacees. */
+  .app-eyebrow {
+    color: var(--app-text-faint);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+  }
+
+  /* --- surfaces ----------------------------------------------------------- */
+  .app-card {
+    background: var(--app-surface);
+    border: 1px solid var(--app-border);
+    border-radius: 14px;
+    box-shadow: var(--app-shadow-xs);
+  }
+
+  .app-card-hover {
+    transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+  }
+  .app-card-hover:hover {
+    border-color: #d7dde8;
+    box-shadow: var(--app-shadow-md);
+  }
+
+  .app-panel {
+    background: var(--app-bg-subtle);
+    border: 1px solid var(--app-border);
+    border-radius: 12px;
+  }
+
+  .app-divider {
+    border: 0;
+    border-top: 1px solid var(--app-border);
+  }
+
+  /* --- boutons ------------------------------------------------------------ */
+  .app-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+  .app-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--app-ring);
+  }
+  .app-btn:disabled,
+  .app-btn[disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .app-btn-sm {
+    height: 28px;
+    padding: 0 9px;
+    font-size: 11.5px;
+    border-radius: 8px;
+  }
+  .app-btn-lg {
+    height: 40px;
+    padding: 0 18px;
+    font-size: 13.5px;
+    border-radius: 10px;
+  }
+  .app-btn-icon {
+    width: 34px;
+    padding: 0;
+  }
+
+  .app-btn-primary {
+    background: var(--app-accent);
+    color: #ffffff;
+    box-shadow: var(--app-shadow-xs);
+  }
+  .app-btn-primary:hover:not(:disabled) {
+    background: var(--app-accent-hover);
+  }
+
+  .app-btn-secondary {
+    background: var(--app-surface);
+    color: var(--app-text-secondary);
+    border-color: var(--app-border);
+  }
+  .app-btn-secondary:hover:not(:disabled) {
+    background: var(--app-surface-hover);
+    color: var(--app-text);
+  }
+
+  /* Accent doux : action courante sans peser visuellement. */
+  .app-btn-soft {
+    background: var(--app-accent-soft);
+    color: var(--app-accent-hover);
+    border-color: var(--app-accent-border);
+  }
+  .app-btn-soft:hover:not(:disabled) {
+    background: #e5e9ff;
+  }
+
+  .app-btn-success {
+    background: #ecfdf5;
+    color: #047857;
+    border-color: #c8ecd9;
+  }
+  .app-btn-success:hover:not(:disabled) {
+    background: #dcfce7;
+  }
+
+  .app-btn-danger {
+    background: #fef2f2;
+    color: #be123c;
+    border-color: #fbd5db;
+  }
+  .app-btn-danger:hover:not(:disabled) {
+    background: #fee2e2;
+  }
+
+  .app-btn-info {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #cfe0fd;
+  }
+  .app-btn-info:hover:not(:disabled) {
+    background: #dbeafe;
+  }
+
+  .app-btn-warning {
+    background: #fffbeb;
+    color: #b45309;
+    border-color: #fbe7bb;
+  }
+  .app-btn-warning:hover:not(:disabled) {
+    background: #fef3c7;
+  }
+
+  .app-btn-ghost {
+    background: transparent;
+    color: var(--app-text-muted);
+  }
+  .app-btn-ghost:hover:not(:disabled) {
+    background: var(--app-surface-hover);
+    color: var(--app-text);
+  }
+
+  /* --- badges & compteurs -------------------------------------------------- */
+  .app-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .app-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 10px;
+    border: 1px solid var(--app-border);
+    border-radius: 9px;
+    background: var(--app-bg-subtle);
+    color: var(--app-text-muted);
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+
+  /* Pastille de comptage discrete a cote d'un titre. */
+  .app-count {
+    color: var(--app-text-faint);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* --- champs -------------------------------------------------------------- */
+  .app-input,
+  .app-select {
+    width: 100%;
+    height: 36px;
+    padding: 0 11px;
+    border: 1px solid var(--app-border);
+    border-radius: 9px;
+    background: var(--app-surface);
+    color: var(--app-text);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .app-input::placeholder {
+    color: var(--app-text-faint);
+  }
+  .app-input:focus,
+  .app-select:focus {
+    border-color: var(--app-accent);
+    box-shadow: var(--app-ring);
+  }
+
+  /* --- etats vides / chargement ------------------------------------------- */
+  .app-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 56px 24px;
+    color: var(--app-text-faint);
+    text-align: center;
+  }
+
+  /* --- barre laterale ------------------------------------------------------ */
+  .app-nav-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 9px 11px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: var(--app-text-secondary);
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+  .app-nav-item:hover {
+    background: var(--app-surface);
+    color: var(--app-text);
+    border-color: var(--app-rail-border);
+    box-shadow: var(--app-shadow-xs);
+  }
+  /* Actif : carte blanche franche sur le rail gris + accent indigo. */
+  .app-nav-item-active {
+    background: var(--app-surface);
+    border-color: var(--app-accent-border);
+    color: var(--app-accent-hover);
+    box-shadow: var(--app-shadow-sm);
+  }
+  .app-nav-item-active:hover {
+    background: var(--app-surface);
+    color: var(--app-accent-hover);
+  }
+}
+
+/* ===========================================================================
+   Tableaux DataTables — habillage clair unifie.
+   Partage par Staging, Optimized, Blacklist, Clean et Historique : evite de
+   dupliquer le meme bloc <style> dans chaque page.
+   =========================================================================== */
 
 .dt-container {
-  color: #e2e8f0;
+  color: var(--app-text-secondary);
   font-size: 13px;
 }
 
-/* Conteneur : carte arrondie, comme le tableau d'Import */
+/* Conteneur : carte arrondie, une seule bordure exterieure. */
 .dt-container table.dataTable {
   border-collapse: separate !important;
   border-spacing: 0 !important;
   width: 100% !important;
   overflow: hidden;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(15, 23, 42, 0.4);
+  border-radius: 14px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow-xs);
 }
 
-/* En-tête : fond sombre, majuscules espacées */
+/* En-tete : gris tres clair, majuscules espacees, pas de filets verticaux. */
 .dt-container table.dataTable thead th {
-  background: rgba(15, 23, 42, 0.8) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
-  padding: 8px 12px;
+  background: var(--app-bg-subtle) !important;
+  border-bottom: 1px solid var(--app-border) !important;
+  border-right: none !important;
+  padding: 11px 14px;
   vertical-align: middle;
   text-align: left;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #cbd5e1;
+  letter-spacing: 0.06em;
+  color: var(--app-text-muted);
   white-space: nowrap;
 }
-.dt-container table.dataTable thead th:last-child {
-  border-right: none !important;
-}
 
-/* Lignes zébrées + survol */
+/* Lignes : pas de zebrures, seulement un survol franc. */
 .dt-container table.dataTable tbody tr {
   background: transparent;
-  transition: background 0.1s;
-}
-.dt-container table.dataTable tbody tr:nth-child(even) {
-  background: rgba(255, 255, 255, 0.025);
+  transition: background 0.12s ease;
 }
 .dt-container table.dataTable tbody tr:hover {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: var(--app-bg-subtle) !important;
 }
 
-/* Cellules : séparateurs verticaux, texte plus lisible */
 .dt-container table.dataTable tbody td {
-  color: #e2e8f0;
+  color: var(--app-text-secondary);
   border: none !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
-  padding: 8px 12px;
+  border-bottom: 1px solid var(--app-border-subtle) !important;
+  padding: 11px 14px;
   font-size: 13px;
   word-break: break-word;
-}
-.dt-container table.dataTable tbody td:last-child {
-  border-right: none !important;
 }
 .dt-container table.dataTable tbody tr:last-child td {
   border-bottom: none !important;
 }
 
-/* Champs éditables (page Leads) : apparence normale, cadre à l'édition */
+/* Champs editables (page Leads) : discret au repos, cadre a l'edition. */
 .dt-edit:focus {
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.5);
-  border-radius: 4px;
+  background: var(--app-accent-soft);
+  box-shadow: 0 0 0 2px var(--app-accent-border);
+  border-radius: 6px;
 }
 
-/* Recherche / sélecteur de longueur */
+/* Recherche / selecteur de longueur */
 .dt-container .dt-search label,
 .dt-container .dt-length label {
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 13px;
+  color: var(--app-text-muted);
+  font-size: 12px;
 }
 .dt-container .dt-search input,
 .dt-container .dt-length select {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  color: #e2e8f0 !important;
+  background: var(--app-surface) !important;
+  border: 1px solid var(--app-border) !important;
+  color: var(--app-text) !important;
   border-radius: 8px;
   padding: 5px 10px;
   outline: none;
+}
+.dt-container .dt-search input:focus,
+.dt-container .dt-length select:focus {
+  border-color: var(--app-accent) !important;
+  box-shadow: var(--app-ring);
 }
 .dt-container .dt-search {
   display: none !important;
@@ -230,38 +557,44 @@
 
 /* Pagination */
 .dt-container .dt-paging .dt-paging-button {
-  color: rgba(255, 255, 255, 0.4) !important;
-  background: rgba(255, 255, 255, 0.04) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 6px !important;
+  color: var(--app-text-muted) !important;
+  background: var(--app-surface) !important;
+  border: 1px solid var(--app-border) !important;
+  border-radius: 8px !important;
   margin: 0 2px;
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 600;
   padding: 4px 10px !important;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 .dt-container .dt-paging .dt-paging-button.current {
-  background: rgba(99, 102, 241, 0.3) !important;
-  color: #a5b4fc !important;
-  border-color: rgba(99, 102, 241, 0.4) !important;
+  background: var(--app-accent-soft) !important;
+  color: var(--app-accent-hover) !important;
+  border-color: var(--app-accent-border) !important;
 }
 .dt-container .dt-paging .dt-paging-button:hover:not(.current) {
-  background: rgba(255, 255, 255, 0.08) !important;
-  color: white !important;
+  background: var(--app-surface-hover) !important;
+  color: var(--app-text) !important;
 }
 .dt-container .dt-info {
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 13px;
+  color: var(--app-text-muted);
+  font-size: 12px;
 }
 .dt-container .dt-layout-row {
-  padding: 8px 12px;
+  padding: 10px 14px;
 }
 
+/* Bouton loupe des filtres de colonne */
+.search-icon-btn {
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
 .search-icon-btn:hover {
-  background: rgba(129, 140, 248, 0.15) !important;
-  border-color: rgba(129, 140, 248, 0.3) !important;
-  color: #818cf8 !important;
+  background: var(--app-accent-soft) !important;
+  border-color: var(--app-accent-border) !important;
+  color: var(--app-accent) !important;
 }
 .col-search-input::placeholder {
-  color: rgba(255, 255, 255, 0.2);
+  color: var(--app-text-faint);
 }
 
 @media (max-width: 768px) {

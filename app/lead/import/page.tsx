@@ -128,10 +128,10 @@ const readCsv = async (f: File) => {
 };
   return (
     <>
-    {!file && <div className="flex items-center justify-center min-h-screen p-6" style={{ background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)" }}>
-               <div className=" w-full max-w-md rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-indigo-950 p-8">
-                    <h2 className="text-2xl font-semibold text-white ">Importer vos leads</h2>
-                    <p className="pt-2 text-gray-400">Chaque ligne de votre fichier devient un contact dans votre pipeline.</p>
+    {!file && <div className="app-page flex items-center justify-center min-h-screen p-6">
+               <div className="app-card w-full max-w-md rounded-3xl p-8 shadow-[var(--app-shadow-sm)]">
+                    <h2 className="app-title text-2xl">Importer vos leads</h2>
+                    <p className="app-subtitle pt-2 text-[13px]">Chaque ligne de votre fichier devient un contact dans votre pipeline.</p>
                     <label onDragOver={(e)=>{
                       e.preventDefault();
                       setdragging(true);
@@ -141,18 +141,18 @@ const readCsv = async (f: File) => {
                       e.preventDefault();
                       setdragging(false);
                       accept(e.dataTransfer.files?.[0])
-                    }} className="mt-6 cursor-pointer flex flex-col items-center   rounded-2xl border-2 border-dashed border-white/15 border-white/[0.3] p-8 text-center ">
+                    }} className="mt-6 cursor-pointer flex flex-col items-center   rounded-2xl border-2 border-dashed border-[color:var(--app-border)] p-8 text-center transition-colors hover:border-[color:var(--app-accent)] hover:bg-[var(--app-accent-soft)] ">
                             <input onChange={(e)=>{
                               const ext=accept(e.target.files?.[0])
                               
 
                             }} accept=".csv,.xlsx" type="file" name="" id="" className="sr-only"/>
-                            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-teal-400/20 bg-teal-400/10">
-  <Upload size={28} strokeWidth={1.75}  className="text-teal-300" />
+                            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[color:var(--app-accent-border)] bg-[var(--app-accent-soft)]">
+  <Upload size={28} strokeWidth={1.75}  className="text-[color:var(--app-accent)]" />
 </div>
 
-                              <p className="text-lg font-semibold text-slate-200">Glissez votre fichier ici</p>
-                              <p className=" text-green-500 "><span className="text-gray-400">ou</span> <span className="underline">parcourez vos fichier</span></p>
+                              <p className="mt-4 text-[15px] font-semibold text-[color:var(--app-text)]">Glissez votre fichier ici</p>
+                              <p className="mt-1 text-[13px] text-[color:var(--app-accent)]"><span className="text-[color:var(--app-text-muted)]">ou</span> <span className="underline">parcourez vos fichiers</span></p>
                     </label>
                </div>
           </div>}
@@ -164,9 +164,9 @@ const readCsv = async (f: File) => {
                 size="sm"
                 onClick={() => goToAdjacentSheet(workbook, sheetRowCounts, sheetIndex, -1)}
                 disabled={!hasPrevSheet}
-                className="border-white/10 bg-transparent text-slate-300 hover:bg-white/5 hover:text-white"
+                className="app-btn app-btn-sm app-btn-secondary"
               >
-                ← Précédente
+                Précédente
               </Button>
               <select
                 value={sheetName}
@@ -174,14 +174,14 @@ const readCsv = async (f: File) => {
                   const idx = workbook.SheetNames.indexOf(e.target.value)
                   if (sheetRowCounts[idx] > 0) loadSheetRows(workbook, idx)
                 }}
-                className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-sm text-slate-200 outline-none focus:border-teal-400/50"
+                className="app-select h-[34px] w-auto text-xs"
               >
                 {workbook.SheetNames.map((name, idx) => (
                   <option
                     key={name}
                     value={name}
                     disabled={sheetRowCounts[idx] === 0}
-                    className="bg-slate-900 text-slate-200"
+                    className="bg-white text-slate-700"
                   >
                     {idx + 1}/{workbook.SheetNames.length} — {name}
                     {sheetRowCounts[idx] === 0 ? " (vide)" : ""}
@@ -193,9 +193,9 @@ const readCsv = async (f: File) => {
                 size="sm"
                 onClick={() => goToAdjacentSheet(workbook, sheetRowCounts, sheetIndex, 1)}
                 disabled={!hasNextSheet}
-                className="border-white/10 bg-transparent text-slate-300 hover:bg-white/5 hover:text-white"
+                className="app-btn app-btn-sm app-btn-secondary"
               >
-                Suivante →
+                Suivante 
               </Button>
             </div>
           )}

@@ -1,9 +1,10 @@
 "use client"
 import Usefetch from "@/hooks/SocieteFetch"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Upload, Sparkles, RefreshCw, Download, Trash2, Menu, X, ChevronDown, ChevronUp, Filter, Eye, Phone, Mail, Building, User, Briefcase, Linkedin, Calendar, MapPin } from "lucide-react"
+import { Briefcase, Building, Calendar, ChevronDown, ChevronUp, Download, Eye, Filter, Inbox, Linkedin, Loader2, Mail, MapPin, Menu, Phone, RefreshCw, Sparkles, Trash2, Upload, User, X } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
 import { useSelector } from "react-redux"
+import { getLeadBadge } from "@/lib/theme"
 
 export default function ProdPage() {
   const leads = "prod"
@@ -110,15 +111,7 @@ export default function ProdPage() {
     }
   }
 
-  const badgeConfig: Record<string, { label: string; color: string; bg: string }> = {
-    import: { label: "RAW", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
-    complete: { label: "★ COMPLETE", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
-    incomplete: { label: "◆ INCOMPLETE", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
-    clean: { label: "✦ CLEAN", color: "#6ee7b7", bg: "rgba(110,231,183,0.1)" },
-    "staging": { label: "🧩 APPLIQUE", color: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
-    black: { label: "⛔ BLACK", color: "#f43f5e", bg: "rgba(244,63,94,0.1)" },
-  }
-  const badge = badgeConfig[leads as string] ?? { label: leads, color: "#818cf8", bg: "rgba(129,140,248,0.1)" }
+  const badge = getLeadBadge(leads)
 
   // Composant Carte mobile
   const MobileCard = ({ lead, index }: { lead: any; index: number }) => {
@@ -127,20 +120,16 @@ export default function ProdPage() {
 
     return (
       <div
-        className="rounded-xl mb-3 transition-all duration-200"
-        style={{
-          background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)",
-          border: "1px solid rgba(255,255,255,0.06)",
-        }}
+        className="app-card app-card-hover mb-3"
       >
         <div className="p-4">
           <div className="flex justify-between items-start mb-3 gap-2">
             <div className="flex-1">
-              <h3 className="text-white font-semibold text-base">
+              <h3 className="text-[color:var(--app-text)] font-semibold text-base">
                 {lead.prenom} {lead.nom}
               </h3>
               {lead.fonction && (
-                <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+                <p className="text-xs mt-1" style={{ color: "var(--app-text-muted)" }}>
                   <Briefcase size={10} className="inline mr-1" />
                   {lead.fonction}
                 </p>
@@ -150,7 +139,7 @@ export default function ProdPage() {
               <button
                 onClick={() => setExpandedCard(isExpanded ? null : index)}
                 className="p-1 rounded-lg transition-colors"
-                style={{ background: "rgba(255,255,255,0.05)" }}
+                style={{ background: "var(--app-surface-hover)" }}
               >
                 {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
@@ -162,11 +151,11 @@ export default function ProdPage() {
               <div
                 className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-lg"
                 style={{
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  border: "1px solid var(--app-border)",
                   background: "transparent",
                 }}
               >
-                <Mail size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
+                <Mail size={12} style={{ color: "var(--app-text-faint)" }} />
                 <a href={`mailto:${lead.email}`} className="text-blue-400 text-xs truncate flex-1 min-w-0">
                   {lead.email}
                 </a>
@@ -174,7 +163,7 @@ export default function ProdPage() {
             )}
             {lead.telephone && (
               <div className="flex items-center gap-2 text-sm">
-                <Phone size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
+                <Phone size={12} style={{ color: "var(--app-text-faint)" }} />
                 <a href={`tel:${lead.telephone}`} className="text-green-400 text-xs">
                   {lead.telephone}
                 </a>
@@ -182,13 +171,13 @@ export default function ProdPage() {
             )}
             {lead.societe && (
               <div className="flex items-center gap-2 text-sm">
-                <Building size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
-                <span className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>{lead.societe}</span>
+                <Building size={12} style={{ color: "var(--app-text-faint)" }} />
+                <span className="text-xs" style={{ color: "var(--app-text-secondary)" }}>{lead.societe}</span>
               </div>
             )}
             {lead.linkedin && (
               <div className="flex items-center gap-2 text-sm">
-                <Linkedin size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
+                <Linkedin size={12} style={{ color: "var(--app-text-faint)" }} />
                 <a href={lead.linkedin} target="_blank" rel="noopener noreferrer" className="text-blue-400 text-xs truncate flex-1 min-w-0">
                   Profil LinkedIn
                 </a>
@@ -196,34 +185,32 @@ export default function ProdPage() {
             )}
             {lead.location && (
               <div className="flex items-center gap-2 text-sm">
-                <MapPin size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
-                <span className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>{lead.location}</span>
+                <MapPin size={12} style={{ color: "var(--app-text-faint)" }} />
+                <span className="text-xs" style={{ color: "var(--app-text-secondary)" }}>{lead.location}</span>
               </div>
             )}
           </div>
 
           {lead.created_at && (
-            <div className="mt-3 pt-2 text-xs" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.3)" }}>
+            <div className="mt-3 pt-2 text-xs" style={{ borderTop: "1px solid var(--app-border-subtle)", color: "var(--app-text-faint)" }}>
               <Calendar size={10} className="inline mr-1" />
               {new Date(lead.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
             </div>
           )}
 
           {hasActionButtons && isExpanded && (
-            <div className="mt-4 pt-3 flex flex-col sm:flex-row gap-2" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+            <div className="mt-4 pt-3 flex flex-col sm:flex-row gap-2" style={{ borderTop: "1px solid var(--app-border-subtle)" }}>
               {leads === "prod" && (
                 <>
                   <button
                     onClick={() => handelclick("Unsubscribe", lead.id)}
-                    className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all"
-                    style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#f43f5e" }}
+                    className="app-btn app-btn-sm app-btn-danger flex-1"
                   >
                     Désabonner
                   </button>
                   <button
                     onClick={() => handelclick("archive", lead.id)}
-                    className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all"
-                    style={{ background: "rgba(148,163,184,0.1)", border: "1px solid rgba(148,163,184,0.3)", color: "#94a3b8" }}
+                    className="app-btn app-btn-sm app-btn-secondary flex-1"
                   >
                     Archiver
                   </button>
@@ -250,31 +237,31 @@ export default function ProdPage() {
         const value = val ? String(val) : ""
         const text = value ? value : ""
         const opacity = value ? 1 : 0.55
-        const pill = `<span class="dt-email-pill" data-id="${id}" style="display:block;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:transparent;color:#e2e8f0;opacity:${opacity};">${text || ""}</span>`
+        const pill = `<span class="dt-email-pill" data-id="${id}" style="display:block;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;border-radius:8px;border:1px solid var(--app-border);background:transparent;color:var(--app-text-secondary);opacity:${opacity};">${text || ""}</span>`
         return `<div>${pill}</div>`
       },
     },
     { data: "fonction", title: "Fonction", defaultContent: "" },
     { data: "societe", title: "Société", defaultContent: "" },
     { data: "telephone", title: "Téléphone", defaultContent: "" },
-    { data: "linkedin", title: "LinkedIn", defaultContent: "", render: (val: string) => val ? `<a href="${val}" target="_blank" rel="noopener noreferrer" style="color:#818cf8;text-decoration:underline;">LinkedIn</a>` : "" },
+    { data: "linkedin", title: "LinkedIn", defaultContent: "", render: (val: string) => val ? `<a href="${val}" target="_blank" rel="noopener noreferrer" style="color:#4f46e5;text-decoration:underline;">LinkedIn</a>` : "" },
     { data: "location", title: "Location", defaultContent: "" },
     {
       data: "statu",
       title: "Statut",
       defaultContent: "",
       render: (val: string) => {
-        if (!val) return `<span style="color:rgba(255,255,255,0.25);font-size:11px;">—</span>`
+        if (!val) return `<span style="color:var(--app-text-faint);font-size:11px;">—</span>`
         const v = String(val)
         const isUnavailable = v.toLowerCase().includes("non")
-        const color = isUnavailable ? "#fda4af" : "#86efac"
+        const color = isUnavailable ? "#e11d48" : "#059669"
         const bg = isUnavailable ? "rgba(244,63,94,0.1)" : "rgba(34,197,94,0.1)"
         const border = isUnavailable ? "rgba(244,63,94,0.3)" : "rgba(34,197,94,0.3)"
         return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;color:${color};background:${bg};border:1px solid ${border};white-space:nowrap;">${v}</span>`
       },
     },
   ]
-  const prodColumn = { data: "id", title: "Action", orderable: false, render: (id: number) => `<div style="display:flex;gap:6px;flex-wrap:wrap;"><button data-id="${id}" data-type="Unsubscribe" class="dt-action-btn" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(244,63,94,0.4);color:#f43f5e;background:rgba(244,63,94,0.08);cursor:pointer;font-size:11px;font-weight:600;">Désabonner</button><button data-id="${id}" data-type="archive" class="dt-action-btn" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(148,163,184,0.3);color:#94a3b8;background:rgba(148,163,184,0.08);cursor:pointer;font-size:11px;font-weight:600;">Archiver</button></div>` }
+  const prodColumn = { data: "id", title: "Action", orderable: false, render: (id: number) => `<div style="display:flex;gap:6px;flex-wrap:wrap;"><button data-id="${id}" data-type="Unsubscribe" class="dt-action-btn" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(244,63,94,0.4);color:#e11d48;background:rgba(244,63,94,0.08);cursor:pointer;font-size:11px;font-weight:600;">Désabonner</button><button data-id="${id}" data-type="archive" class="dt-action-btn" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(148,163,184,0.3);color:#64748b;background:rgba(148,163,184,0.08);cursor:pointer;font-size:11px;font-weight:600;">Archiver</button></div>` }
   const dateColumn = { data: "created_at", title: "Date", render: (val: string, type: string) => (type === "sort" || type === "type") ? (val ? new Date(val).getTime() : 0) : (val ? new Date(val).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "") }
   const columns = [
     ...baseColumns,
@@ -295,10 +282,10 @@ export default function ProdPage() {
       header.innerHTML = `
         <div style="display:flex;align-items:center;gap:5px;">
           <div style="flex:1;display:flex;align-items:center;gap:3px;">${existingContent}</div>
-          <button class="search-icon-btn" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:4px;padding:2px 5px;cursor:pointer;color:rgba(255,255,255,0.3);display:flex;align-items:center;flex-shrink:0;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
+          <button class="search-icon-btn" style="background:var(--app-surface-hover);border:1px solid var(--app-border);border-radius:4px;padding:2px 5px;cursor:pointer;color:var(--app-text-faint);display:flex;align-items:center;flex-shrink:0;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
         </div>
         <div class="search-wrap" style="display:none;margin-top:5px;">
-          ${colData === dateField ? `<input class="col-search-input" type="date" style="width:100%;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.3);color:#e2e8f0;border-radius:6px;padding:4px 8px;font-size:11px;outline:none;box-sizing:border-box;color-scheme:dark;"/>` : `<input class="col-search-input" placeholder="Filtrer ${titleText.toLowerCase()}..." style="width:100%;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.3);color:#e2e8f0;border-radius:6px;padding:4px 8px;font-size:11px;outline:none;box-sizing:border-box;"/>`}
+          ${colData === dateField ? `<input class="col-search-input" type="date" style="width:100%;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.3);color:var(--app-text-secondary);border-radius:6px;padding:4px 8px;font-size:11px;outline:none;box-sizing:border-box;color-scheme:light;"/>` : `<input class="col-search-input" placeholder="Filtrer ${titleText.toLowerCase()}..." style="width:100%;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.3);color:var(--app-text-secondary);border-radius:6px;padding:4px 8px;font-size:11px;outline:none;box-sizing:border-box;"/>`}
         </div>`
       const btn = header.querySelector(".search-icon-btn") as HTMLElement
       const wrap = header.querySelector(".search-wrap") as HTMLElement
@@ -307,15 +294,15 @@ export default function ProdPage() {
         e.stopPropagation()
         const open = wrap.style.display !== "none"
         wrap.style.display = open ? "none" : "block"
-        if (open) { input.value = ""; api.column(index).search("").draw(); btn.style.cssText += ";background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.1);color:rgba(255,255,255,0.3);" }
-        else { input.focus(); btn.style.cssText += ";background:rgba(129,140,248,0.2);border-color:rgba(129,140,248,0.4);color:#818cf8;" }
+        if (open) { input.value = ""; api.column(index).search("").draw(); btn.style.cssText += ";background:var(--app-surface-hover);border-color:var(--app-border);color:var(--app-text-faint);" }
+        else { input.focus(); btn.style.cssText += ";background:rgba(129,140,248,0.2);border-color:rgba(129,140,248,0.4);color:#4f46e5;" }
       })
       input?.addEventListener("input", (e) => {
         e.stopPropagation()
         let val = (e.target as HTMLInputElement).value
         if (colData === dateField && val) val = new Date(val).toLocaleDateString("fr-FR")
         api.column(index).search(val).draw()
-        btn.style.cssText += val ? ";background:rgba(129,140,248,0.3);border-color:rgba(129,140,248,0.5);color:#818cf8;" : ";background:rgba(129,140,248,0.2);border-color:rgba(129,140,248,0.4);color:#818cf8;"
+        btn.style.cssText += val ? ";background:rgba(129,140,248,0.3);border-color:rgba(129,140,248,0.5);color:#4f46e5;" : ";background:rgba(129,140,248,0.2);border-color:rgba(129,140,248,0.4);color:#4f46e5;"
       })
       input?.addEventListener("click", (e) => e.stopPropagation())
     })
@@ -330,22 +317,22 @@ export default function ProdPage() {
   }
 
   return (
-    <div className="h-full rounded-none flex flex-col" style={{ background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)", border: "1px solid rgba(255,255,255,0.06)" }}>
+    <div className="app-page h-full flex flex-col">
       {/* Header */}
-      <div className="sticky top-0 z-10 pr-3 pl-14 sm:px-6 py-3 sm:py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "inherit" }}>
+      <div className="app-header pr-3 pl-14 sm:px-6 py-3 sm:py-4">
         <div className="flex justify-between items-start sm:items-center flex-wrap gap-2 sm:gap-3">
           <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-            <h2 className="text-white font-semibold text-sm sm:text-base truncate">Liste des Leads</h2>
-            <span className="text-xs font-bold px-2 py-0.5 rounded-md whitespace-nowrap" style={{ color: badge.color, background: badge.bg, border: `1px solid ${badge.color}30` }}>{badge.label}</span>
-            <span className="text-xs hidden sm:inline" style={{ color: "rgba(255,255,255,0.3)" }}>{data.length} entrées</span>
+            <h2 className="app-title text-sm sm:text-base truncate">Liste des Leads</h2>
+            <span className="app-badge" style={{ color: badge.color, background: badge.bg, borderColor: `${badge.color}33` }}>{badge.label}</span>
+            <span className="app-count hidden sm:inline">{data.length} entrées</span>
           </div>
           <div className="flex gap-2 w-full sm:w-auto justify-end">
             {isMobile && (
-              <button onClick={() => setMobileView(mobileView === "table" ? "cards" : "table")} className="flex items-center gap-1 text-xs font-semibold px-2 py-1.5 rounded-lg md:hidden" style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}>
+              <button onClick={() => setMobileView(mobileView === "table" ? "cards" : "table")} className="app-btn app-btn-sm app-btn-soft md:hidden">
                 <Eye size={13} /> {mobileView === "table" ? "Cartes" : "Tableau"}
               </button>
             )}
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden flex items-center justify-center p-2 rounded-lg" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}>
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="app-btn app-btn-icon app-btn-secondary md:hidden">
               {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
           </div>
@@ -354,8 +341,8 @@ export default function ProdPage() {
         {isMobile && mobileView === "cards" && data.length > 0 && (
           <div className="mt-3">
             <div className="relative">
-              <input type="text" placeholder="Rechercher par nom, email, société..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0", outline: "none" }} />
-              <Filter size={14} className="absolute right-3 top-1/2 transform -translate-y-1/2" style={{ color: "rgba(255,255,255,0.3)" }} />
+              <input type="text" placeholder="Rechercher par nom, email, société..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="app-input" />
+              <Filter size={14} className="absolute right-3 top-1/2 transform -translate-y-1/2" style={{ color: "var(--app-text-faint)" }} />
             </div>
           </div>
         )}
@@ -363,108 +350,44 @@ export default function ProdPage() {
 
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden px-3 py-2 flex flex-col gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.2)" }}>
-          <button onClick={() => { setRefresh((p) => p + 1); setMobileMenuOpen(false); }} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}><RefreshCw size={14} />Actualiser</button>
+        <div className="md:hidden px-3 py-2 flex flex-col gap-2" style={{ borderBottom: "1px solid var(--app-border-subtle)", background: "rgba(0,0,0,0.2)" }}>
+          <button onClick={() => { setRefresh((p) => p + 1); setMobileMenuOpen(false); }} className="app-btn app-btn-secondary w-full"><RefreshCw size={14} />Actualiser</button>
         </div>
       )}
 
       {/* Messages d'erreur / succès (inchangés) */}
-      {err && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#fda4af" }}>❌ {err}</div>}
-      {cleanResult && cleanResult.message && !cleanResult.moved_to_complete && !cleanResult.total_deleted && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>✅ {cleanResult.message}</div>}
+      {err && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background:"rgba(244,63,94,0.07)", border:"1px solid rgba(244,63,94,0.22)", color:"#e11d48" }}>{err}</div>}
+      {cleanResult && cleanResult.message && !cleanResult.moved_to_complete && !cleanResult.total_deleted && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background:"rgba(110,231,183,0.07)", border:"1px solid rgba(110,231,183,0.22)", color:"#059669" }}>{cleanResult.message}</div>}
 
       <style>{`
-        .dt-container { color: #cbd5e1; font-size: 13px; }
-        .dt-container .dt-search label, .dt-container .dt-length label { color: rgba(255,255,255,0.4); font-size: 12px; }
-        .dt-container .dt-search input, .dt-container .dt-length select {
-          background: rgba(255,255,255,0.05) !important;
-          border: 1px solid rgba(255,255,255,0.1) !important;
-          color: #e2e8f0 !important;
-          border-radius: 8px; padding: 5px 10px; outline: none;
-        }
-        .dt-container table.dataTable thead th {
-          background: rgba(255,255,255,0.04);
-          border-bottom: 1px solid rgba(255,255,255,0.06) !important;
-          padding: 8px 12px; vertical-align: top;
-          font-size: 11px;
-        }
-        .dt-container table.dataTable tbody tr {
-          background: transparent;
-          border-bottom: 1px solid rgba(255,255,255,0.04) !important;
-          transition: background 0.1s;
-        }
-        .dt-container table.dataTable tbody tr:hover { background: rgba(255,255,255,0.03) !important; }
-        .dt-container table.dataTable tbody td {
-          color: #cbd5e1;
-          border: none !important;
-          padding: 8px 12px;
-          font-size: 13px;
-          word-break: break-word;
-        }
-        .dt-container .dt-paging .dt-paging-button {
-          color: rgba(255,255,255,0.4) !important;
-          background: rgba(255,255,255,0.04) !important;
-          border: 1px solid rgba(255,255,255,0.08) !important;
-          border-radius: 6px !important; margin: 0 2px; font-size: 12px;
-          padding: 4px 8px !important;
-        }
-        .dt-container .dt-paging .dt-paging-button.current {
-          background: rgba(99,102,241,0.3) !important;
-          color: #a5b4fc !important;
-          border-color: rgba(99,102,241,0.4) !important;
-        }
-        .dt-container .dt-paging .dt-paging-button:hover:not(.current) {
-          background: rgba(255,255,255,0.08) !important; color: white !important;
-        }
-        .dt-container .dt-info { color: rgba(255,255,255,0.25); font-size: 11px; }
-        .dt-container .dt-search { display: none !important; }
-        .history-dt-wrapper .dt-search { display: none !important; }
-        .dt-container .dt-layout-row { padding: 8px 12px; }
-        table.dataTable { border-collapse: collapse !important; width: 100% !important; }
-        .search-icon-btn:hover { background: rgba(129,140,248,0.15) !important; border-color: rgba(129,140,248,0.3) !important; color: #818cf8 !important; }
-        .col-search-input::placeholder { color: rgba(255,255,255,0.2); }
+        /* Le theme du tableau vit dans globals.css : on ne garde ici que ce
+           qui est specifique a cette page. */
+        table.dataTable { border-collapse: separate !important; width: 100% !important; }
+        .dt-container table.dataTable thead th { vertical-align: top; }
 
         @media (max-width: 768px) {
+          .dt-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
           .dt-container .dt-layout-row {
-            display: flex;
-            flex-direction: column;
-            align-items: stretch;
-            gap: 8px;
-            padding: 8px;
+            display: flex; flex-direction: column; align-items: stretch;
+            gap: 8px; padding: 8px;
           }
           .dt-container .dt-length,
           .dt-container .dt-info,
-          .dt-container .dt-paging {
-            width: 100%;
-            text-align: center;
-          }
-          .dt-container table.dataTable thead th:nth-child(4),
-          .dt-container table.dataTable tbody td:nth-child(4),
-          .dt-container table.dataTable thead th:nth-child(6),
-          .dt-container table.dataTable tbody td:nth-child(6),
-          .dt-container table.dataTable thead th:nth-child(7),
-          .dt-container table.dataTable tbody td:nth-child(7) { display: none; }
-        }
-        @media (max-width: 640px) {
-          .dt-container table.dataTable thead th:nth-child(2),
-          .dt-container table.dataTable tbody td:nth-child(2) { display: none; }
-          .dt-action-btn { font-size: 10px !important; padding: 3px 6px !important; }
-        }
-        @media (max-width: 768px) {
-          .dt-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+          .dt-container .dt-paging { width: 100%; text-align: center; }
         }
       `}</style>
 
       <div className="px-2 sm:px-3 pb-4 pt-2 overflow-y-auto flex-1 overflow-x-hidden">
         {!DTableComponent && shouldUseDataTable ? (
-          <div className="text-center py-16" style={{ color: "rgba(255,255,255,0.2)" }}><div className="text-4xl mb-3">⚡</div><p className="text-sm">Chargement...</p></div>
+          <div className="app-empty"><Loader2 size={28} className="animate-spin" /><p className="text-sm">Chargement...</p></div>
         ) : data.length === 0 ? (
-          <div className="text-center py-20" style={{ color: "rgba(255,255,255,0.2)" }}><div className="text-5xl mb-4">📭</div><p className="text-base font-medium" style={{ color: "rgba(255,255,255,0.35)" }}>Aucune donnée disponible</p></div>
+          <div className="text-center py-20" style={{ color: "var(--app-text-faint)" }}><Inbox size={34} className="mx-auto mb-3" /><p className="text-base font-medium" style={{ color: "var(--app-text-faint)" }}>Aucune donnée disponible</p></div>
         ) : (
           <>
             {isMobile && mobileView === "cards" ? (
               <div className="pb-4">
                 {filteredData.length === 0 ? (
-                  <div className="text-center py-12" style={{ color: "rgba(255,255,255,0.3)" }}><p className="text-sm">Aucun résultat trouvé</p></div>
+                  <div className="text-center py-12" style={{ color: "var(--app-text-faint)" }}><p className="text-sm">Aucun résultat trouvé</p></div>
                 ) : (
                   <>
                     {paginatedData.map((lead: any, index: number) => <MobileCard key={lead.id || index} lead={lead} index={index} />)}
@@ -474,18 +397,18 @@ export default function ProdPage() {
                           onClick={() => setMobilePage((p) => Math.max(1, p - 1))}
                           disabled={mobilePage === 1}
                           className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40"
-                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}
+                          style={{ background: "var(--app-surface-hover)", border: "1px solid var(--app-border)", color: "var(--app-text-secondary)" }}
                         >
                           Précédent
                         </button>
-                        <span className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
+                        <span className="text-xs" style={{ color: "var(--app-text-muted)" }}>
                           Page {mobilePage}/{totalMobilePages}
                         </span>
                         <button
                           onClick={() => setMobilePage((p) => Math.min(totalMobilePages, p + 1))}
                           disabled={mobilePage === totalMobilePages}
                           className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40"
-                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}
+                          style={{ background: "var(--app-surface-hover)", border: "1px solid var(--app-border)", color: "var(--app-text-secondary)" }}
                         >
                           Suivant
                         </button>

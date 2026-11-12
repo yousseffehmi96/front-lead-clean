@@ -14,23 +14,23 @@ export default function LoginPage() {
         justifyContent: "center",
         gap: "24px",
         overflow: "hidden",
-        background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)",
+        background: "var(--app-bg)",
         padding: "24px 16px",
       }}
     >
-      {/* Halos décoratifs en fond */}
+      {/* Halos décoratifs en fond — teintes très diluées sur le blanc */}
       <div
         aria-hidden
         style={{
           position: "absolute",
-          top: "-160px",
+          top: "-180px",
           left: "50%",
           transform: "translateX(-50%)",
-          width: "480px",
-          height: "480px",
+          width: "520px",
+          height: "520px",
           borderRadius: "9999px",
           background:
-            "radial-gradient(circle, rgba(129,140,248,0.28) 0%, rgba(129,140,248,0) 70%)",
+            "radial-gradient(circle, rgba(99,102,241,0.14) 0%, rgba(99,102,241,0) 70%)",
           filter: "blur(20px)",
           pointerEvents: "none",
         }}
@@ -39,13 +39,13 @@ export default function LoginPage() {
         aria-hidden
         style={{
           position: "absolute",
-          bottom: "-140px",
-          right: "-80px",
-          width: "360px",
-          height: "360px",
+          bottom: "-160px",
+          right: "-100px",
+          width: "400px",
+          height: "400px",
           borderRadius: "9999px",
           background:
-            "radial-gradient(circle, rgba(45,212,191,0.16) 0%, rgba(45,212,191,0) 70%)",
+            "radial-gradient(circle, rgba(45,212,191,0.12) 0%, rgba(45,212,191,0) 70%)",
           filter: "blur(20px)",
           pointerEvents: "none",
         }}
@@ -70,8 +70,8 @@ export default function LoginPage() {
             alignItems: "center",
             justifyContent: "center",
             borderRadius: "16px",
-            background: "linear-gradient(135deg, #818cf8, #6366f1)",
-            boxShadow: "0 10px 30px -8px rgba(99,102,241,0.6)",
+            background: "linear-gradient(135deg, #6366f1, #4f46e5)",
+            boxShadow: "0 12px 28px -10px rgba(79,70,229,0.55)",
           }}
         >
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -79,10 +79,10 @@ export default function LoginPage() {
           </svg>
         </div>
         <div>
-          <h1 style={{ margin: 0, fontSize: "28px", fontWeight: 700, color: "white", letterSpacing: "-0.01em" }}>
+          <h1 style={{ margin: 0, fontSize: "28px", fontWeight: 700, color: "var(--app-text)", letterSpacing: "-0.02em" }}>
             LeadsCleaner
           </h1>
-          <p style={{ margin: "6px 0 0", fontSize: "14px", color: "rgba(255,255,255,0.5)" }}>
+          <p style={{ margin: "6px 0 0", fontSize: "14px", color: "var(--app-text-muted)" }}>
             Heureux de vous revoir ! Connectez-vous.
           </p>
         </div>
@@ -92,16 +92,15 @@ export default function LoginPage() {
         forceRedirectUrl="/lead/import"
         appearance={{
           variables: {
-            colorPrimary: "#818cf8",
-            colorForeground: "white",
+            colorPrimary: "#4f46e5",
+            colorForeground: "#0f172a",
             colorBackground: "transparent",
           },
           elements: {
             card: {
-              background: "rgba(255, 255, 255, 0.04)",
-              border: "1px solid rgba(255, 255, 255, 0.1)",
-              backdropFilter: "blur(20px)",
-              boxShadow: "0 24px 60px -20px rgba(0,0,0,0.6)",
+              background: "#ffffff",
+              border: "1px solid #e4e8ef",
+              boxShadow: "0 20px 45px rgba(15,23,42,0.10)",
               borderRadius: "20px",
               width: "min(400px, calc(100vw - 32px))",
               maxWidth: "100%",
@@ -109,28 +108,28 @@ export default function LoginPage() {
             },
             header: { display: "none" },
             formFieldInput: {
-              background: "rgba(255,255,255,0.95)",
+              background: "#ffffff",
               color: "#0f172a",
               borderRadius: "10px",
               minHeight: "44px",
-              border: "1px solid transparent",
+              border: "1px solid #e4e8ef",
             },
             formFieldLabel: {
-              color: "rgba(255, 255, 255, 0.6)",
+              color: "#64748b",
               fontSize: "11px",
               textTransform: "uppercase",
               letterSpacing: "0.04em",
               marginBottom: "8px",
             },
             formButtonPrimary: {
-              background: "linear-gradient(90deg, #818cf8, #6366f1)",
+              background: "#4f46e5",
               borderRadius: "10px",
               textTransform: "none",
               fontSize: "14px",
               fontWeight: 600,
               minHeight: "44px",
               marginTop: "12px",
-              boxShadow: "0 8px 24px -8px rgba(99,102,241,0.7)",
+              boxShadow: "0 8px 20px -10px rgba(79,70,229,0.6)",
             },
             footer: { display: "none" },
           },

@@ -1,9 +1,11 @@
 "use client"
 import Usefetch from "@/hooks/SocieteFetch"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Upload, Sparkles, RefreshCw, Download, Trash2, Menu, X, ChevronDown, ChevronUp, Filter, Eye, Phone, Mail, Building, User, Briefcase, Linkedin, Calendar, MapPin } from "lucide-react"
+import { Briefcase, Building, Calendar, ChevronDown, ChevronUp, Download, Eye, Filter, Inbox, Linkedin, Mail, MapPin, Menu, Phone, RefreshCw, Sparkles, Trash2, Upload, User, X } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
 import { useSelector } from "react-redux"
+import { getLeadBadge } from "@/lib/theme"
+import ResultSummary from "@/componets/ResultSummary"
 
 export default function CleanPage() {
   const leads = "clean"
@@ -129,7 +131,7 @@ export default function CleanPage() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json?.detail || `Erreur serveur : ${res.status}`)
-      setCleanResult({ message: `🗑️ Supprimés: ${json?.deleted ?? 0}` })
+      setCleanResult({ message:`Supprimés: ${json?.deleted ?? 0}` })
       clearSelection()
       setRefresh((p) => p + 1)
     } catch (e: any) {
@@ -169,15 +171,7 @@ export default function CleanPage() {
     }
   }
 
-  const badgeConfig: Record<string, { label: string; color: string; bg: string }> = {
-    import: { label: "RAW", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
-    complete: { label: "★ COMPLETE", color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
-    incomplete: { label: "◆ INCOMPLETE", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
-    clean: { label: "✦ CLEAN", color: "#6ee7b7", bg: "rgba(110,231,183,0.1)" },
-    "staging": { label: "🧩 APPLIQUE", color: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
-    black: { label: "⛔ BLACK", color: "#f43f5e", bg: "rgba(244,63,94,0.1)" },
-  }
-  const badge = badgeConfig[leads as string] ?? { label: leads, color: "#818cf8", bg: "rgba(129,140,248,0.1)" }
+  const badge = getLeadBadge(leads)
 
   // Composant Carte mobile
   const MobileCard = ({ lead, index }: { lead: any; index: number }) => {
@@ -188,20 +182,16 @@ export default function CleanPage() {
 
     return (
       <div
-        className="rounded-xl mb-3 transition-all duration-200"
-        style={{
-          background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)",
-          border: "1px solid rgba(255,255,255,0.06)",
-        }}
+        className="app-card app-card-hover mb-3"
       >
         <div className="p-4">
           <div className="flex justify-between items-start mb-3 gap-2">
             <div className="flex-1">
-              <h3 className="text-white font-semibold text-base">
+              <h3 className="text-[color:var(--app-text)] font-semibold text-base">
                 {lead.prenom} {lead.nom}
               </h3>
               {lead.fonction && (
-                <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+                <p className="text-xs mt-1" style={{ color: "var(--app-text-muted)" }}>
                   <Briefcase size={10} className="inline mr-1" />
                   {lead.fonction}
                 </p>
@@ -213,13 +203,13 @@ export default function CleanPage() {
                   type="checkbox"
                   checked={isSelected}
                   onChange={(e) => toggleLeadSelected(id, e.target.checked)}
-                  style={{ width: 16, height: 16, accentColor: "#818cf8" }}
+                  style={{ width: 16, height: 16, accentColor: "#4f46e5" }}
                 />
               )}
               <button
                 onClick={() => setExpandedCard(isExpanded ? null : index)}
                 className="p-1 rounded-lg transition-colors"
-                style={{ background: "rgba(255,255,255,0.05)" }}
+                style={{ background: "var(--app-surface-hover)" }}
               >
                 {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
@@ -231,17 +221,17 @@ export default function CleanPage() {
               <div
                 className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-lg"
                 style={{
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  border: "1px solid var(--app-border)",
                   background: "transparent",
                 }}
               >
-                <Mail size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
+                <Mail size={12} style={{ color: "var(--app-text-faint)" }} />
                 {lead.email ? (
                   <a href={`mailto:${lead.email}`} className="text-blue-400 text-xs truncate flex-1 min-w-0">
                     {lead.email}
                   </a>
                 ) : (
-                  <span className="text-xs truncate flex-1 min-w-0" style={{ color: "rgba(255,255,255,0.45)" }}>
+                  <span className="text-xs truncate flex-1 min-w-0" style={{ color: "var(--app-text-muted)" }}>
                     Email manquant
                   </span>
                 )}
@@ -249,7 +239,7 @@ export default function CleanPage() {
             )}
             {lead.telephone && (
               <div className="flex items-center gap-2 text-sm">
-                <Phone size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
+                <Phone size={12} style={{ color: "var(--app-text-faint)" }} />
                 <a href={`tel:${lead.telephone}`} className="text-green-400 text-xs">
                   {lead.telephone}
                 </a>
@@ -257,13 +247,13 @@ export default function CleanPage() {
             )}
             {lead.societe && (
               <div className="flex items-center gap-2 text-sm">
-                <Building size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
-                <span className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>{lead.societe}</span>
+                <Building size={12} style={{ color: "var(--app-text-faint)" }} />
+                <span className="text-xs" style={{ color: "var(--app-text-secondary)" }}>{lead.societe}</span>
               </div>
             )}
             {lead.linkedin && (
               <div className="flex items-center gap-2 text-sm">
-                <Linkedin size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
+                <Linkedin size={12} style={{ color: "var(--app-text-faint)" }} />
                 <a href={lead.linkedin} target="_blank" rel="noopener noreferrer" className="text-blue-400 text-xs truncate flex-1 min-w-0">
                   Profil LinkedIn
                 </a>
@@ -271,14 +261,14 @@ export default function CleanPage() {
             )}
             {lead.location && (
               <div className="flex items-center gap-2 text-sm">
-                <MapPin size={12} style={{ color: "rgba(255,255,255,0.3)" }} />
-                <span className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>{lead.location}</span>
+                <MapPin size={12} style={{ color: "var(--app-text-faint)" }} />
+                <span className="text-xs" style={{ color: "var(--app-text-secondary)" }}>{lead.location}</span>
               </div>
             )}
           </div>
 
           {lead.created_at && (
-            <div className="mt-3 pt-2 text-xs" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.3)" }}>
+            <div className="mt-3 pt-2 text-xs" style={{ borderTop: "1px solid var(--app-border-subtle)", color: "var(--app-text-faint)" }}>
               <Calendar size={10} className="inline mr-1" />
               {new Date(lead.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
             </div>
@@ -301,24 +291,24 @@ export default function CleanPage() {
       render: (val: string) => {
         const value = val ? String(val) : ""
         return value
-          ? `<span style="color:#e2e8f0;">${value}</span>`
-          : `<span style="color:rgba(255,255,255,0.25);">—</span>`
+          ? `<span style="color:var(--app-text-secondary);">${value}</span>`
+          : `<span style="color:var(--app-text-faint);">—</span>`
       },
     },
     { data: "fonction", title: "Fonction", defaultContent: "" },
     { data: "societe", title: "Société", defaultContent: "" },
     { data: "telephone", title: "Téléphone", defaultContent: "" },
-    { data: "linkedin", title: "LinkedIn", defaultContent: "", render: (val: string) => val ? `<a href="${val}" target="_blank" rel="noopener noreferrer" style="color:#818cf8;text-decoration:underline;">LinkedIn</a>` : "" },
+    { data: "linkedin", title: "LinkedIn", defaultContent: "", render: (val: string) => val ? `<a href="${val}" target="_blank" rel="noopener noreferrer" style="color:#4f46e5;text-decoration:underline;">LinkedIn</a>` : "" },
     { data: "location", title: "Location", defaultContent: "" },
     {
       data: "statu",
       title: "Statut",
       defaultContent: "",
       render: (val: string) => {
-        if (!val) return `<span style="color:rgba(255,255,255,0.25);font-size:11px;">—</span>`
+        if (!val) return `<span style="color:var(--app-text-faint);font-size:11px;">—</span>`
         const v = String(val)
         const isUnavailable = v.toLowerCase().includes("non")
-        const color = isUnavailable ? "#fda4af" : "#86efac"
+        const color = isUnavailable ? "#e11d48" : "#059669"
         const bg = isUnavailable ? "rgba(244,63,94,0.1)" : "rgba(34,197,94,0.1)"
         const border = isUnavailable ? "rgba(244,63,94,0.3)" : "rgba(34,197,94,0.3)"
         return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;color:${color};background:${bg};border:1px solid ${border};white-space:nowrap;">${v}</span>`
@@ -334,7 +324,7 @@ export default function CleanPage() {
     render: (_: any, _t: any, row: any) => {
       const id = Number(row?.id)
       const checked = Number.isFinite(id) && selectedLeadIds.has(id)
-      return `<input type="checkbox" class="dt-select-row" data-id="${id}" ${checked ? "checked" : ""} style="width:14px;height:14px;accent-color:#818cf8;cursor:pointer;" />`
+      return `<input type="checkbox" class="dt-select-row" data-id="${id}" ${checked ? "checked" : ""} style="width:14px;height:14px;accent-color:#4f46e5;cursor:pointer;" />`
     },
   }
   const dateColumn = { data: "created_at", title: "Date", render: (val: string, type: string) => (type === "sort" || type === "type") ? (val ? new Date(val).getTime() : 0) : (val ? new Date(val).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "") }
@@ -353,10 +343,10 @@ export default function CleanPage() {
       header.innerHTML = `
         <div style="display:flex;align-items:center;gap:5px;">
           <div style="flex:1;display:flex;align-items:center;gap:3px;">${existingContent}</div>
-          <button class="search-icon-btn" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:4px;padding:2px 5px;cursor:pointer;color:rgba(255,255,255,0.3);display:flex;align-items:center;flex-shrink:0;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
+          <button class="search-icon-btn" style="background:var(--app-surface-hover);border:1px solid var(--app-border);border-radius:4px;padding:2px 5px;cursor:pointer;color:var(--app-text-faint);display:flex;align-items:center;flex-shrink:0;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
         </div>
         <div class="search-wrap" style="display:none;margin-top:5px;">
-          ${colData === dateField ? `<input class="col-search-input" type="date" style="width:100%;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.3);color:#e2e8f0;border-radius:6px;padding:4px 8px;font-size:11px;outline:none;box-sizing:border-box;color-scheme:dark;"/>` : `<input class="col-search-input" placeholder="Filtrer ${titleText.toLowerCase()}..." style="width:100%;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.3);color:#e2e8f0;border-radius:6px;padding:4px 8px;font-size:11px;outline:none;box-sizing:border-box;"/>`}
+          ${colData === dateField ? `<input class="col-search-input" type="date" style="width:100%;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.3);color:var(--app-text-secondary);border-radius:6px;padding:4px 8px;font-size:11px;outline:none;box-sizing:border-box;color-scheme:light;"/>` : `<input class="col-search-input" placeholder="Filtrer ${titleText.toLowerCase()}..." style="width:100%;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.3);color:var(--app-text-secondary);border-radius:6px;padding:4px 8px;font-size:11px;outline:none;box-sizing:border-box;"/>`}
         </div>`
       const btn = header.querySelector(".search-icon-btn") as HTMLElement
       const wrap = header.querySelector(".search-wrap") as HTMLElement
@@ -365,15 +355,15 @@ export default function CleanPage() {
         e.stopPropagation()
         const open = wrap.style.display !== "none"
         wrap.style.display = open ? "none" : "block"
-        if (open) { input.value = ""; api.column(index).search("").draw(); btn.style.cssText += ";background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.1);color:rgba(255,255,255,0.3);" }
-        else { input.focus(); btn.style.cssText += ";background:rgba(129,140,248,0.2);border-color:rgba(129,140,248,0.4);color:#818cf8;" }
+        if (open) { input.value = ""; api.column(index).search("").draw(); btn.style.cssText += ";background:var(--app-surface-hover);border-color:var(--app-border);color:var(--app-text-faint);" }
+        else { input.focus(); btn.style.cssText += ";background:rgba(129,140,248,0.2);border-color:rgba(129,140,248,0.4);color:#4f46e5;" }
       })
       input?.addEventListener("input", (e) => {
         e.stopPropagation()
         let val = (e.target as HTMLInputElement).value
         if (colData === dateField && val) val = new Date(val).toLocaleDateString("fr-FR")
         api.column(index).search(val).draw()
-        btn.style.cssText += val ? ";background:rgba(129,140,248,0.3);border-color:rgba(129,140,248,0.5);color:#818cf8;" : ";background:rgba(129,140,248,0.2);border-color:rgba(129,140,248,0.4);color:#818cf8;"
+        btn.style.cssText += val ? ";background:rgba(129,140,248,0.3);border-color:rgba(129,140,248,0.5);color:#4f46e5;" : ";background:rgba(129,140,248,0.2);border-color:rgba(129,140,248,0.4);color:#4f46e5;"
       })
       input?.addEventListener("click", (e) => e.stopPropagation())
     })
@@ -396,37 +386,36 @@ export default function CleanPage() {
   }
 
   return (
-    <div className="h-full rounded-none flex flex-col" style={{ background: "linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%)", border: "1px solid rgba(255,255,255,0.06)" }}>
+    <div className="app-page h-full flex flex-col">
       {/* Header */}
-      <div className="sticky top-0 z-10 pr-3 pl-14 sm:px-6 py-3 sm:py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "inherit" }}>
+      <div className="app-header pr-3 pl-14 sm:px-6 py-3 sm:py-4">
         <div className="flex justify-between items-start sm:items-center flex-wrap gap-2 sm:gap-3">
           <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-            <h2 className="text-white font-semibold text-sm sm:text-base truncate">Liste des Leads</h2>
-            <span className="text-xs font-bold px-2 py-0.5 rounded-md whitespace-nowrap" style={{ color: badge.color, background: badge.bg, border: `1px solid ${badge.color}30` }}>{badge.label}</span>
-            <span className="text-xs hidden sm:inline" style={{ color: "rgba(255,255,255,0.3)" }}>{data.length} entrées</span>
+            <h2 className="app-title text-sm sm:text-base truncate">Liste des Leads</h2>
+            <span className="app-badge" style={{ color: badge.color, background: badge.bg, borderColor: `${badge.color}33` }}>{badge.label}</span>
+            <span className="app-count hidden sm:inline">{data.length} entrées</span>
           </div>
           <div className="flex gap-2 w-full sm:w-auto justify-end">
             {isMobile && (
-              <button onClick={() => setMobileView(mobileView === "table" ? "cards" : "table")} className="flex items-center gap-1 text-xs font-semibold px-2 py-1.5 rounded-lg md:hidden" style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}>
+              <button onClick={() => setMobileView(mobileView === "table" ? "cards" : "table")} className="app-btn app-btn-sm app-btn-soft md:hidden">
                 <Eye size={13} /> {mobileView === "table" ? "Cartes" : "Tableau"}
               </button>
             )}
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden flex items-center justify-center p-2 rounded-lg" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}>
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="app-btn app-btn-icon app-btn-secondary md:hidden">
               {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
             <div className="hidden md:flex gap-2">
               {isSelectableList && (
                 <>
-                  <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                    <span className="text-[11px] font-semibold" style={{ color: "rgba(255,255,255,0.55)" }}>
-                      Sélection: <span className="text-white">{selectedLeadIds.size}</span>
+                  <div className="app-chip">
+                    <span className="text-[11px] font-semibold" style={{ color: "var(--app-text-muted)" }}>
+                      Sélection: <span className="text-[color:var(--app-text)]">{selectedLeadIds.size}</span>
                     </span>
                   </div>
                   <button
                     onClick={() => (selectedLeadIds.size === (data?.length || 0) ? clearSelection() : selectAllLeads())}
                     disabled={(data?.length || 0) === 0}
-                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
-                    style={{ background: "rgba(129,140,248,0.15)", border: "1px solid rgba(129,140,248,0.3)", color: "#a5b4fc" }}
+                    className="app-btn app-btn-sm app-btn-soft"
                   >
                     {selectedLeadIds.size === (data?.length || 0) ? "Tout désélectionner" : "Tout sélectionner"}
                   </button>
@@ -434,8 +423,7 @@ export default function CleanPage() {
                     <button
                       onClick={deleteSelectedFromClean}
                       disabled={selectedLeadIds.size === 0 || deletingClean}
-                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40"
-                      style={{ background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.25)", color: "#fda4af" }}
+                      className="app-btn app-btn-sm app-btn-danger"
                     >
                       {deletingClean ? "Suppression..." : "Supprimer"}
                     </button>
@@ -449,8 +437,8 @@ export default function CleanPage() {
         {isMobile && mobileView === "cards" && data.length > 0 && (
           <div className="mt-3">
             <div className="relative">
-              <input type="text" placeholder="Rechercher par nom, email, société..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0", outline: "none" }} />
-              <Filter size={14} className="absolute right-3 top-1/2 transform -translate-y-1/2" style={{ color: "rgba(255,255,255,0.3)" }} />
+              <input type="text" placeholder="Rechercher par nom, email, société..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="app-input" />
+              <Filter size={14} className="absolute right-3 top-1/2 transform -translate-y-1/2" style={{ color: "var(--app-text-faint)" }} />
             </div>
           </div>
         )}
@@ -458,57 +446,43 @@ export default function CleanPage() {
 
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden px-3 py-2 flex flex-col gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.2)" }}>
-          <button onClick={() => { setRefresh((p) => p + 1); setMobileMenuOpen(false); }} className="flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg w-full" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}><RefreshCw size={14} />Actualiser</button>
+        <div className="md:hidden px-3 py-2 flex flex-col gap-2" style={{ borderBottom: "1px solid var(--app-border-subtle)", background: "rgba(0,0,0,0.2)" }}>
+          <button onClick={() => { setRefresh((p) => p + 1); setMobileMenuOpen(false); }} className="app-btn app-btn-secondary w-full"><RefreshCw size={14} />Actualiser</button>
         </div>
       )}
 
       {/* Messages d'erreur / succès (inchangés) */}
-      {err && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#fda4af" }}>❌ {err}</div>}
-      {cleanResult && cleanResult.message && !cleanResult.moved_to_complete && !cleanResult.total_deleted && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}>✅ {cleanResult.message}</div>}
-      {cleanResult && cleanResult.total_deleted !== undefined && (<div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.2)", color: "#fda4af" }}><p className="font-semibold mb-2">🗑️ Suppression des doublons terminée</p><div className="grid grid-cols-2 sm:grid-cols-5 gap-2">{[
-        { label: "Total", val: cleanResult.total_deleted, icon: "🔢" },
-        { label: "Doublons en Complete", val: cleanResult.staging_vs_complete, icon: "🥇" },
-        { label: "Doublons en Incomplete", val: cleanResult.staging_vs_incomplete, icon: "🥈" },
-        { label: "Doublons Interne", val: cleanResult.staging_internal, icon: "♻️" },
-        { label: "Doublons Staging ", val: cleanResult.staging_vs_applique, icon: "🧩" },
-      ].map((item) => (<div key={item.label} className="px-2 sm:px-3 py-2 rounded-lg text-center" style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.15)" }}><p className="text-xs opacity-70">{item.icon} {item.label}</p><p className="font-bold text-sm sm:text-base">{item.val ?? 0}</p></div>))}</div>{uploadedRows > 0 && Number(cleanResult.total_deleted || 0) === uploadedRows && (<p className="mt-3 text-xs sm:text-sm font-semibold" style={{ color: "#fca5a5" }}>⚠️ Tu as deja traite ce fichier: tous les leads importes ont ete supprimes comme doublons.</p>)}</div>)}
-      {cleanResult && cleanResult.moved_to_complete !== undefined && (<div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.2)", color: "#6ee7b7" }}><p className="font-semibold mb-2">✅ Nettoyage terminé</p><div className="grid grid-cols-2 sm:grid-cols-3 gap-2">{[
-        { label: "🥇 Complete", val: cleanResult.moved_to_complete },
-        { label: "🥈 Incomplete", val: cleanResult.moved_to_incomplete },
-        { label: "🧹 Clean", val: cleanResult.moved_to_clean },
-        { label: "🧩 Staging", val: cleanResult.moved_to_steaging_applique },
-        { label: "📧 Emails complètè", val: cleanResult.emails_completed },
-        { label: "👤 Noms complètè", val: cleanResult.nom_prenom_completed },
-      ].map((item) => (<div key={item.label} className="px-2 sm:px-3 py-2 rounded-lg text-center" style={{ background: "rgba(110,231,183,0.08)", border: "1px solid rgba(110,231,183,0.15)" }}><p className="text-xs opacity-70">{item.label}</p><p className="font-bold text-sm sm:text-base">{item.val ?? 0}</p></div>))}</div></div>)}
+      {err && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background:"rgba(244,63,94,0.07)", border:"1px solid rgba(244,63,94,0.22)", color:"#e11d48" }}>{err}</div>}
+      {cleanResult && cleanResult.message && !cleanResult.moved_to_complete && !cleanResult.total_deleted && <div className="mx-3 sm:mx-6 mt-3 sm:mt-4 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm" style={{ background:"rgba(110,231,183,0.07)", border:"1px solid rgba(110,231,183,0.22)", color:"#059669" }}>{cleanResult.message}</div>}
+      <ResultSummary cleanResult={cleanResult} uploadedRows={uploadedRows} />
 
 
       <div className="px-2 sm:px-3 pb-4 pt-2 overflow-y-auto flex-1 overflow-x-hidden">
         {loadingLeads || (!DTableComponent && shouldUseDataTable) ? (
           // Squelette aux dimensions du tableau : évite le saut de mise en page
           // et le faux message "Aucune donnée" tant que le chargement est en cours.
-          <div className="animate-pulse rounded-2xl border border-white/10 bg-slate-900/40 overflow-hidden">
-            <div className="h-11 bg-slate-900/80 border-b border-white/10" />
+          <div className="animate-pulse rounded-2xl border border-[color:var(--app-border)] bg-[var(--app-bg-subtle)] overflow-hidden">
+            <div className="h-11 bg-[var(--app-bg-subtle)] border-b border-[color:var(--app-border)]" />
             {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
-                className="flex items-center gap-4 px-4 h-12 border-b border-white/5"
-                style={{ background: i % 2 ? "rgba(255,255,255,0.025)" : "transparent" }}
+                className="flex items-center gap-4 px-4 h-12 border-b border-[color:var(--app-border-subtle)]"
+                style={{ background: i % 2 ? "var(--app-bg-subtle)" : "transparent" }}
               >
                 {Array.from({ length: 5 }).map((__, j) => (
-                  <div key={j} className="h-3 rounded bg-white/10" style={{ flex: j === 0 ? 0.5 : 1 }} />
+                  <div key={j} className="h-3 rounded bg-[var(--app-surface-hover)]" style={{ flex: j === 0 ? 0.5 : 1 }} />
                 ))}
               </div>
             ))}
           </div>
         ) : data.length === 0 ? (
-          <div className="text-center py-20" style={{ color: "rgba(255,255,255,0.2)" }}><div className="text-5xl mb-4">📭</div><p className="text-base font-medium" style={{ color: "rgba(255,255,255,0.35)" }}>Aucune donnée disponible</p></div>
+          <div className="text-center py-20" style={{ color: "var(--app-text-faint)" }}><Inbox size={34} className="mx-auto mb-3" /><p className="text-base font-medium" style={{ color: "var(--app-text-faint)" }}>Aucune donnée disponible</p></div>
         ) : (
           <>
             {isMobile && mobileView === "cards" ? (
               <div className="pb-4">
                 {filteredData.length === 0 ? (
-                  <div className="text-center py-12" style={{ color: "rgba(255,255,255,0.3)" }}><p className="text-sm">Aucun résultat trouvé</p></div>
+                  <div className="text-center py-12" style={{ color: "var(--app-text-faint)" }}><p className="text-sm">Aucun résultat trouvé</p></div>
                 ) : (
                   <>
                     {paginatedData.map((lead: any, index: number) => <MobileCard key={lead.id || index} lead={lead} index={index} />)}
@@ -518,18 +492,18 @@ export default function CleanPage() {
                           onClick={() => setMobilePage((p) => Math.max(1, p - 1))}
                           disabled={mobilePage === 1}
                           className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40"
-                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}
+                          style={{ background: "var(--app-surface-hover)", border: "1px solid var(--app-border)", color: "var(--app-text-secondary)" }}
                         >
                           Précédent
                         </button>
-                        <span className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
+                        <span className="text-xs" style={{ color: "var(--app-text-muted)" }}>
                           Page {mobilePage}/{totalMobilePages}
                         </span>
                         <button
                           onClick={() => setMobilePage((p) => Math.min(totalMobilePages, p + 1))}
                           disabled={mobilePage === totalMobilePages}
                           className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40"
-                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}
+                          style={{ background: "var(--app-surface-hover)", border: "1px solid var(--app-border)", color: "var(--app-text-secondary)" }}
                         >
                           Suivant
                         </button>

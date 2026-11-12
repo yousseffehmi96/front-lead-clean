@@ -47,17 +47,17 @@ export function buildColumns(
             <span
               className={`h-1.5 w-1.5 rounded-full ${
                 isMapped
-                  ? "bg-teal-400"
+                  ? "bg-emerald-500"
                   : missingRequired
                   ? "bg-rose-400"
-                  : "bg-slate-600"
+                  : "bg-slate-300"
               }`}
             />
-            <span className="text-[13px] font-semibold uppercase tracking-wider text-slate-300">
+            <span className="text-[13px] font-semibold uppercase tracking-wider text-slate-600">
               {label}
               {required && (
                 <span
-                  className={missingRequired ? "ml-0.5 text-rose-400" : "ml-0.5 text-teal-400"}
+                  className={missingRequired ? "ml-0.5 text-rose-600" : "ml-0.5 text-emerald-600"}
                   title="Champ obligatoire"
                 >
                   *
@@ -70,15 +70,15 @@ export function buildColumns(
             onChange={(e) => setMapping({ ...mapping, [key]: e.target.value })}
             className={`mt-1 w-full rounded-md border px-2 py-1.5 text-sm font-normal outline-none transition-colors ${
               isMapped
-                ? "border-teal-400/40 bg-teal-400/10 text-teal-200 focus:border-teal-400/70"
+                ? "border-emerald-300 bg-emerald-50 text-emerald-700 focus:border-emerald-500"
                 : missingRequired
                 ? "border-rose-400/40 bg-rose-400/10 text-rose-200 focus:border-rose-400/70"
-                : "border-white/10 bg-white/5 text-slate-400 focus:border-teal-400/50"
+                : "border-[color:var(--app-border)] bg-white text-slate-500 focus:border-[color:var(--app-accent)]"
             }`}
           >
-            <option value="" className="bg-slate-900 text-slate-400">— Ignorer —</option>
+            <option value="" className="bg-white text-slate-500">— Ignorer —</option>
             {fileHeaders.map((h) => (
-              <option key={h} value={h} className="bg-slate-900 text-slate-200">{h}</option>
+              <option key={h} value={h} className="bg-white text-slate-700">{h}</option>
             ))}
           </select>
         </div>
@@ -88,12 +88,12 @@ export function buildColumns(
       const sourceCol = mapping[key]
       const value = sourceCol ? row.original[sourceCol] : undefined
       if (!value) {
-        return <span className="text-slate-600">—</span>
+        return <span className="text-slate-400">—</span>
       }
       return (
         <span
           title={value}
-          className={key === "email" ? "text-slate-100" : "text-slate-200"}
+          className={key === "email" ? "text-slate-900" : "text-slate-700"}
         >
           {value}
         </span>

@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import { createUser } from "@/api/user-actions";  
+import { User, UserCog, Zap } from "lucide-react"
 
 const ROLES = [
-  { value: "manager", label: "Manager", icon: "🧑‍💼" },
-  { value: "agent", label: "Agent", icon: "👨‍💻" },
+  { value: "manager", label: "Manager", Icon: UserCog },
+  { value: "agent", label: "Agent", Icon: User },
 ];
 
 interface SignUpFormProps {
@@ -72,13 +73,15 @@ export default function SignUpForm({ onSuccess }: SignUpFormProps) {
       <div style={{ textAlign: "center", marginBottom: 24 }}>
         <div style={{
           width: 42, height: 42, borderRadius: 12,
-          background: "linear-gradient(135deg, #6366f1, #818cf8)",
+          background: "linear-gradient(135deg, #4f46e5, #4f46e5)",
           display: "flex", alignItems: "center", justifyContent: "center",
           margin: "0 auto 12px",
           boxShadow: "0 8px 20px rgba(99,102,241,0.3)",
-          fontSize: 18,
-        }}>⚡</div>
-        <h1 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>
+          color: "#fff",
+        }}>
+          <Zap size={20} fill="white" />
+        </div>
+        <h1 style={{ color: "var(--app-text)", fontSize: 18, fontWeight: 700, margin: 0 }}>
           Ajouter un agent
         </h1>
       </div>
@@ -134,12 +137,14 @@ export default function SignUpForm({ onSuccess }: SignUpFormProps) {
                 style={{
                   flex: 1, padding: "10px 8px", borderRadius: 10,
                   cursor: "pointer", transition: "all 0.15s",
-                  background: role === r.value ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.03)",
-                  border: role === r.value ? "1px solid rgba(99,102,241,0.6)" : "1px solid rgba(255,255,255,0.08)",
+                  background: role === r.value ? "rgba(99,102,241,0.2)" : "var(--app-bg-subtle)",
+                  border: role === r.value ? "1px solid rgba(99,102,241,0.6)" : "1px solid var(--app-border)",
                 }}
               >
-                <div style={{ fontSize: 16, marginBottom: 2 }}>{r.icon}</div>
-                <div style={{ fontSize: 10, fontWeight: 600, color: role === r.value ? "#818cf8" : "rgba(255,255,255,0.4)" }}>
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 4, color: role === r.value ? "#4f46e5" : "var(--app-text-muted)" }}>
+                  <r.Icon size={16} />
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: role === r.value ? "#4f46e5" : "var(--app-text-muted)" }}>
                   {r.label}
                 </div>
               </button>
@@ -155,7 +160,7 @@ export default function SignUpForm({ onSuccess }: SignUpFormProps) {
           style={{
             marginTop: 8, padding: "12px", borderRadius: 10, border: "none",
             cursor: loading ? "not-allowed" : "pointer",
-            background: loading ? "rgba(99,102,241,0.4)" : "linear-gradient(135deg, #6366f1, #818cf8)",
+            background: loading ? "rgba(99,102,241,0.4)" : "linear-gradient(135deg, #4f46e5, #4f46e5)",
             color: "#fff", fontWeight: 600, fontSize: 14,
             boxShadow: loading ? "none" : "0 4px 15px rgba(99,102,241,0.3)",
           }}
@@ -169,19 +174,19 @@ export default function SignUpForm({ onSuccess }: SignUpFormProps) {
 
 // Styles réutilisables pour plus de clarté
 const labelStyle = { 
-  display: "block", color: "rgba(255,255,255,0.5)", fontSize: 10, 
+  display: "block", color: "var(--app-text-muted)", fontSize: 10, 
   fontWeight: 600, marginBottom: 6, letterSpacing: "0.5px" 
 };
 
 const inputStyle = {
   width: "100%", boxSizing: "border-box" as const,
-  background: "rgba(255,255,255,0.04)",
-  border: "1px solid rgba(255,255,255,0.09)",
+  background: "var(--app-surface)",
+  border: "1px solid var(--app-border)",
   borderRadius: 10, padding: "10px 12px",
-  color: "#fff", fontSize: 14, outline: "none",
+  color: "var(--app-text)", fontSize: 14, outline: "none",
 };
 
 const errorStyle = {
   background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)",
-  borderRadius: 8, padding: "10px", color: "#f87171", fontSize: 12,
+  borderRadius: 8, padding: "10px", color: "#dc2626", fontSize: 12,
 };
